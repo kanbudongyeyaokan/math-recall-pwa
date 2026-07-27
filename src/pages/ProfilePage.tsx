@@ -3,9 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArchiveRestore,
   Award,
+  Camera,
   Check,
   CheckCircle2,
   CloudOff,
+  Coins,
   Database,
   Download,
   HardDrive,
@@ -13,14 +15,16 @@ import {
   LockKeyhole,
   RefreshCcw,
   ShieldCheck,
+  ShoppingBag,
   Smartphone,
   Sparkles,
   Upload
 } from 'lucide-react'
-import { db, defaultProfile, requestPersistentStorage, restoreLatestSnapshot } from '../db'
-import { getRealmProgress, getTitleStatuses } from '../domain/gamification'
-import type { StoragePersistenceState } from '../types'
+import { db, defaultProfile, equipShopItem, purchaseShopItem, requestPersistentStorage, restoreLatestSnapshot, saveImage } from '../db'
+import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamification'
+import type { ShopItem, StoragePersistenceState } from '../types'
 import { downloadBackup, restoreBackup } from '../utils/backup'
+import { PlayerAvatar } from '../components/PlayerAvatar'
 
 interface ProfilePageProps {
   canInstall: boolean
@@ -58,6 +62,45 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
   async function chooseTitle(title: string) {
     await db.profiles.update('player', { selectedTitle: title })
     notify(`已佩戴称号：${title}`)
+  }
+
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setBusy(true)
+    try {
+      const previousId = profile.avatarImageId
+      const avatarImageId = await saveImage(file)
+      await db.profiles.update('player', { avatarImageId })
+      if (previousId) await db.images.delete(previousId)
+      notify('何耀焜的个人头像已更新')
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '头像保存失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeAvatar() {
+    const previousId = profile.avatarImageId
+    await db.profiles.update('player', { avatarImageId: undefined })
+    if (previousId) await db.images.delete(previousId)
+    notify('已切换回专属修炼形象')
+  }
+
+  async function handleShopItem(item: ShopItem) {
+    const owned = profile.ownedItemIds.includes(item.id)
+    try {
+      if (!owned) {
+        if (!window.confirm(`花费 ${item.price} 灵石购买“${item.name}”吗？`)) return
+        await purchaseShopItem(item.id)
+      }
+      await equipShopItem(item.id)
+      notify(owned ? `已装备：${item.name}` : `购买成功并装备：${item.name}`)
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '操作失败')
+    }
   }
 
   async function exportData() {
@@ -114,14 +157,14 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
   return (
     <main className="page profile-page">
       <header className="page-header">
-        <div><p className="eyebrow">本地战绩</p><h1>{profile.selectedTitle}</h1></div>
+        <div><p className="eyebrow">何耀焜的本地战绩</p><h1>{profile.name}</h1></div>
         <div className="profile-level">{realm.realm}</div>
       </header>
 
       <section className="profile-hero">
-        <div className="rank-emblem"><Award size={42} /></div>
+        <PlayerAvatar profile={profile} />
         <div className="profile-hero-copy">
-          <span>当前斗气境界</span>
+          <span>{profile.selectedTitle} · 当前斗气境界</span>
           <strong>{realm.label}</strong>
           <div className="quest-track profile-track"><span style={{ width: `${realm.progressPercent}%` }} /></div>
           <small>{realm.isPeak ? `已达巅峰 · 累计 ${profile.xp} 斗气经验` : `距下一星还差 ${realm.xpForStar - realm.xpIntoStar} 经验 · 累计 ${profile.xp}`}</small>
@@ -132,6 +175,31 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
         <div className="mini-stat"><span><strong>{profile.totalReviews}</strong><small>有效回忆</small></span></div>
         <div className="mini-stat"><span><strong>{profile.correctChoiceReviews}</strong><small>选择命中</small></span></div>
         <div className="mini-stat"><span><strong>{profile.multipleSolutionReviews}</strong><small>多解完成</small></span></div>
+      </section>
+
+      <section className="section-block avatar-section">
+        <div className="section-heading">
+          <div><p className="eyebrow"><ShoppingBag size={14} /> 个人形象与坊市</p><h2>做题赚灵石，装扮何耀焜</h2></div>
+          <strong className="coin-balance"><Coins size={16} /> {profile.coins}</strong>
+        </div>
+        <div className="avatar-actions">
+          <label className={`button button-secondary ${busy ? 'disabled' : ''}`}><Camera size={17} />上传本人头像<input type="file" accept="image/*" onChange={uploadAvatar} disabled={busy} /></label>
+          {profile.avatarImageId && <button type="button" className="button button-secondary" onClick={removeAvatar} disabled={busy}>使用修炼形象</button>}
+        </div>
+        <div className="shop-list">
+          {SHOP_ITEMS.map((item) => {
+            const owned = profile.ownedItemIds.includes(item.id)
+            const equipped = item.id === profile.equippedOutfitId || item.id === profile.equippedAuraId
+            return (
+              <button type="button" className={`shop-item ${equipped ? 'equipped' : ''}`} key={item.id} onClick={() => handleShopItem(item)}>
+                <span className="shop-swatch" style={{ background: item.swatch }} />
+                <span><strong>{item.name}</strong><small>{item.description}</small></span>
+                <b>{equipped ? '装备中' : owned ? '装备' : `${item.price} 灵石`}</b>
+              </button>
+            )
+          })}
+        </div>
+        <p className="section-note">每道题每天首次完成会结算灵石；选择题答对另有奖励，同题反复点击不会重复结算。</p>
       </section>
 
       <section className="section-block title-section">
@@ -190,7 +258,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
           <span><strong>{problemCount}</strong> 题卡</span><span><strong>{imageCount}</strong> 图片</span>
           {storage && <span><strong>{formatBytes(storage.usage)}</strong> 已用</span>}
         </div>
-        <p className="section-note">完整 JSON 包含题目、原图、解析、复习历史、斗气境界、称号与奖励卡。{lastBackup ? `上次导出：${formatDateTime(lastBackup)}` : '尚未导出外部备份。'}</p>
+        <p className="section-note">完整 JSON 包含题目、原图、解析、复习历史、个人头像、灵石、坊市物品、斗气境界、称号与奖励卡。{lastBackup ? `上次导出：${formatDateTime(lastBackup)}` : '尚未导出外部备份。'}</p>
         <div className="backup-actions">
           <button type="button" className="button button-primary" onClick={exportData} disabled={busy}><Download size={18} />导出完整备份</button>
           <label className={`button button-secondary ${busy ? 'disabled' : ''}`}><Upload size={18} />导入备份<input type="file" accept="application/json,.json" onChange={importData} disabled={busy} /></label>

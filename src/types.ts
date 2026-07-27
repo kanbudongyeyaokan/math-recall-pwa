@@ -60,6 +60,7 @@ export interface ReviewLog {
   nextReviewAt: number
   intervalIndex: number
   xpEarned: number
+  coinsEarned?: number
   selectedOptionIds?: string[]
   isCorrect?: boolean
 }
@@ -75,7 +76,10 @@ export interface RewardCard {
 
 export interface PlayerProfile {
   id: 'player'
+  name: string
   xp: number
+  coins: number
+  lifetimeCoins: number
   streak: number
   lastStudyDate: string
   totalReviews: number
@@ -84,6 +88,21 @@ export interface PlayerProfile {
   multipleSolutionReviews: number
   correctChoiceReviews: number
   breakthroughCount: number
+  ownedItemIds: string[]
+  equippedOutfitId: string
+  equippedAuraId: string
+  avatarImageId?: string
+}
+
+export type ShopItemCategory = 'outfit' | 'aura'
+
+export interface ShopItem {
+  id: string
+  name: string
+  description: string
+  category: ShopItemCategory
+  price: number
+  swatch: string
 }
 
 export interface AppSetting<T = unknown> {

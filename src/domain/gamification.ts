@@ -1,4 +1,4 @@
-import type { PlayerProfile, ReviewRating, RewardCard, RewardRarity } from '../types'
+import type { PlayerProfile, ReviewRating, RewardCard, RewardRarity, ShopItem } from '../types'
 
 export const REALMS = [
   { name: '斗者', xpPerStar: 80 },
@@ -77,6 +77,7 @@ export function getRealmAdvance(previousXp: number, nextXp: number) {
 
 export const TITLE_DEFINITIONS = [
   { name: '斗气化题', requirement: '开始修炼', unlocked: () => true },
+  { name: '焜火初燃', requirement: '完成第一次有效回忆', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 1 },
   { name: '错因猎手', requirement: '完成 10 次有效回忆', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 10 },
   { name: '极限破壁者', requirement: '独立完成 10 次', unlocked: (profile: PlayerProfile) => profile.independentReviews >= 10 },
   { name: '定理守门人', requirement: '选择题答对 15 次', unlocked: (profile: PlayerProfile) => profile.correctChoiceReviews >= 15 },
@@ -85,11 +86,25 @@ export const TITLE_DEFINITIONS = [
   { name: '七日燃灯', requirement: '连续复习 7 天', unlocked: (profile: PlayerProfile) => profile.streak >= 7 },
   { name: '百炼题心', requirement: '完成 50 次有效回忆', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 50 },
   { name: '百题问鼎', requirement: '完成 100 次有效回忆', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 100 },
+  { name: '三十讲巡猎者', requirement: '完成 150 次有效回忆', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 150 },
+  { name: '高数玄关破阵者', requirement: '独立完成 100 次', unlocked: (profile: PlayerProfile) => profile.independentReviews >= 100 },
+  { name: '何氏万法阁主', requirement: '能够多解 30 次', unlocked: (profile: PlayerProfile) => profile.multipleSolutionReviews >= 30 },
   { name: '九转破境人', requirement: '跨越 5 个大境界', unlocked: (profile: PlayerProfile) => profile.breakthroughCount >= 5 },
   { name: '矩阵观星者', requirement: '抵达斗王', unlocked: (profile: PlayerProfile) => getRealmProgress(profile.xp).realmIndex >= 4 },
   { name: '公式焚海', requirement: '抵达斗宗', unlocked: (profile: PlayerProfile) => getRealmProgress(profile.xp).realmIndex >= 6 },
   { name: '定理裁决者', requirement: '抵达斗圣', unlocked: (profile: PlayerProfile) => getRealmProgress(profile.xp).realmIndex >= 8 },
   { name: '万题归宗', requirement: '抵达斗帝', unlocked: (profile: PlayerProfile) => getRealmProgress(profile.xp).isPeak }
+] as const
+
+export const SHOP_ITEMS: readonly ShopItem[] = [
+  { id: 'outfit-apprentice', name: '青衫学徒', description: '何耀焜的初始修炼服', category: 'outfit', price: 0, swatch: '#55765b' },
+  { id: 'outfit-flame', name: '青焰练功服', description: '独立完成时更显锋芒', category: 'outfit', price: 80, swatch: '#168a83' },
+  { id: 'outfit-starseer', name: '星陨学者袍', description: '献给看见题目结构的人', category: 'outfit', price: 180, swatch: '#5367a5' },
+  { id: 'outfit-master', name: '金鳞宗师衣', description: '多解之路汇于一身', category: 'outfit', price: 360, swatch: '#b98528' },
+  { id: 'aura-none', name: '静心无相', description: '收敛光芒，专注题面', category: 'aura', price: 0, swatch: '#d9dfda' },
+  { id: 'aura-iron', name: '玄铁题环', description: '由一次次订正淬炼而成', category: 'aura', price: 100, swatch: '#68746d' },
+  { id: 'aura-lotus', name: '青莲光环', description: '连续修炼者的清醒之火', category: 'aura', price: 240, swatch: '#58c9b6' },
+  { id: 'aura-emperor', name: '帝境金环', description: '为长期主义者保留的荣光', category: 'aura', price: 500, swatch: '#e3b64d' }
 ] as const
 
 export function getTitleStatuses(profile: PlayerProfile) {
@@ -118,7 +133,7 @@ export function applyStudyToProfile(
   profile: PlayerProfile,
   xp: number,
   now = new Date(),
-  result?: { rating?: ReviewRating; isCorrect?: boolean; realmBreakthrough?: boolean }
+  result?: { rating?: ReviewRating; isCorrect?: boolean; realmBreakthrough?: boolean; coinsEarned?: number }
 ): PlayerProfile {
   const today = getTodayKey(now)
   const distance = daysBetween(profile.lastStudyDate, today)
@@ -127,6 +142,8 @@ export function applyStudyToProfile(
   return {
     ...profile,
     xp: profile.xp + xp,
+    coins: profile.coins + (result?.coinsEarned || 0),
+    lifetimeCoins: profile.lifetimeCoins + (result?.coinsEarned || 0),
     streak,
     lastStudyDate: today,
     totalReviews: profile.totalReviews + 1,
@@ -135,6 +152,44 @@ export function applyStudyToProfile(
     correctChoiceReviews: (profile.correctChoiceReviews || 0) + (result?.isCorrect ? 1 : 0),
     breakthroughCount: (profile.breakthroughCount || 0) + (result?.realmBreakthrough ? 1 : 0)
   }
+}
+
+const COIN_REWARDS: Record<ReviewRating, number> = {
+  again: 2,
+  hint: 5,
+  independent: 10,
+  multiple: 16
+}
+
+export function calculateCoinReward(rating: ReviewRating, isCorrect?: boolean, alreadyRewardedToday = false) {
+  if (alreadyRewardedToday) return 0
+  return COIN_REWARDS[rating] + (isCorrect ? 3 : 0)
+}
+
+const ENCOURAGEMENTS: Record<ReviewRating, readonly string[]> = {
+  again: [
+    '{name}，敢把不会标出来，就是在把漏洞变成下一次的得分点。',
+    '{name}，这次没有白做：你已经准确定位了需要补强的那一环。'
+  ],
+  hint: [
+    '{name}，提示只负责点火，真正走完推导的人是你。',
+    '{name}，入口已经抓住，下次把这条路完整走成自己的。'
+  ],
+  independent: [
+    '{name}，这一题是你独立拿下的，思路和分数都算你的。',
+    '{name}，没有借力也能闭合推导，这就是扎实的进步。'
+  ],
+  multiple: [
+    '{name}，你不只解出了题，还看见了方法之间的联系。',
+    '{name}，一题多解不是炫技，是你已经开始掌控结构。'
+  ]
+}
+
+export function getEncouragement(name: string, rating: ReviewRating, isCorrect?: boolean, seed = Date.now()) {
+  const pool = ENCOURAGEMENTS[rating]
+  const message = pool[Math.abs(seed) % pool.length].replace('{name}', name || '何耀焜')
+  if (isCorrect && (rating === 'independent' || rating === 'multiple')) return `${message} 选择判断也准确命中。`
+  return message
 }
 
 const CARD_POOLS: Record<ReviewRating, readonly (readonly [string, string])[]> = {

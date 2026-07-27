@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, BookOpenCheck, Flame, Layers3, Plus, Shuffle, Sparkles, WifiOff, Zap } from 'lucide-react'
+import { ArrowRight, BookOpenCheck, Coins, Flame, Layers3, Plus, Shuffle, Sparkles, WifiOff, Zap } from 'lucide-react'
 import { db, defaultProfile } from '../db'
 import { getRealmProgress } from '../domain/gamification'
 
@@ -45,7 +45,7 @@ export function HomePage({ online, onStartReview, onAdd }: HomePageProps) {
       <header className="home-header">
         <div>
           <p className="eyebrow">斗破数学 · 今日行动</p>
-          <h1>{dueProblems.length ? '趁记忆还热，走一阶。' : '今日已清空，漂亮。'}</h1>
+          <h1>{dueProblems.length ? `${profile.name}，趁热再走一阶。` : `${profile.name}，今日已清空。`}</h1>
         </div>
         <div className="level-chip realm-chip" aria-label={`当前境界 ${realm.label}`}>
           <span>{realm.realm}</span><strong>{realm.isPeak ? '巅峰' : `${realm.star}星`}</strong>
@@ -59,7 +59,8 @@ export function HomePage({ online, onStartReview, onAdd }: HomePageProps) {
       <section className="hero-card">
         <div className="hero-orbit" aria-hidden="true" />
         <div className="hero-topline">
-          <span className="status-dot" /> 今日待复习
+          <span><span className="status-dot" /> 今日待复习</span>
+          <strong className="hero-wallet"><Coins size={15} /> {profile.coins}</strong>
         </div>
         <div className="hero-number">{dueProblems.length}</div>
         <p>{dueProblems.length ? `最早一题：${dueProblems[0]?.title}` : '间隔计划已全部完成，可以随机探索。'}</p>
@@ -107,8 +108,8 @@ export function HomePage({ online, onStartReview, onAdd }: HomePageProps) {
           <span><strong>{realm.isPeak ? 'MAX' : `${realm.xpIntoStar}/${realm.xpForStar}`}</strong><small>破星斗气</small></span>
         </div>
         <div className="mini-stat">
-          <Layers3 size={20} />
-          <span><strong>{allProblems.length}</strong><small>卡片总数</small></span>
+          <Coins size={20} />
+          <span><strong>{profile.coins}</strong><small>可用灵石</small></span>
         </div>
       </section>
 

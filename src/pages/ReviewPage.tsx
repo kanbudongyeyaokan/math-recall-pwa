@@ -20,6 +20,7 @@ import type { RealmProgress } from '../domain/gamification'
 import { isChoiceAnswerCorrect } from '../domain/questions'
 import { DbImage } from '../components/DbImage'
 import { Lightbox } from '../components/Lightbox'
+import { MathText } from '../components/MathText'
 import { RewardReveal } from '../components/RewardReveal'
 
 interface ReviewPageProps {
@@ -61,6 +62,8 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
     advanced: boolean
     realmBreakthrough: boolean
     nextRealm: RealmProgress
+    coinsEarned: number
+    encouragement: string
   }>()
 
   const isChoice = problem?.questionFormat === 'single-choice' || problem?.questionFormat === 'multiple-choice'
@@ -103,7 +106,9 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
         intervalDays: result.outcome.intervalDays,
         advanced: result.advance.advanced,
         realmBreakthrough: result.advance.realmBreakthrough,
-        nextRealm: result.advance.next
+        nextRealm: result.advance.next,
+        coinsEarned: result.coinsEarned,
+        encouragement: result.encouragement
       })
     } finally {
       setSaving(false)
@@ -158,7 +163,7 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
             onClick={() => setLightbox({ id: problem.questionImageId!, alt: `${problem.title}题目图片` })}
           />
         )}
-        {problem.statement && <p className="problem-statement">{problem.statement}</p>}
+        {problem.statement && <MathText className="problem-statement" text={problem.statement} />}
 
         {isChoice && (
           <div className="choice-list" role="group" aria-label={problem.questionFormat === 'single-choice' ? '单选题选项' : '多选题选项'}>
@@ -175,7 +180,7 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
                   disabled={choiceSubmitted}
                   aria-pressed={selected}
                 >
-                  <span>{option.id}</span><strong>{option.text}</strong>
+                  <span>{option.id}</span><MathText className="choice-option-text" text={option.text} />
                   {correct && <CheckCircle2 size={18} />}
                   {incorrect && <CircleX size={18} />}
                 </button>
@@ -236,13 +241,13 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
               onClick={() => setLightbox({ id: problem.answerImageId!, alt: `${problem.title}答案图片` })}
             />
           )}
-          {problem.answerText && <p className="answer-text">{problem.answerText}</p>}
+          {problem.answerText && <MathText className="answer-text" text={problem.answerText} />}
           {!!problem.solutionMethods.length && (
             <div className="solution-methods">
               {problem.solutionMethods.map((method, index) => (
                 <article className="solution-method" key={method.id}>
                   <div><span>{index + 1}</span><strong>{method.title}</strong></div>
-                  <p>{method.content}</p>
+                  <MathText text={method.content} />
                 </article>
               ))}
             </div>
@@ -250,13 +255,13 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
           {problem.coreMethod && (
             <div className="insight-block method-block">
               <div><Lightbulb size={18} /><strong>核心方法</strong></div>
-              <p>{problem.coreMethod}</p>
+              <MathText text={problem.coreMethod} />
             </div>
           )}
           {problem.mistakes && (
             <div className="insight-block mistake-block">
               <div><ShieldAlert size={18} /><strong>易错点</strong></div>
-              <p>{problem.mistakes}</p>
+              <MathText text={problem.mistakes} />
             </div>
           )}
 

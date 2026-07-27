@@ -7,6 +7,7 @@ coverage/
 output/
 outputs/
 design-system/
+private-imports/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts

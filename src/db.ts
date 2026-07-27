@@ -1,6 +1,14 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { makeSeedProblems } from './data/seed'
-import { applyStudyToProfile, createRewardCard, getRealmAdvance, getTodayKey } from './domain/gamification'
+import {
+  applyStudyToProfile,
+  calculateCoinReward,
+  createRewardCard,
+  getEncouragement,
+  getRealmAdvance,
+  getTodayKey,
+  SHOP_ITEMS
+} from './domain/gamification'
 import { getReviewOutcome } from './domain/scheduler'
 import type {
   AppSetting,
@@ -21,7 +29,10 @@ const LEGACY_SEED_IDS = Array.from({ length: 15 }, (_, index) => `seed-${String(
 
 export const defaultProfile: PlayerProfile = {
   id: 'player',
+  name: '何耀焜',
   xp: 0,
+  coins: 0,
+  lifetimeCoins: 0,
   streak: 0,
   lastStudyDate: '',
   totalReviews: 0,
@@ -29,7 +40,10 @@ export const defaultProfile: PlayerProfile = {
   independentReviews: 0,
   multipleSolutionReviews: 0,
   correctChoiceReviews: 0,
-  breakthroughCount: 0
+  breakthroughCount: 0,
+  ownedItemIds: ['outfit-apprentice', 'aura-none'],
+  equippedOutfitId: 'outfit-apprentice',
+  equippedAuraId: 'aura-none'
 }
 
 export function normalizeProblemRecord(problem: Problem): Problem {
@@ -51,11 +65,17 @@ export function normalizeProfileRecord(profile?: PlayerProfile): PlayerProfile {
   return {
     ...defaultProfile,
     ...profile,
+    name: profile?.name || defaultProfile.name,
+    coins: profile?.coins ?? 0,
+    lifetimeCoins: profile?.lifetimeCoins ?? 0,
     selectedTitle: profile?.selectedTitle && profile.selectedTitle !== '初见学者' ? profile.selectedTitle : defaultProfile.selectedTitle,
     independentReviews: profile?.independentReviews || 0,
     multipleSolutionReviews: profile?.multipleSolutionReviews || 0,
     correctChoiceReviews: profile?.correctChoiceReviews || 0,
-    breakthroughCount: profile?.breakthroughCount || 0
+    breakthroughCount: profile?.breakthroughCount || 0,
+    ownedItemIds: Array.isArray(profile?.ownedItemIds) ? profile.ownedItemIds : defaultProfile.ownedItemIds,
+    equippedOutfitId: profile?.equippedOutfitId || defaultProfile.equippedOutfitId,
+    equippedAuraId: profile?.equippedAuraId || defaultProfile.equippedAuraId
   }
 }
 
@@ -121,6 +141,19 @@ export class MathRecallDatabase extends Dexie {
           problem.source = problem.source.replace('拾阶数学', '斗破数学')
         }
       })
+    })
+    this.version(4).stores({
+      problems: 'id, kind, questionFormat, nextReviewAt, updatedAt, source, *tags',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    }).upgrade(async (transaction) => {
+      const profiles = transaction.table<PlayerProfile>('profiles')
+      const profile = await profiles.get('player')
+      if (profile) await profiles.put(normalizeProfileRecord(profile))
     })
   }
 }
@@ -216,14 +249,21 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
     const problem = await db.problems.get(problemId)
     if (!problem) throw new Error('题目不存在')
 
+    const previousReviews = await db.reviews.where('problemId').equals(problemId).toArray()
+    const alreadyRewardedToday = previousReviews.some((review) => (
+      (review.coinsEarned || 0) > 0 && getTodayKey(new Date(review.reviewedAt)) === getTodayKey(new Date(now))
+    ))
     const outcome = getReviewOutcome(problem.intervalIndex, rating, now)
     const reward = createRewardCard(problemId, rating, now)
     const currentProfile = normalizeProfileRecord(await db.profiles.get('player'))
+    const coinsEarned = calculateCoinReward(rating, answerMeta.isCorrect, alreadyRewardedToday)
+    const encouragement = getEncouragement(currentProfile.name, rating, answerMeta.isCorrect, now)
     const advance = getRealmAdvance(currentProfile.xp, currentProfile.xp + outcome.xp)
     const nextProfile = applyStudyToProfile(currentProfile, outcome.xp, new Date(now), {
       rating,
       isCorrect: answerMeta.isCorrect,
-      realmBreakthrough: advance.realmBreakthrough
+      realmBreakthrough: advance.realmBreakthrough,
+      coinsEarned
     })
 
     await db.problems.update(problemId, {
@@ -239,16 +279,48 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
       nextReviewAt: outcome.nextReviewAt,
       intervalIndex: outcome.intervalIndex,
       xpEarned: outcome.xp,
+      coinsEarned,
       selectedOptionIds: answerMeta.selectedOptionIds,
       isCorrect: answerMeta.isCorrect
     })
     await db.rewards.add(reward)
     await db.profiles.put(nextProfile)
 
-    return { outcome, reward, profile: nextProfile, advance }
+    return { outcome, reward, profile: nextProfile, advance, coinsEarned, encouragement }
   })
   await createRecoverySnapshot('完成复习')
   return result
+}
+
+export async function purchaseShopItem(itemId: string) {
+  return db.transaction('rw', db.profiles, async () => {
+    const profile = normalizeProfileRecord(await db.profiles.get('player'))
+    const item = SHOP_ITEMS.find((candidate) => candidate.id === itemId)
+    if (!item) throw new Error('物品不存在')
+    if (profile.ownedItemIds.includes(item.id)) return profile
+    if (profile.coins < item.price) throw new Error(`还差 ${item.price - profile.coins} 灵石`)
+    const next = {
+      ...profile,
+      coins: profile.coins - item.price,
+      ownedItemIds: [...profile.ownedItemIds, item.id]
+    }
+    await db.profiles.put(next)
+    return next
+  })
+}
+
+export async function equipShopItem(itemId: string) {
+  return db.transaction('rw', db.profiles, async () => {
+    const profile = normalizeProfileRecord(await db.profiles.get('player'))
+    const item = SHOP_ITEMS.find((candidate) => candidate.id === itemId)
+    if (!item || !profile.ownedItemIds.includes(item.id)) throw new Error('请先拥有这件物品')
+    const next = {
+      ...profile,
+      ...(item.category === 'outfit' ? { equippedOutfitId: item.id } : { equippedAuraId: item.id })
+    }
+    await db.profiles.put(next)
+    return next
+  })
 }
 
 export async function createRecoverySnapshot(reason: string) {

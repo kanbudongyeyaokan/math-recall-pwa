@@ -30,6 +30,9 @@ describe('旧数据迁移归一化', () => {
     const migrated = normalizeProfileRecord(legacy)
     expect(migrated.multipleSolutionReviews).toBe(0)
     expect(migrated.correctChoiceReviews).toBe(0)
+    expect(migrated.name).toBe('何耀焜')
+    expect(migrated.coins).toBe(0)
+    expect(migrated.ownedItemIds).toEqual(['outfit-apprentice', 'aura-none'])
   })
 
   it('真实打开 v1 数据库时执行 v2 升级并保留已删种子', async () => {
@@ -63,6 +66,9 @@ describe('旧数据迁移归一化', () => {
     expect(problem?.solutionMethods).toHaveLength(1)
     expect(problem?.source).toBe('斗破数学 · 原创样例')
     expect(player?.selectedTitle).toBe('斗气化题')
+    expect(player?.name).toBe('何耀焜')
+    expect(player?.coins).toBe(0)
+    expect(player?.equippedOutfitId).toBe('outfit-apprentice')
     expect(dismissed?.value).toEqual(expect.arrayContaining(['seed-02', 'seed-15']))
     upgraded.close()
   })
