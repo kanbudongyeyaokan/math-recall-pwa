@@ -1,126 +1,90 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, BookOpenCheck, Coins, Flame, Layers3, Plus, Shuffle, Sparkles, WifiOff, Zap } from 'lucide-react'
+import { ArrowRight, Coins, Flame, Plus, Shuffle, Smartphone, Sparkles, Target, WifiOff } from 'lucide-react'
+import { CultivatorScene } from '../components/CultivatorScene'
+import { StoryPanel } from '../components/StoryPanel'
 import { db, defaultProfile } from '../db'
+import { CALCULUS_LECTURES, getProblemLectureIds } from '../domain/curriculum'
 import { getRealmProgress } from '../domain/gamification'
 
 interface HomePageProps {
   online: boolean
-  onStartReview: (problemId?: string) => void
+  onOpenPractice: () => void
+  onStartProblem: (problemId: string) => void
   onAdd: () => void
+  onInstall: () => void
 }
 
-function startOfToday() {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  return date.getTime()
-}
-
-export function HomePage({ online, onStartReview, onAdd }: HomePageProps) {
-  const dueProblems = useLiveQuery(
-    () => db.problems.where('nextReviewAt').belowOrEqual(Date.now()).filter((p) => !p.archived).sortBy('nextReviewAt'),
-    [],
-    []
-  )
-  const allProblems = useLiveQuery(() => db.problems.filter((p) => !p.archived).toArray(), [], [])
+export function HomePage({ online, onOpenPractice, onStartProblem, onAdd, onInstall }: HomePageProps) {
+  const problems = useLiveQuery(() => db.problems.filter((problem) => !problem.archived).toArray(), [], [])
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
-  const todayReviews = useLiveQuery(
-    () => db.reviews.where('reviewedAt').aboveOrEqual(startOfToday()).count(),
-    [],
-    0
-  )
   const lastReward = useLiveQuery(() => db.rewards.orderBy('earnedAt').last())
-
   const realm = getRealmProgress(profile.xp)
-  const dailyTarget = 5
-  const questProgress = Math.min(100, (todayReviews / dailyTarget) * 100)
+  const calculusProblems = problems.filter((problem) => getProblemLectureIds(problem).length > 0)
+  const completedLectures = CALCULUS_LECTURES.filter((lecture) => (
+    calculusProblems.some((problem) => problem.reviewCount > 0 && getProblemLectureIds(problem).includes(lecture.id))
+  )).length
 
   function drawRandom() {
-    if (!allProblems.length) return onAdd()
-    const selected = allProblems[Math.floor(Math.random() * allProblems.length)]
-    onStartReview(selected.id)
+    if (!problems.length) return onAdd()
+    onStartProblem(problems[Math.floor(Math.random() * problems.length)].id)
   }
 
   return (
-    <main className="page page-home">
-      <header className="home-header">
-        <div>
-          <p className="eyebrow">斗破数学 · 今日行动</p>
-          <h1>{dueProblems.length ? `${profile.name}，趁热再走一阶。` : `${profile.name}，今日已清空。`}</h1>
-        </div>
-        <div className="level-chip realm-chip" aria-label={`当前境界 ${realm.label}`}>
-          <span>{realm.realm}</span><strong>{realm.isPeak ? '巅峰' : `${realm.star}星`}</strong>
-        </div>
+    <main className="page page-home journey-home">
+      <header className="journey-topbar">
+        <div><span>斗破数学</span><strong>何耀焜的交大斗魂之路</strong></div>
+        <button type="button" onClick={onInstall} aria-label="安装到手机桌面" title="安装到手机桌面"><Smartphone size={20} /></button>
       </header>
 
-      {!online && (
-        <div className="offline-banner"><WifiOff size={17} /> 当前离线，题目和图片仍可正常使用</div>
-      )}
+      {!online && <div className="offline-banner"><WifiOff size={17} />当前离线，题库与做题记录仍可使用</div>}
 
-      <section className="hero-card">
-        <div className="hero-orbit" aria-hidden="true" />
-        <div className="hero-topline">
-          <span><span className="status-dot" /> 今日待复习</span>
-          <strong className="hero-wallet"><Coins size={15} /> {profile.coins}</strong>
-        </div>
-        <div className="hero-number">{dueProblems.length}</div>
-        <p>{dueProblems.length ? `最早一题：${dueProblems[0]?.title}` : '间隔计划已全部完成，可以随机探索。'}</p>
-        <button
-          type="button"
-          className="button button-accent hero-action"
-          onClick={() => onStartReview(dueProblems[0]?.id)}
-        >
-          <BookOpenCheck size={20} /> {dueProblems.length ? '开始今日复习' : '随机回顾一题'} <ArrowRight size={18} />
-        </button>
-      </section>
-
-      <section className="quick-grid" aria-label="快捷操作">
-        <button className="quick-card random-card" type="button" onClick={drawRandom}>
-          <span className="quick-icon"><Shuffle size={22} /></span>
-          <span><strong>随机抽题</strong><small>打破熟悉顺序</small></span>
-        </button>
-        <button className="quick-card add-card" type="button" onClick={onAdd}>
-          <span className="quick-icon"><Plus size={22} /></span>
-          <span><strong>快速新增</strong><small>拍照即入库</small></span>
-        </button>
-      </section>
-
-      <section className="section-block">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow"><Zap size={14} /> 每日任务</p>
-            <h2>完成 {dailyTarget} 次有效回忆</h2>
+      <section className="journey-hero" aria-labelledby="journey-title">
+        <div className="journey-hero-copy">
+          <p className="eyebrow">主线目标 · 上海交通大学</p>
+          <h1 id="journey-title">为守护奶奶，<br />炼成最强斗魂。</h1>
+          <p>从第 1 讲到第 18 讲，把定义、经典例题和课后训练真正做成自己的路。</p>
+          <div className="hero-identity">
+            <span>{profile.name}</span><strong>{realm.label}</strong><small>{profile.selectedTitle}</small>
           </div>
-          <strong>{todayReviews}/{dailyTarget}</strong>
+          <button type="button" className="button button-accent journey-primary-action" onClick={onOpenPractice}>
+            选择讲次做题 <ArrowRight size={19} />
+          </button>
         </div>
-        <div className="quest-track" aria-label={`每日任务完成 ${Math.round(questProgress)}%`}>
-          <span style={{ width: `${questProgress}%` }} />
+        <CultivatorScene profile={profile} pose={realm.isPeak ? 'breakthrough' : 'idle'} label="焜火算师何耀焜站在通往上海交通大学的修炼路上" />
+        <div className="journey-progress">
+          <div><span>斗气经验</span><strong>{profile.xp}</strong></div>
+          <div className="journey-progress-track"><span style={{ width: `${realm.progressPercent}%` }} /></div>
+          <small>{realm.isPeak ? '斗帝巅峰' : `距下一星 ${realm.xpForStar - realm.xpIntoStar} 经验`}</small>
         </div>
-        <p className="section-note">不是看过就算：揭晓答案并自评后，才计入一次。</p>
       </section>
 
-      <section className="stats-row">
-        <div className="mini-stat">
-          <Flame size={20} />
-          <span><strong>{profile.streak}</strong><small>连续天数</small></span>
-        </div>
-        <div className="mini-stat">
-          <Sparkles size={20} />
-          <span><strong>{realm.isPeak ? 'MAX' : `${realm.xpIntoStar}/${realm.xpForStar}`}</strong><small>破星斗气</small></span>
-        </div>
-        <div className="mini-stat">
-          <Coins size={20} />
-          <span><strong>{profile.coins}</strong><small>可用灵石</small></span>
+      <section className="mission-strip" aria-label="交大主线进度">
+        <div><Target size={19} /><span><strong>{completedLectures}/18</strong><small>高数讲次已踏足</small></span></div>
+        <div><Flame size={19} /><span><strong>{profile.totalReviews}</strong><small>累计完成题目</small></span></div>
+        <div><Coins size={19} /><span><strong>{profile.coins}</strong><small>可用灵石</small></span></div>
+      </section>
+
+      <StoryPanel profile={profile} />
+
+      <section className="journey-actions" aria-labelledby="journey-actions-title">
+        <div className="section-heading"><div><p className="eyebrow"><Sparkles size={14} />自由行动</p><h2 id="journey-actions-title">现在去哪里</h2></div></div>
+        <div className="journey-action-grid">
+          <button type="button" className="journey-action primary" onClick={onOpenPractice}>
+            <span><Target size={22} /></span><div><strong>高数 18 讲</strong><small>选择讲次与板块</small></div><ArrowRight size={18} />
+          </button>
+          <button type="button" className="journey-action" onClick={drawRandom}>
+            <span><Shuffle size={22} /></span><div><strong>偶遇一题</strong><small>从全部题库随机抽取</small></div><ArrowRight size={18} />
+          </button>
+          <button type="button" className="journey-action" onClick={onAdd}>
+            <span><Plus size={22} /></span><div><strong>录入新题</strong><small>拍题面与答案图片</small></div><ArrowRight size={18} />
+          </button>
         </div>
       </section>
 
       {lastReward && (
         <section className={`last-loot rarity-border-${lastReward.rarity}`}>
-          <div className="loot-icon"><Layers3 size={24} /></div>
-          <div>
-            <p className="eyebrow">最近战利品</p>
-            <h3>{lastReward.name}</h3>
-            <p>{lastReward.description}</p>
-          </div>
+          <div className="loot-icon"><Sparkles size={24} /></div>
+          <div><p className="eyebrow">最近获得</p><h3>{lastReward.name}</h3><p>{lastReward.description}</p></div>
         </section>
       )}
     </main>

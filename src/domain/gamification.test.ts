@@ -16,9 +16,12 @@ const profile: PlayerProfile = {
   multipleSolutionReviews: 4,
   correctChoiceReviews: 14,
   breakthroughCount: 0,
-  ownedItemIds: ['outfit-apprentice', 'aura-none'],
+  ownedItemIds: ['outfit-apprentice', 'aura-none', 'weapon-scroll', 'accessory-none', 'companion-none'],
   equippedOutfitId: 'outfit-apprentice',
-  equippedAuraId: 'aura-none'
+  equippedAuraId: 'aura-none',
+  equippedWeaponId: 'weapon-scroll',
+  equippedAccessoryId: 'accessory-none',
+  activeCompanionId: 'companion-none'
 }
 
 describe('斗气境界与奖励进度', () => {

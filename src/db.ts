@@ -41,9 +41,12 @@ export const defaultProfile: PlayerProfile = {
   multipleSolutionReviews: 0,
   correctChoiceReviews: 0,
   breakthroughCount: 0,
-  ownedItemIds: ['outfit-apprentice', 'aura-none'],
+  ownedItemIds: ['outfit-apprentice', 'aura-none', 'weapon-scroll', 'accessory-none', 'companion-none'],
   equippedOutfitId: 'outfit-apprentice',
-  equippedAuraId: 'aura-none'
+  equippedAuraId: 'aura-none',
+  equippedWeaponId: 'weapon-scroll',
+  equippedAccessoryId: 'accessory-none',
+  activeCompanionId: 'companion-none'
 }
 
 export function normalizeProblemRecord(problem: Problem): Problem {
@@ -73,9 +76,14 @@ export function normalizeProfileRecord(profile?: PlayerProfile): PlayerProfile {
     multipleSolutionReviews: profile?.multipleSolutionReviews || 0,
     correctChoiceReviews: profile?.correctChoiceReviews || 0,
     breakthroughCount: profile?.breakthroughCount || 0,
-    ownedItemIds: Array.isArray(profile?.ownedItemIds) ? profile.ownedItemIds : defaultProfile.ownedItemIds,
+    ownedItemIds: Array.isArray(profile?.ownedItemIds)
+      ? [...new Set([...defaultProfile.ownedItemIds, ...profile.ownedItemIds])]
+      : defaultProfile.ownedItemIds,
     equippedOutfitId: profile?.equippedOutfitId || defaultProfile.equippedOutfitId,
-    equippedAuraId: profile?.equippedAuraId || defaultProfile.equippedAuraId
+    equippedAuraId: profile?.equippedAuraId || defaultProfile.equippedAuraId,
+    equippedWeaponId: profile?.equippedWeaponId || defaultProfile.equippedWeaponId,
+    equippedAccessoryId: profile?.equippedAccessoryId || defaultProfile.equippedAccessoryId,
+    activeCompanionId: profile?.activeCompanionId || defaultProfile.activeCompanionId
   }
 }
 
@@ -288,7 +296,7 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
 
     return { outcome, reward, profile: nextProfile, advance, coinsEarned, encouragement }
   })
-  await createRecoverySnapshot('完成复习')
+  await createRecoverySnapshot('完成做题')
   return result
 }
 
@@ -314,10 +322,14 @@ export async function equipShopItem(itemId: string) {
     const profile = normalizeProfileRecord(await db.profiles.get('player'))
     const item = SHOP_ITEMS.find((candidate) => candidate.id === itemId)
     if (!item || !profile.ownedItemIds.includes(item.id)) throw new Error('请先拥有这件物品')
-    const next = {
-      ...profile,
-      ...(item.category === 'outfit' ? { equippedOutfitId: item.id } : { equippedAuraId: item.id })
-    }
+    const slotByCategory = {
+      outfit: 'equippedOutfitId',
+      aura: 'equippedAuraId',
+      weapon: 'equippedWeaponId',
+      accessory: 'equippedAccessoryId',
+      companion: 'activeCompanionId'
+    } as const
+    const next = { ...profile, [slotByCategory[item.category]]: item.id }
     await db.profiles.put(next)
     return next
   })

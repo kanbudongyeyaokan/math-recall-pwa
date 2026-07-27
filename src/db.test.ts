@@ -25,14 +25,18 @@ describe('旧数据迁移归一化', () => {
 
   it('为旧玩家补齐斗气统计字段', () => {
     const legacy = {
-      id: 'player', xp: 20, streak: 1, lastStudyDate: '', totalReviews: 2, selectedTitle: '初见学者'
+      id: 'player', xp: 20, streak: 1, lastStudyDate: '', totalReviews: 2, selectedTitle: '初见学者',
+      ownedItemIds: ['outfit-apprentice', 'aura-none']
     } as unknown as PlayerProfile
     const migrated = normalizeProfileRecord(legacy)
     expect(migrated.multipleSolutionReviews).toBe(0)
     expect(migrated.correctChoiceReviews).toBe(0)
     expect(migrated.name).toBe('何耀焜')
     expect(migrated.coins).toBe(0)
-    expect(migrated.ownedItemIds).toEqual(['outfit-apprentice', 'aura-none'])
+    expect(migrated.ownedItemIds).toEqual(['outfit-apprentice', 'aura-none', 'weapon-scroll', 'accessory-none', 'companion-none'])
+    expect(migrated.equippedWeaponId).toBe('weapon-scroll')
+    expect(migrated.equippedAccessoryId).toBe('accessory-none')
+    expect(migrated.activeCompanionId).toBe('companion-none')
   })
 
   it('真实打开 v1 数据库时执行 v2 升级并保留已删种子', async () => {
@@ -69,6 +73,7 @@ describe('旧数据迁移归一化', () => {
     expect(player?.name).toBe('何耀焜')
     expect(player?.coins).toBe(0)
     expect(player?.equippedOutfitId).toBe('outfit-apprentice')
+    expect(player?.equippedWeaponId).toBe('weapon-scroll')
     expect(dismissed?.value).toEqual(expect.arrayContaining(['seed-02', 'seed-15']))
     upgraded.close()
   })

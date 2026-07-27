@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, RefreshCw, Smartphone, X } from 'lucide-react'
 import { registerSW } from 'virtual:pwa-register'
 import { BottomNav, type Screen } from './components/BottomNav'
+import { InstallGuide } from './components/InstallGuide'
 import { initializeDatabase, repairStreakIfNeeded, requestPersistentStorage } from './db'
+import type { PracticeSelection } from './domain/curriculum'
 import { HomePage } from './pages/HomePage'
 import { LibraryPage } from './pages/LibraryPage'
+import { PracticePage } from './pages/PracticePage'
 import { ProblemFormPage } from './pages/ProblemFormPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReviewPage } from './pages/ReviewPage'
@@ -20,6 +23,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home')
   const [editId, setEditId] = useState<string>()
   const [reviewId, setReviewId] = useState<string>()
+  const [practiceSelection, setPracticeSelection] = useState<PracticeSelection>()
   const [toast, setToast] = useState('')
   const [online, setOnline] = useState(navigator.onLine)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent>()
@@ -27,6 +31,7 @@ export default function App() {
   const [showWechatNotice, setShowWechatNotice] = useState(/MicroMessenger/i.test(navigator.userAgent))
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateSW, setUpdateSW] = useState<((reloadPage?: boolean) => Promise<void>)>()
+  const [showInstallGuide, setShowInstallGuide] = useState(false)
   const isWechat = /MicroMessenger/i.test(navigator.userAgent)
 
   useEffect(() => {
@@ -41,18 +46,29 @@ export default function App() {
 
   useEffect(() => {
     let updateTimer: number | undefined
+    let registration: ServiceWorkerRegistration | undefined
+    const checkForUpdate = () => registration?.update().catch(() => undefined)
+    const checkWhenVisible = () => {
+      if (document.visibilityState === 'visible') checkForUpdate()
+    }
     const updater = registerSW({
       immediate: true,
       onNeedRefresh: () => setUpdateAvailable(true),
       onOfflineReady: () => setToast('离线题库已准备好'),
-      onRegisteredSW: (_url, registration) => {
-        if (!registration) return
-        updateTimer = window.setInterval(() => registration.update().catch(() => undefined), 60 * 60 * 1000)
+      onRegisteredSW: (_url, nextRegistration) => {
+        if (!nextRegistration) return
+        registration = nextRegistration
+        checkForUpdate()
       }
     })
+    updateTimer = window.setInterval(checkForUpdate, 30 * 60 * 1000)
+    window.addEventListener('focus', checkForUpdate)
+    document.addEventListener('visibilitychange', checkWhenVisible)
     setUpdateSW(() => updater)
     return () => {
       if (updateTimer) window.clearInterval(updateTimer)
+      window.removeEventListener('focus', checkForUpdate)
+      document.removeEventListener('visibilitychange', checkWhenVisible)
     }
   }, [])
 
@@ -87,13 +103,17 @@ export default function App() {
 
   function navigate(next: Screen) {
     if (next === 'form') setEditId(undefined)
-    if (next === 'review') setReviewId(undefined)
+    if (next === 'practice') {
+      setReviewId(undefined)
+      setPracticeSelection(undefined)
+    }
     setScreen(next)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function openReview(id?: string) {
+  function openReview(id?: string, selection?: PracticeSelection) {
     setReviewId(id)
+    setPracticeSelection(selection)
     setScreen('review')
     window.scrollTo({ top: 0 })
   }
@@ -105,10 +125,14 @@ export default function App() {
   }
 
   async function installApp() {
-    if (!installPrompt) return
+    if (!installPrompt) {
+      setShowInstallGuide(true)
+      return
+    }
     await installPrompt.prompt()
     await installPrompt.userChoice
     setInstallPrompt(undefined)
+    setShowInstallGuide(false)
   }
 
   if (fatalError) {
@@ -137,12 +161,14 @@ export default function App() {
           </div>
         )}
       </div>}
-      {screen === 'home' && <HomePage online={online} onStartReview={openReview} onAdd={() => navigate('form')} />}
-      {screen === 'review' && <ReviewPage requestedId={reviewId} onBack={() => navigate('home')} onNext={() => { setReviewId(undefined); setScreen('review') }} />}
+      {screen === 'home' && <HomePage online={online} onOpenPractice={() => navigate('practice')} onStartProblem={(id) => openReview(id)} onAdd={() => navigate('form')} onInstall={() => setShowInstallGuide(true)} />}
+      {screen === 'practice' && <PracticePage onStart={(selection) => openReview(undefined, selection)} onOpenProfile={() => navigate('profile')} onOpenLibrary={() => navigate('library')} />}
+      {screen === 'review' && <ReviewPage requestedId={reviewId} selection={practiceSelection} onBack={() => navigate(practiceSelection ? 'practice' : 'library')} onComplete={() => navigate('practice')} />}
       {screen === 'library' && <LibraryPage onAdd={() => navigate('form')} onEdit={openEdit} onReview={openReview} notify={setToast} />}
       {screen === 'form' && <ProblemFormPage editId={editId} onBack={() => navigate(editId ? 'library' : 'home')} onSaved={(message) => { setToast(message); navigate('library') }} />}
       {screen === 'profile' && <ProfilePage canInstall={!!installPrompt} isStandalone={isStandalone} isWechat={isWechat} onInstall={installApp} notify={setToast} />}
       <BottomNav active={screen} onNavigate={navigate} />
+      {showInstallGuide && <InstallGuide canInstall={!!installPrompt} isWechat={isWechat} onInstall={installApp} onClose={() => setShowInstallGuide(false)} />}
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={19} /> <span>{toast}</span>

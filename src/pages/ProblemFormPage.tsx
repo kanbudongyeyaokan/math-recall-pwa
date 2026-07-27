@@ -225,7 +225,7 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
         if (oldImagesToDelete.length) await db.images.bulkDelete(Array.from(new Set(oldImagesToDelete)))
       })
       await createRecoverySnapshot(existing ? '编辑题卡' : '新增题卡')
-      onSaved(existing ? '题卡修改已保存' : '新题卡已加入今日队列')
+      onSaved(existing ? '题卡修改已保存' : '新题卡已加入题库')
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : '保存失败，请再试一次。')
     } finally {
@@ -243,7 +243,7 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
 
       <form className="problem-form" onSubmit={submit}>
         <section className="form-section">
-          <div className="section-title"><FileText size={19} /><div><h2>卡片类型与题面</h2><p>定义、定理也可以作为可复习卡</p></div></div>
+          <div className="section-title"><FileText size={19} /><div><h2>卡片类型与题面</h2><p>定义、定理也可以作为主动回忆题</p></div></div>
           <div className="segmented-control kind-control">
             <button type="button" className={form.kind === 'problem' ? 'active' : ''} onClick={() => update('kind', 'problem')}>典型题</button>
             <button type="button" className={form.kind === 'concept' ? 'active' : ''} onClick={() => update('kind', 'concept')}>定义 / 关键点</button>
@@ -269,7 +269,7 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
           </div>
           {form.questionFormat !== 'open' && (
             <div className="option-editor">
-              <p className="field-help">点选左侧标记正确答案；复习时选项会保持锁定到揭晓。</p>
+              <p className="field-help">点选左侧标记正确答案；做题时选项会保持锁定到揭晓。</p>
               {form.options.map((option) => (
                 <div className="option-edit-row" key={option.id}>
                   <button

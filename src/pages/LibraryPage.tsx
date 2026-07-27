@@ -45,7 +45,7 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
   }, [problems, query, tag, kind, format])
 
   async function remove(problemId: string, title: string) {
-    if (!window.confirm(`确定删除“${title}”吗？相关图片、复习记录和奖励卡也会一并删除。`)) return
+    if (!window.confirm(`确定删除“${title}”吗？相关图片、做题记录和奖励卡也会一并删除。`)) return
     await deleteProblem(problemId)
     notify('题卡已删除')
   }
@@ -111,7 +111,7 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
                 <div className="library-card-topline">
                   <span className={`kind-badge kind-${problem.kind}`}>{problem.kind === 'concept' ? '定义' : '题目'}</span>
                   {problem.questionFormat !== 'open' && <span className="format-badge">{problem.questionFormat === 'single-choice' ? '单选' : '多选'}</span>}
-                  <span className={isDue ? 'due-label' : 'scheduled-label'}><CalendarClock size={13} />{isDue ? '待复习' : formatSchedule(problem.nextReviewAt)}</span>
+                  <span className={isDue ? 'due-label' : 'scheduled-label'}><CalendarClock size={13} />{isDue ? '建议复做' : formatSchedule(problem.nextReviewAt)}</span>
                 </div>
                 <h2>{problem.title}</h2>
                 <p>{problem.statement || problem.coreMethod || '图片题卡'}</p>
@@ -119,7 +119,7 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
                   {problem.tags.slice(0, 3).map((item) => <span className="tag" key={item}>{item}</span>)}
                 </div>
                 <div className="card-actions">
-                  <button type="button" className="text-button primary-text" onClick={() => onReview(problem.id)}><BookOpen size={16} />复习</button>
+                  <button type="button" className="text-button primary-text" onClick={() => onReview(problem.id)}><BookOpen size={16} />做题</button>
                   <button type="button" className="text-button" onClick={() => onEdit(problem.id)}><Edit3 size={16} />编辑</button>
                   <button type="button" className="text-button danger-text" onClick={() => remove(problem.id, problem.title)}><Trash2 size={16} />删除</button>
                 </div>

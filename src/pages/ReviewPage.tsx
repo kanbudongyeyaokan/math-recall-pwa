@@ -10,45 +10,58 @@ import {
   Image as ImageIcon,
   Lightbulb,
   ListChecks,
-  RefreshCcw,
   Route,
   ShieldAlert
 } from 'lucide-react'
-import { db, recordReview } from '../db'
-import type { ReviewRating, RewardCard } from '../types'
-import type { RealmProgress } from '../domain/gamification'
-import { isChoiceAnswerCorrect } from '../domain/questions'
+import { CultivatorScene } from '../components/CultivatorScene'
 import { DbImage } from '../components/DbImage'
 import { Lightbox } from '../components/Lightbox'
 import { MathText } from '../components/MathText'
 import { RewardReveal } from '../components/RewardReveal'
+import { db, defaultProfile, recordReview } from '../db'
+import {
+  getLectureById,
+  getProblemLectureIds,
+  getProblemRole,
+  matchesPracticeSelection,
+  PRACTICE_ROLE_LABELS,
+  type PracticeSelection
+} from '../domain/curriculum'
+import type { RealmProgress } from '../domain/gamification'
+import { isChoiceAnswerCorrect } from '../domain/questions'
+import type { PlayerProfile, ReviewRating, RewardCard } from '../types'
 
 interface ReviewPageProps {
   requestedId?: string
+  selection?: PracticeSelection
   onBack: () => void
-  onNext: () => void
+  onComplete: () => void
 }
 
-const ratingOptions: { id: ReviewRating; label: string; caption: string; Icon: typeof RefreshCcw }[] = [
-  { id: 'again', label: '不会', caption: '1 天起步', Icon: RefreshCcw },
-  { id: 'hint', label: '提示后会', caption: '稳住当前阶', Icon: Lightbulb },
-  { id: 'independent', label: '独立完成', caption: '前进一阶', Icon: Check },
-  { id: 'multiple', label: '能够多解', caption: '跃迁两阶', Icon: Route }
+const ratingOptions: { id: ReviewRating; label: string; caption: string; Icon: typeof Check }[] = [
+  { id: 'again', label: '不会', caption: '标记薄弱，1 天后复做', Icon: CircleX },
+  { id: 'hint', label: '提示后会', caption: '入口已找到', Icon: Lightbulb },
+  { id: 'independent', label: '独立完成', caption: '完整闭合推导', Icon: Check },
+  { id: 'multiple', label: '能够多解', caption: '掌握第二条路线', Icon: Route }
 ]
 
-export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
-  const problem = useLiveQuery(async () => {
-    if (requestedId) return db.problems.get(requestedId)
-    const due = await db.problems.where('nextReviewAt').belowOrEqual(Date.now()).filter((item) => !item.archived).first()
-    if (due) return due
+function problemOrder(a: { page: string; id: string }, b: { page: string; id: string }) {
+  const pageA = Number(a.page.match(/\d+/)?.[0] || Number.MAX_SAFE_INTEGER)
+  const pageB = Number(b.page.match(/\d+/)?.[0] || Number.MAX_SAFE_INTEGER)
+  return pageA - pageB || a.id.localeCompare(b.id)
+}
+
+export function ReviewPage({ requestedId, selection, onBack, onComplete }: ReviewPageProps) {
+  const queue = useLiveQuery(async () => {
+    if (requestedId) {
+      const requested = await db.problems.get(requestedId)
+      return requested && !requested.archived ? [requested] : []
+    }
     const all = await db.problems.filter((item) => !item.archived).toArray()
-    return all[Math.floor(Math.random() * all.length)]
-  }, [requestedId])
-  const dueCount = useLiveQuery(
-    () => db.problems.where('nextReviewAt').belowOrEqual(Date.now()).filter((item) => !item.archived).count(),
-    [],
-    0
-  )
+    return (selection ? all.filter((problem) => matchesPracticeSelection(problem, selection)) : all).sort(problemOrder)
+  }, [requestedId, selection?.lectureId, selection?.sectionId, selection?.role])
+  const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
+  const [queueIndex, setQueueIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [thinking, setThinking] = useState(false)
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
@@ -64,10 +77,18 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
     nextRealm: RealmProgress
     coinsEarned: number
     encouragement: string
+    profile: PlayerProfile
   }>()
 
+  const problem = queue?.[queueIndex]
   const isChoice = problem?.questionFormat === 'single-choice' || problem?.questionFormat === 'multiple-choice'
   const choiceCorrect = !!problem && choiceSubmitted && isChoiceAnswerCorrect(selectedOptionIds, problem.correctOptionIds)
+  const lecture = selection
+    ? getLectureById(selection.lectureId)
+    : getLectureById(problem ? getProblemLectureIds(problem)[0] : undefined)
+  const queueLabel = selection?.label || (lecture ? `第 ${lecture.number} 讲 · ${PRACTICE_ROLE_LABELS[getProblemRole(problem!)]}` : '自选题目')
+
+  useEffect(() => setQueueIndex(0), [requestedId, selection?.lectureId, selection?.sectionId, selection?.role])
 
   useEffect(() => {
     setRevealed(false)
@@ -108,7 +129,8 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
         realmBreakthrough: result.advance.realmBreakthrough,
         nextRealm: result.advance.next,
         coinsEarned: result.coinsEarned,
-        encouragement: result.encouragement
+        encouragement: result.encouragement,
+        profile: result.profile
       })
     } finally {
       setSaving(false)
@@ -117,34 +139,43 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
 
   function closeReward() {
     setReward(undefined)
-    onNext()
+    if (queue && queueIndex < queue.length - 1) {
+      setQueueIndex((index) => index + 1)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    onComplete()
   }
 
-  if (problem === undefined) {
-    return <main className="page centered-state"><div className="loader" /><p>正在取出题卡…</p></main>
+  if (queue === undefined) {
+    return <main className="page centered-state"><div className="loader" /><p>正在打开题目…</p></main>
   }
 
   if (!problem) {
     return (
       <main className="page centered-state">
         <Brain size={46} />
-        <h1>题库还是空的</h1>
-        <p>先拍下一道典型题，下一次排队时就能刷它。</p>
-        <button type="button" className="button button-primary" onClick={onBack}>返回首页</button>
+        <h1>{selection ? '这个板块还没有题目' : '题库还是空的'}</h1>
+        <p>{selection ? '返回讲次地图，换一个板块；也可以在题库中录入自己的经典题。' : '先拍下一道典型题，就能开始你的做题旅程。'}</p>
+        <button type="button" className="button button-primary" onClick={onBack}>返回</button>
       </main>
     )
   }
 
   return (
-    <main className="page review-page">
+    <main className="page review-page practice-session-page">
       <header className="review-header">
-        <button type="button" className="icon-button" onClick={onBack} aria-label="返回首页"><ArrowLeft size={22} /></button>
+        <button type="button" className="icon-button" onClick={onBack} aria-label="退出本次做题"><ArrowLeft size={22} /></button>
         <div>
-          <span>{problem.kind === 'concept' ? '定义卡' : problem.questionFormat === 'open' ? '典型题' : problem.questionFormat === 'single-choice' ? '单选题' : '多选题'}</span>
-          <small>{dueCount} 张待复习</small>
+          <span>{queueLabel}</span>
+          <small>{problem.kind === 'concept' ? '定义与判据' : problem.questionFormat === 'open' ? '主观题' : problem.questionFormat === 'single-choice' ? '单选题' : '多选题'}</small>
         </div>
-        <span className="review-count">#{problem.reviewCount + 1}</span>
+        <span className="review-count">{queueIndex + 1}/{queue.length}</span>
       </header>
+
+      <div className="session-progress" role="progressbar" aria-label="本次做题进度" aria-valuemin={0} aria-valuemax={queue.length} aria-valuenow={queueIndex + 1}>
+        <span style={{ width: `${((queueIndex + 1) / queue.length) * 100}%` }} />
+      </div>
 
       <article className="review-card">
         <div className="review-meta">
@@ -191,8 +222,15 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
       </article>
 
       {!revealed ? (
-        <section className={`answer-gate ${thinking ? 'is-thinking' : ''}`}>
-          <div className="gate-icon"><Brain size={30} /></div>
+        <section className={`answer-gate ${thinking ? 'is-thinking' : ''} ${choiceCorrect ? 'is-correct' : ''}`}>
+          {choiceSubmitted && choiceCorrect ? (
+            <div className="choice-cheer">
+              <CultivatorScene profile={profile} pose="victory" compact label="何耀焜答对题目后欢呼" />
+              <div><strong>判断命中，漂亮！</strong><span>先回想你的依据，再展开多方法解析。</span></div>
+            </div>
+          ) : !isChoice && thinking ? (
+            <CultivatorScene profile={profile} pose="focus" compact label="何耀焜凝聚公式专注思考" />
+          ) : <div className="gate-icon"><Brain size={30} /></div>}
           {isChoice ? (
             !choiceSubmitted ? (
               <>
@@ -204,11 +242,8 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
               </>
             ) : (
               <>
-                <div className={`choice-result ${choiceCorrect ? 'correct' : 'incorrect'}`}>
-                  {choiceCorrect ? <CheckCircle2 size={21} /> : <CircleX size={21} />}
-                  <strong>{choiceCorrect ? '判断命中' : '这次未命中'}</strong>
-                </div>
-                <p>{choiceCorrect ? '先回忆你使用的判据，再展开完整路线。' : '先定位犹豫点，正确选项仍在解析中锁定。'}</p>
+                {!choiceCorrect && <div className="choice-result incorrect"><CircleX size={21} /><strong>这次没有命中</strong></div>}
+                {!choiceCorrect && <p>先定位犹豫点。正确选项仍在解析中锁定，等你主动揭晓。</p>}
                 <button type="button" className="button button-accent button-full" onClick={() => setRevealed(true)}>
                   <Eye size={19} /> 查看完整解析
                 </button>
@@ -217,22 +252,18 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
           ) : (
             <>
               <h2>{thinking ? '在脑中走完关键步骤' : '答案已锁定'}</h2>
-              <p>{thinking ? '想清入口、关键变形和验算，再揭晓。' : '先独立思考，避免把“看懂”错当成“会做”。'}</p>
+              <p>{thinking ? '想清入口、关键变形、适用条件和验算，再揭晓。' : '先独立思考，避免把“看懂”错当成“会做”。'}</p>
               {!thinking ? (
-                <button type="button" className="button button-primary button-full" onClick={() => setThinking(true)}>
-                  <Brain size={19} /> 开始思考
-                </button>
+                <button type="button" className="button button-primary button-full" onClick={() => setThinking(true)}><Brain size={19} /> 开始思考</button>
               ) : (
-                <button type="button" className="button button-accent button-full" onClick={() => setRevealed(true)}>
-                  <Eye size={19} /> 我已经想过了，揭晓答案
-                </button>
+                <button type="button" className="button button-accent button-full" onClick={() => setRevealed(true)}><Eye size={19} /> 我已经想过了，揭晓答案</button>
               )}
             </>
           )}
         </section>
       ) : (
         <section className="answer-panel">
-          <div className="answer-heading"><Eye size={19} /><h2>答案与复盘</h2></div>
+          <div className="answer-heading"><Eye size={19} /><h2>解析与多解</h2></div>
           {problem.answerImageId && (
             <DbImage
               imageId={problem.answerImageId}
@@ -253,20 +284,14 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
             </div>
           )}
           {problem.coreMethod && (
-            <div className="insight-block method-block">
-              <div><Lightbulb size={18} /><strong>核心方法</strong></div>
-              <MathText text={problem.coreMethod} />
-            </div>
+            <div className="insight-block method-block"><div><Lightbulb size={18} /><strong>核心方法</strong></div><MathText text={problem.coreMethod} /></div>
           )}
           {problem.mistakes && (
-            <div className="insight-block mistake-block">
-              <div><ShieldAlert size={18} /><strong>易错点</strong></div>
-              <MathText text={problem.mistakes} />
-            </div>
+            <div className="insight-block mistake-block"><div><ShieldAlert size={18} /><strong>易错点</strong></div><MathText text={problem.mistakes} /></div>
           )}
 
           <div className="rating-section">
-            <p className="eyebrow">这次完成得怎样？</p>
+            <p className="eyebrow">这次真正完成到哪一步？</p>
             <div className="rating-grid">
               {ratingOptions.map(({ id, label, caption, Icon }) => (
                 <button type="button" key={id} className={`rating-button rating-${id}`} onClick={() => grade(id)} disabled={saving}>
@@ -278,12 +303,15 @@ export function ReviewPage({ requestedId, onBack, onNext }: ReviewPageProps) {
         </section>
       )}
 
-      {!problem.questionImageId && !problem.statement && (
-        <div className="empty-inline"><ImageIcon size={18} /> 这张卡还没有题面，请稍后编辑补充。</div>
-      )}
-
+      {!problem.questionImageId && !problem.statement && <div className="empty-inline"><ImageIcon size={18} />这张卡还没有题面，请稍后编辑补充。</div>}
       {lightbox && <Lightbox imageId={lightbox.id} alt={lightbox.alt} onClose={() => setLightbox(undefined)} />}
-      {reward && <RewardReveal {...reward} onClose={closeReward} />}
+      {reward && (
+        <RewardReveal
+          {...reward}
+          continueLabel={queueIndex < queue.length - 1 ? `继续下一题 · ${queueIndex + 2}/${queue.length}` : selection ? '完成本轮，返回讲次' : '完成本题'}
+          onClose={closeReward}
+        />
+      )}
     </main>
   )
 }

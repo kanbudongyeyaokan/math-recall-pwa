@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { db, defaultProfile, equipShopItem, purchaseShopItem, requestPersistentStorage, restoreLatestSnapshot, saveImage } from '../db'
 import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamification'
-import type { ShopItem, StoragePersistenceState } from '../types'
+import type { ShopItem, ShopItemCategory, StoragePersistenceState } from '../types'
 import { downloadBackup, restoreBackup } from '../utils/backup'
 import { PlayerAvatar } from '../components/PlayerAvatar'
 
@@ -35,6 +35,13 @@ interface ProfilePageProps {
 }
 
 const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗', legendary: '传奇' }
+const shopCategories: { id: ShopItemCategory; label: string }[] = [
+  { id: 'outfit', label: '战衣' },
+  { id: 'aura', label: '气息' },
+  { id: 'weapon', label: '武器' },
+  { id: 'accessory', label: '配饰' },
+  { id: 'companion', label: '灵体' }
+]
 
 export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, notify }: ProfilePageProps) {
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
@@ -47,11 +54,20 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
   const latestSnapshot = useLiveQuery(() => db.snapshots.orderBy('createdAt').last())
   const [replaceExisting, setReplaceExisting] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [shopCategory, setShopCategory] = useState<ShopItemCategory>('outfit')
   const [storage, setStorage] = useState<{ usage: number; quota: number }>()
   const realm = getRealmProgress(profile.xp)
   const titleStatuses = getTitleStatuses(profile)
   const persistence = persistenceRecord?.value as StoragePersistenceState | undefined
   const lastBackup = lastBackupRecord?.value as string | undefined
+
+  function isEquipped(item: ShopItem) {
+    return item.id === profile.equippedOutfitId
+      || item.id === profile.equippedAuraId
+      || item.id === profile.equippedWeaponId
+      || item.id === profile.equippedAccessoryId
+      || item.id === profile.activeCompanionId
+  }
 
   useEffect(() => {
     navigator.storage?.estimate().then((estimate) => {
@@ -172,7 +188,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
       </section>
 
       <section className="stats-row profile-stats">
-        <div className="mini-stat"><span><strong>{profile.totalReviews}</strong><small>有效回忆</small></span></div>
+        <div className="mini-stat"><span><strong>{profile.totalReviews}</strong><small>累计做题</small></span></div>
         <div className="mini-stat"><span><strong>{profile.correctChoiceReviews}</strong><small>选择命中</small></span></div>
         <div className="mini-stat"><span><strong>{profile.multipleSolutionReviews}</strong><small>多解完成</small></span></div>
       </section>
@@ -186,10 +202,17 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
           <label className={`button button-secondary ${busy ? 'disabled' : ''}`}><Camera size={17} />上传本人头像<input type="file" accept="image/*" onChange={uploadAvatar} disabled={busy} /></label>
           {profile.avatarImageId && <button type="button" className="button button-secondary" onClick={removeAvatar} disabled={busy}>使用修炼形象</button>}
         </div>
+        <div className="shop-category-tabs" role="tablist" aria-label="坊市分类">
+          {shopCategories.map((category) => (
+            <button type="button" role="tab" aria-selected={shopCategory === category.id} className={shopCategory === category.id ? 'active' : ''} onClick={() => setShopCategory(category.id)} key={category.id}>
+              {category.label}<small>{SHOP_ITEMS.filter((item) => item.category === category.id).length}</small>
+            </button>
+          ))}
+        </div>
         <div className="shop-list">
-          {SHOP_ITEMS.map((item) => {
+          {SHOP_ITEMS.filter((item) => item.category === shopCategory).map((item) => {
             const owned = profile.ownedItemIds.includes(item.id)
-            const equipped = item.id === profile.equippedOutfitId || item.id === profile.equippedAuraId
+            const equipped = isEquipped(item)
             return (
               <button type="button" className={`shop-item ${equipped ? 'equipped' : ''}`} key={item.id} onClick={() => handleShopItem(item)}>
                 <span className="shop-swatch" style={{ background: item.swatch }} />
@@ -203,7 +226,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
       </section>
 
       <section className="section-block title-section">
-        <div className="section-heading"><div><p className="eyebrow"><Sparkles size={14} /> 称号库</p><h2>用真实复习解锁</h2></div></div>
+        <div className="section-heading"><div><p className="eyebrow"><Sparkles size={14} /> 称号库</p><h2>用真实做题解锁</h2></div></div>
         <div className="title-list">
           {titleStatuses.map((title) => (
             <button
@@ -234,7 +257,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
               </article>
             ))}
           </div>
-        ) : <p className="section-note">完成一次复习，就会掉落第一张知识卡。</p>}
+        ) : <p className="section-note">完成第一道题，就会掉落第一张知识卡。</p>}
       </section>
 
       <section className="section-block persistence-section">
@@ -243,7 +266,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
           {persistence?.status === 'granted' ? <CheckCircle2 size={20} /> : <HardDrive size={20} />}
           <div>
             <strong>{persistence?.status === 'granted' ? '浏览器不会自动回收本应用数据' : persistence?.status === 'unsupported' ? '当前浏览器不支持持久存储申请' : '浏览器暂未授予持久存储'}</strong>
-            <span>{latestSnapshot ? `最近恢复点：${formatDateTime(latestSnapshot.createdAt)}` : '完成一次复习后自动建立恢复点'}</span>
+            <span>{latestSnapshot ? `最近恢复点：${formatDateTime(latestSnapshot.createdAt)}` : '完成一道题后自动建立恢复点'}</span>
           </div>
         </div>
         <div className="backup-actions">
@@ -258,7 +281,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
           <span><strong>{problemCount}</strong> 题卡</span><span><strong>{imageCount}</strong> 图片</span>
           {storage && <span><strong>{formatBytes(storage.usage)}</strong> 已用</span>}
         </div>
-        <p className="section-note">完整 JSON 包含题目、原图、解析、复习历史、个人头像、灵石、坊市物品、斗气境界、称号与奖励卡。{lastBackup ? `上次导出：${formatDateTime(lastBackup)}` : '尚未导出外部备份。'}</p>
+        <p className="section-note">完整 JSON 包含题目、原图、解析、做题历史、个人头像、灵石、坊市物品、斗气境界、称号与奖励卡。{lastBackup ? `上次导出：${formatDateTime(lastBackup)}` : '尚未导出外部备份。'}</p>
         <div className="backup-actions">
           <button type="button" className="button button-primary" onClick={exportData} disabled={busy}><Download size={18} />导出完整备份</button>
           <label className={`button button-secondary ${busy ? 'disabled' : ''}`}><Upload size={18} />导入备份<input type="file" accept="application/json,.json" onChange={importData} disabled={busy} /></label>
@@ -270,7 +293,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
       </section>
 
       <section className="section-block install-section">
-        <div className="section-title"><Smartphone size={20} /><div><h2>{isStandalone ? '已安装到手机桌面' : '安装到手机桌面'}</h2><p>安装后全屏启动，并可离线复习</p></div></div>
+        <div className="section-title"><Smartphone size={20} /><div><h2>{isStandalone ? '已安装到手机桌面' : '安装到手机桌面'}</h2><p>安装后全屏启动，并可离线做题</p></div></div>
         {isStandalone ? (
           <div className="install-hint success"><CheckCircle2 size={20} /><p>当前正以独立应用模式运行，题库与浏览器站点数据保持一致。</p></div>
         ) : isWechat ? (

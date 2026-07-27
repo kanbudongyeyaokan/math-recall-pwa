@@ -1,6 +1,6 @@
-import { BookOpen, House, Library, Plus, Trophy } from 'lucide-react'
+import { House, Library, Plus, Sigma, Trophy } from 'lucide-react'
 
-export type Screen = 'home' | 'review' | 'library' | 'form' | 'profile'
+export type Screen = 'home' | 'practice' | 'review' | 'library' | 'form' | 'profile'
 
 interface BottomNavProps {
   active: Screen
@@ -9,7 +9,7 @@ interface BottomNavProps {
 
 const items = [
   { id: 'home' as const, label: '首页', Icon: House },
-  { id: 'review' as const, label: '复习', Icon: BookOpen },
+  { id: 'practice' as const, label: '做题', Icon: Sigma },
   { id: 'form' as const, label: '新增', Icon: Plus, prominent: true },
   { id: 'library' as const, label: '题库', Icon: Library },
   { id: 'profile' as const, label: '战绩', Icon: Trophy }
@@ -18,18 +18,21 @@ const items = [
 export function BottomNav({ active, onNavigate }: BottomNavProps) {
   return (
     <nav className="bottom-nav" aria-label="主导航">
-      {items.map(({ id, label, Icon, prominent }) => (
+      {items.map(({ id, label, Icon, prominent }) => {
+        const isActive = active === id || (active === 'review' && id === 'practice')
+        return (
         <button
           type="button"
           key={id}
-          className={`${active === id ? 'active' : ''} ${prominent ? 'nav-prominent' : ''}`}
-          aria-current={active === id ? 'page' : undefined}
+          className={`${isActive ? 'active' : ''} ${prominent ? 'nav-prominent' : ''}`}
+          aria-current={isActive ? 'page' : undefined}
           onClick={() => onNavigate(id)}
         >
           <span className="nav-icon"><Icon size={21} strokeWidth={2.2} aria-hidden="true" /></span>
           <span>{label}</span>
         </button>
-      ))}
+        )
+      })}
     </nav>
   )
 }

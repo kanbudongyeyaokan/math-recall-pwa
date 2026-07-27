@@ -91,10 +91,13 @@ export interface PlayerProfile {
   ownedItemIds: string[]
   equippedOutfitId: string
   equippedAuraId: string
+  equippedWeaponId: string
+  equippedAccessoryId: string
+  activeCompanionId: string
   avatarImageId?: string
 }
 
-export type ShopItemCategory = 'outfit' | 'aura'
+export type ShopItemCategory = 'outfit' | 'aura' | 'weapon' | 'accessory' | 'companion'
 
 export interface ShopItem {
   id: string
