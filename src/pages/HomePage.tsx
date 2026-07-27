@@ -44,7 +44,7 @@ export function HomePage({ online, onStartReview, onAdd }: HomePageProps) {
     <main className="page page-home">
       <header className="home-header">
         <div>
-          <p className="eyebrow">拾阶数学 · 今日行动</p>
+          <p className="eyebrow">斗破数学 · 今日行动</p>
           <h1>{dueProblems.length ? '趁记忆还热，走一阶。' : '今日已清空，漂亮。'}</h1>
         </div>
         <div className="level-chip realm-chip" aria-label={`当前境界 ${realm.label}`}>

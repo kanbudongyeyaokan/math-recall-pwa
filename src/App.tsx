@@ -116,7 +116,7 @@ export default function App() {
   }
 
   if (!ready) {
-    return <main className="boot-state"><div className="brand-mark"><span /></div><h1>拾阶数学</h1><p>正在打开你的本地题库…</p><div className="loader" /></main>
+    return <main className="boot-state"><div className="brand-mark"><span /></div><h1>斗破数学</h1><p>正在打开你的本地题库…</p><div className="loader" /></main>
   }
 
   return (

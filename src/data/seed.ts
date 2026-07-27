@@ -579,7 +579,7 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
       options: (seed.options || []).map((text, optionIndex) => ({ id: optionIds[optionIndex], text })),
       correctOptionIds: seed.correctOptionIds || [],
       solutionMethods: methods.map((method, methodIndex) => ({ id: `method-${methodIndex + 1}`, ...method })),
-      source: '拾阶数学 · 考纲原创同型',
+      source: '斗破数学 · 考纲原创同型',
       page: '',
       createdAt: now - (originalSeeds.length - index) * 1000,
       updatedAt: now - (originalSeeds.length - index) * 1000,

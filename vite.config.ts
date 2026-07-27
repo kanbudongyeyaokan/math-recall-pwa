@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.svg', 'pwa-icon-192.png', 'pwa-icon-512.png', 'apple-touch-icon.png'],
       manifest: {
-        name: '拾阶数学 · 经典题复习',
-        short_name: '拾阶数学',
+        name: '斗破数学 · 经典题复习',
+        short_name: '斗破数学',
         description: '本地优先、间隔复习的个人考研数学题库',
         theme_color: '#101814',
         background_color: '#f5f7f5',

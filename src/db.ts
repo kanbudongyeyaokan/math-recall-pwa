@@ -107,6 +107,21 @@ export class MathRecallDatabase extends Dexie {
       })
       if (existingProfile) await profiles.put(normalizeProfileRecord(existingProfile))
     })
+    this.version(3).stores({
+      problems: 'id, kind, questionFormat, nextReviewAt, updatedAt, source, *tags',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    }).upgrade(async (transaction) => {
+      await transaction.table<Problem>('problems').toCollection().modify((problem) => {
+        if (problem.source.startsWith('拾阶数学')) {
+          problem.source = problem.source.replace('拾阶数学', '斗破数学')
+        }
+      })
+    })
   }
 }
 

@@ -45,7 +45,7 @@ describe('旧数据迁移归一化', () => {
     })
     await legacyDb.open()
     await legacyDb.table('problems').put({
-      id: 'seed-01', kind: 'problem', title: '旧题', statement: '题面', source: '', page: '', tags: [],
+      id: 'seed-01', kind: 'problem', title: '旧题', statement: '题面', source: '拾阶数学 · 原创样例', page: '', tags: [],
       coreMethod: '方法', mistakes: '', answerText: '答案', createdAt: 1, updatedAt: 1,
       nextReviewAt: 1, intervalIndex: -1, reviewCount: 0, isSeed: true
     })
@@ -61,6 +61,7 @@ describe('旧数据迁移归一化', () => {
     ])
     expect(problem?.questionFormat).toBe('open')
     expect(problem?.solutionMethods).toHaveLength(1)
+    expect(problem?.source).toBe('斗破数学 · 原创样例')
     expect(player?.selectedTitle).toBe('斗气化题')
     expect(dismissed?.value).toEqual(expect.arrayContaining(['seed-02', 'seed-15']))
     upgraded.close()

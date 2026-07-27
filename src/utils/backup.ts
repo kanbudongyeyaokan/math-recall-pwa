@@ -83,7 +83,7 @@ export async function downloadBackup() {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = `拾阶数学-备份-${new Date().toISOString().slice(0, 10)}.json`
+  anchor.download = `斗破数学-备份-${new Date().toISOString().slice(0, 10)}.json`
   anchor.click()
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   await markExternalBackupCreated()
@@ -91,7 +91,7 @@ export async function downloadBackup() {
 
 export async function restoreBackup(file: File, replaceExisting: boolean) {
   const parsed: unknown = JSON.parse(await file.text())
-  if (!isBackupPayload(parsed)) throw new Error('不是有效的拾阶数学备份文件')
+  if (!isBackupPayload(parsed)) throw new Error('不是有效的斗破数学备份文件')
 
   const images = await Promise.all(parsed.data.images.map(async ({ dataUrl, ...image }) => ({
     ...image,
