@@ -1,0 +1,232 @@
+import { ChangeEvent, useEffect, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import {
+  ArchiveRestore,
+  Award,
+  Check,
+  CheckCircle2,
+  CloudOff,
+  Database,
+  Download,
+  HardDrive,
+  Layers3,
+  LockKeyhole,
+  RefreshCcw,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Upload
+} from 'lucide-react'
+import { db, defaultProfile, requestPersistentStorage, restoreLatestSnapshot } from '../db'
+import { getRealmProgress, getTitleStatuses } from '../domain/gamification'
+import type { StoragePersistenceState } from '../types'
+import { downloadBackup, restoreBackup } from '../utils/backup'
+
+interface ProfilePageProps {
+  canInstall: boolean
+  isStandalone: boolean
+  isWechat: boolean
+  onInstall: () => Promise<void>
+  notify: (message: string) => void
+}
+
+const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗', legendary: '传奇' }
+
+export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, notify }: ProfilePageProps) {
+  const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
+  const rewards = useLiveQuery(() => db.rewards.orderBy('earnedAt').reverse().limit(20).toArray(), [], [])
+  const rewardCount = useLiveQuery(() => db.rewards.count(), [], 0)
+  const problemCount = useLiveQuery(() => db.problems.count(), [], 0)
+  const imageCount = useLiveQuery(() => db.images.count(), [], 0)
+  const persistenceRecord = useLiveQuery(() => db.settings.get('storage-persistence'))
+  const lastBackupRecord = useLiveQuery(() => db.settings.get('last-external-backup-at'))
+  const latestSnapshot = useLiveQuery(() => db.snapshots.orderBy('createdAt').last())
+  const [replaceExisting, setReplaceExisting] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [storage, setStorage] = useState<{ usage: number; quota: number }>()
+  const realm = getRealmProgress(profile.xp)
+  const titleStatuses = getTitleStatuses(profile)
+  const persistence = persistenceRecord?.value as StoragePersistenceState | undefined
+  const lastBackup = lastBackupRecord?.value as string | undefined
+
+  useEffect(() => {
+    navigator.storage?.estimate().then((estimate) => {
+      setStorage({ usage: estimate.usage || 0, quota: estimate.quota || 0 })
+    }).catch(() => undefined)
+  }, [imageCount])
+
+  async function chooseTitle(title: string) {
+    await db.profiles.update('player', { selectedTitle: title })
+    notify(`已佩戴称号：${title}`)
+  }
+
+  async function exportData() {
+    setBusy(true)
+    try {
+      await downloadBackup()
+      notify('完整备份已下载，请妥善保存')
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '导出失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function importData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (replaceExisting && !window.confirm('替换导入会先清空本机现有题目、图片和进度，确定继续吗？')) return
+    setBusy(true)
+    try {
+      const result = await restoreBackup(file, replaceExisting)
+      notify(`恢复完成：${result.problems} 张题卡、${result.images} 张图片`)
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '导入失败，请检查备份文件')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function retryPersistence() {
+    setBusy(true)
+    try {
+      const result = await requestPersistentStorage()
+      notify(result.status === 'granted' ? '本机持久存储保护已开启' : '浏览器暂未授予保护，请安装后再试')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function recoverSnapshot() {
+    if (!latestSnapshot || !window.confirm(`恢复到 ${formatDateTime(latestSnapshot.createdAt)} 的记录吗？当前题目进度会被该恢复点覆盖，图片不会删除。`)) return
+    setBusy(true)
+    try {
+      const snapshot = await restoreLatestSnapshot()
+      notify(`已恢复本机记录：${snapshot.reason}`)
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '恢复失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <main className="page profile-page">
+      <header className="page-header">
+        <div><p className="eyebrow">本地战绩</p><h1>{profile.selectedTitle}</h1></div>
+        <div className="profile-level">{realm.realm}</div>
+      </header>
+
+      <section className="profile-hero">
+        <div className="rank-emblem"><Award size={42} /></div>
+        <div className="profile-hero-copy">
+          <span>当前斗气境界</span>
+          <strong>{realm.label}</strong>
+          <div className="quest-track profile-track"><span style={{ width: `${realm.progressPercent}%` }} /></div>
+          <small>{realm.isPeak ? `已达巅峰 · 累计 ${profile.xp} 斗气经验` : `距下一星还差 ${realm.xpForStar - realm.xpIntoStar} 经验 · 累计 ${profile.xp}`}</small>
+        </div>
+      </section>
+
+      <section className="stats-row profile-stats">
+        <div className="mini-stat"><span><strong>{profile.totalReviews}</strong><small>有效回忆</small></span></div>
+        <div className="mini-stat"><span><strong>{profile.correctChoiceReviews}</strong><small>选择命中</small></span></div>
+        <div className="mini-stat"><span><strong>{profile.multipleSolutionReviews}</strong><small>多解完成</small></span></div>
+      </section>
+
+      <section className="section-block title-section">
+        <div className="section-heading"><div><p className="eyebrow"><Sparkles size={14} /> 称号库</p><h2>用真实复习解锁</h2></div></div>
+        <div className="title-list">
+          {titleStatuses.map((title) => (
+            <button
+              type="button"
+              key={title.name}
+              className={`${profile.selectedTitle === title.name ? 'selected' : ''} ${title.isUnlocked ? '' : 'locked'}`}
+              onClick={() => title.isUnlocked && chooseTitle(title.name)}
+              disabled={!title.isUnlocked}
+            >
+              {title.isUnlocked ? <Award size={17} /> : <LockKeyhole size={17} />}
+              <span><strong>{title.name}</strong><small>{title.isUnlocked ? '已解锁' : title.requirement}</small></span>
+              {profile.selectedTitle === title.name && <Check size={16} />}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="section-block collection-section">
+        <div className="section-heading"><div><p className="eyebrow"><Layers3 size={14} /> 知识卡收藏</p><h2>最近获得</h2></div><strong>{rewardCount}</strong></div>
+        {rewards.length ? (
+          <div className="reward-collection">
+            {rewards.map((reward) => (
+              <article className={`collection-card rarity-${reward.rarity}`} key={reward.id}>
+                <div><Layers3 size={22} /></div>
+                <span>{rarityLabel[reward.rarity]}</span>
+                <h3>{reward.name}</h3>
+                <p>{reward.description}</p>
+              </article>
+            ))}
+          </div>
+        ) : <p className="section-note">完成一次复习，就会掉落第一张知识卡。</p>}
+      </section>
+
+      <section className="section-block persistence-section">
+        <div className="section-heading"><div><p className="eyebrow"><ShieldCheck size={14} /> 本机记录保护</p><h2>{persistence?.status === 'granted' ? '持久存储已开启' : '记录已保存，可继续加固'}</h2></div></div>
+        <div className={`persistence-status status-${persistence?.status || 'checking'}`}>
+          {persistence?.status === 'granted' ? <CheckCircle2 size={20} /> : <HardDrive size={20} />}
+          <div>
+            <strong>{persistence?.status === 'granted' ? '浏览器不会自动回收本应用数据' : persistence?.status === 'unsupported' ? '当前浏览器不支持持久存储申请' : '浏览器暂未授予持久存储'}</strong>
+            <span>{latestSnapshot ? `最近恢复点：${formatDateTime(latestSnapshot.createdAt)}` : '完成一次复习后自动建立恢复点'}</span>
+          </div>
+        </div>
+        <div className="backup-actions">
+          {persistence?.status !== 'granted' && <button type="button" className="button button-secondary" onClick={retryPersistence} disabled={busy}><RefreshCcw size={17} />重新申请保护</button>}
+          <button type="button" className="button button-secondary" onClick={recoverSnapshot} disabled={busy || !latestSnapshot}><ArchiveRestore size={17} />恢复最近记录</button>
+        </div>
+      </section>
+
+      <section className="section-block backup-section">
+        <div className="section-heading"><div><p className="eyebrow"><Database size={14} /> 数据保险箱</p><h2>图片与进度完整备份</h2></div></div>
+        <div className="data-summary">
+          <span><strong>{problemCount}</strong> 题卡</span><span><strong>{imageCount}</strong> 图片</span>
+          {storage && <span><strong>{formatBytes(storage.usage)}</strong> 已用</span>}
+        </div>
+        <p className="section-note">完整 JSON 包含题目、原图、解析、复习历史、斗气境界、称号与奖励卡。{lastBackup ? `上次导出：${formatDateTime(lastBackup)}` : '尚未导出外部备份。'}</p>
+        <div className="backup-actions">
+          <button type="button" className="button button-primary" onClick={exportData} disabled={busy}><Download size={18} />导出完整备份</button>
+          <label className={`button button-secondary ${busy ? 'disabled' : ''}`}><Upload size={18} />导入备份<input type="file" accept="application/json,.json" onChange={importData} disabled={busy} /></label>
+        </div>
+        <label className="check-row">
+          <input type="checkbox" checked={replaceExisting} onChange={(event) => setReplaceExisting(event.target.checked)} />
+          <span><ArchiveRestore size={17} />导入前清空本机数据（默认关闭，即同 ID 合并）</span>
+        </label>
+      </section>
+
+      <section className="section-block install-section">
+        <div className="section-title"><Smartphone size={20} /><div><h2>{isStandalone ? '已安装到手机桌面' : '安装到手机桌面'}</h2><p>安装后全屏启动，并可离线复习</p></div></div>
+        {isStandalone ? (
+          <div className="install-hint success"><CheckCircle2 size={20} /><p>当前正以独立应用模式运行，题库与浏览器站点数据保持一致。</p></div>
+        ) : isWechat ? (
+          <div className="install-hint"><CloudOff size={20} /><p>微信内可以刷题，但不能直接安装。请点右上角菜单，选择“在浏览器打开”，再按系统提示添加到桌面。</p></div>
+        ) : canInstall ? (
+          <button type="button" className="button button-accent button-full" onClick={onInstall}><Smartphone size={18} />立即安装应用</button>
+        ) : (
+          <div className="install-hint"><CloudOff size={20} /><p>iPhone 使用 Safari“分享 → 添加到主屏幕”；Android 使用浏览器菜单中的“安装应用”。</p></div>
+        )}
+        {storage && storage.quota > 0 && <div className="storage-note"><HardDrive size={15} />浏览器可用空间约 {formatBytes(storage.quota)}</div>}
+      </section>
+
+      <p className="privacy-note">记录会持续保存在当前浏览器的 IndexedDB。清除站点数据、无痕模式或更换浏览器仍会丢失本机副本，因此外部备份是最终保险。</p>
+    </main>
+  )
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
+}
+
+function formatDateTime(value: number | string) {
+  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+}
