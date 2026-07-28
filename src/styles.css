@@ -280,6 +280,9 @@ h1, h2, h3, p { margin-top: 0; }
 .review-header span, .review-header small { display: block; }
 .review-header span { font-weight: 900; }
 .review-header small { margin-top: 2px; color: var(--muted); font-size: 0.68rem; }
+.review-header-actions { display: flex; align-items: center; gap: 6px; }
+.review-header-actions .sound-toggle { width: 36px; height: 36px; color: #59655d; background: #e3e4db; border-color: #ced1c7; }
+.review-header-actions .sound-toggle[aria-pressed="true"] { color: #efffcf; background: #253028; border-color: #253028; }
 .review-count, .step-label { min-width: 44px; padding: 8px; color: var(--muted); text-align: center; background: #dedfd6; border-radius: 11px; font-size: 0.7rem; }
 .review-card { padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
 .review-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.73rem; font-weight: 700; }

@@ -12,7 +12,9 @@ import {
   ListChecks,
   Route,
   ScrollText,
-  ShieldAlert
+  ShieldAlert,
+  Volume2,
+  VolumeX
 } from 'lucide-react'
 import { CultivatorScene } from '../components/CultivatorScene'
 import { DbImage } from '../components/DbImage'
@@ -32,6 +34,7 @@ import type { RealmProgress } from '../domain/gamification'
 import { getTechnique, type TechniqueResolution } from '../domain/cultivation'
 import { isChoiceAnswerCorrect } from '../domain/questions'
 import type { PlayerProfile, ReviewRating, RewardCard } from '../types'
+import { getSoundEnabled, playSound, pulseHaptic, RATING_SOUND, saveSoundEnabled } from '../utils/sound'
 
 interface ReviewPageProps {
   requestedId?: string
@@ -68,6 +71,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   const [thinking, setThinking] = useState(false)
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
   const [choiceSubmitted, setChoiceSubmitted] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(getSoundEnabled)
   const [saving, setSaving] = useState(false)
   const [lightbox, setLightbox] = useState<{ id: string; alt: string }>()
   const [reward, setReward] = useState<{
@@ -102,6 +106,8 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
 
   function toggleOption(id: string) {
     if (!problem || choiceSubmitted) return
+    playSound('option')
+    pulseHaptic(8)
     if (problem.questionFormat === 'single-choice') {
       setSelectedOptionIds([id])
       return
@@ -110,9 +116,31 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   }
 
   function submitChoice() {
-    if (!selectedOptionIds.length) return
+    if (!problem || !selectedOptionIds.length) return
+    const correct = isChoiceAnswerCorrect(selectedOptionIds, problem.correctOptionIds)
+    playSound(correct ? 'correct' : 'wrong')
+    pulseHaptic(correct ? [16, 22, 34] : 45)
     setChoiceSubmitted(true)
     setThinking(true)
+  }
+
+  function startThinking() {
+    playSound('focus')
+    setThinking(true)
+  }
+
+  function revealAnswer() {
+    playSound('reveal')
+    pulseHaptic(12)
+    setRevealed(true)
+  }
+
+  function toggleSound() {
+    const next = !soundEnabled
+    if (!next) playSound('sound-off')
+    saveSoundEnabled(next)
+    setSoundEnabled(next)
+    if (next) playSound('sound-on')
   }
 
   async function grade(rating: ReviewRating) {
@@ -123,7 +151,8 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         selectedOptionIds,
         isCorrect: choiceCorrect
       } : {})
-      if ('vibrate' in navigator) navigator.vibrate?.(result.advance.realmBreakthrough ? [50, 35, 80, 35, 110] : [35, 30, 55])
+      playSound(result.advance.realmBreakthrough ? 'realm-up' : result.advance.advanced ? 'star-up' : RATING_SOUND[rating])
+      pulseHaptic(result.advance.realmBreakthrough ? [55, 35, 85, 35, 120] : result.advance.advanced ? [35, 25, 55, 25, 75] : [28, 24, 48])
       setReward({
         card: result.reward,
         xp: result.outcome.xp,
@@ -142,6 +171,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   }
 
   function closeReward() {
+    playSound('next')
     setReward(undefined)
     if (queue && queueIndex < queue.length - 1) {
       setQueueIndex((index) => index + 1)
@@ -174,7 +204,12 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           <span>{queueLabel}</span>
           <small>{problem.kind === 'concept' ? '定义与判据' : problem.questionFormat === 'open' ? '主观题' : problem.questionFormat === 'single-choice' ? '单选题' : '多选题'}</small>
         </div>
-        <span className="review-count">{queueIndex + 1}/{queue.length}</span>
+        <div className="review-header-actions">
+          <button type="button" className="icon-button sound-toggle" onClick={toggleSound} aria-label={soundEnabled ? '关闭做题音效' : '开启做题音效'} aria-pressed={soundEnabled} title={soundEnabled ? '关闭做题音效' : '开启做题音效'}>
+            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+          <span className="review-count">{queueIndex + 1}/{queue.length}</span>
+        </div>
       </header>
 
       <div className="session-progress" role="progressbar" aria-label="本次做题进度" aria-valuemin={0} aria-valuemax={queue.length} aria-valuenow={queueIndex + 1}>
@@ -250,7 +285,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
               <>
                 {!choiceCorrect && <div className="choice-result incorrect"><CircleX size={21} /><strong>这次没有命中</strong></div>}
                 {!choiceCorrect && <p>先定位犹豫点。正确选项仍在解析中锁定，等你主动揭晓。</p>}
-                <button type="button" className="button button-accent button-full" onClick={() => setRevealed(true)}>
+                <button type="button" className="button button-accent button-full" onClick={revealAnswer}>
                   <Eye size={19} /> 查看完整解析
                 </button>
               </>
@@ -260,9 +295,9 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
               <h2>{thinking ? '在脑中走完关键步骤' : '答案已锁定'}</h2>
               <p>{thinking ? '想清入口、关键变形、适用条件和验算，再揭晓。' : '先独立思考，避免把“看懂”错当成“会做”。'}</p>
               {!thinking ? (
-                <button type="button" className="button button-primary button-full" onClick={() => setThinking(true)}><Brain size={19} /> 开始思考</button>
+                <button type="button" className="button button-primary button-full" onClick={startThinking}><Brain size={19} /> 开始思考</button>
               ) : (
-                <button type="button" className="button button-accent button-full" onClick={() => setRevealed(true)}><Eye size={19} /> 我已经想过了，揭晓答案</button>
+                <button type="button" className="button button-accent button-full" onClick={revealAnswer}><Eye size={19} /> 我已经想过了，揭晓答案</button>
               )}
             </>
           )}
