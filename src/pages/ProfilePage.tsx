@@ -14,13 +14,16 @@ import {
   Layers3,
   LockKeyhole,
   RefreshCcw,
+  RefreshCw,
+  ScrollText,
   ShieldCheck,
   ShoppingBag,
   Smartphone,
   Sparkles,
   Upload
 } from 'lucide-react'
-import { db, defaultProfile, equipShopItem, purchaseShopItem, requestPersistentStorage, restoreLatestSnapshot, saveImage } from '../db'
+import { db, defaultProfile, equipShopItem, equipTechnique, purchaseShopItem, requestPersistentStorage, restoreLatestSnapshot, saveImage } from '../db'
+import { CULTIVATION_TECHNIQUES, getTechniqueProgress } from '../domain/cultivation'
 import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamification'
 import type { ShopItem, ShopItemCategory, StoragePersistenceState } from '../types'
 import { downloadBackup, restoreBackup } from '../utils/backup'
@@ -31,6 +34,8 @@ interface ProfilePageProps {
   isStandalone: boolean
   isWechat: boolean
   onInstall: () => Promise<void>
+  onCheckUpdate: () => Promise<void>
+  appVersion: string
   notify: (message: string) => void
 }
 
@@ -43,7 +48,7 @@ const shopCategories: { id: ShopItemCategory; label: string }[] = [
   { id: 'companion', label: '灵体' }
 ]
 
-export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, notify }: ProfilePageProps) {
+export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onCheckUpdate, appVersion, notify }: ProfilePageProps) {
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
   const rewards = useLiveQuery(() => db.rewards.orderBy('earnedAt').reverse().limit(20).toArray(), [], [])
   const rewardCount = useLiveQuery(() => db.rewards.count(), [], 0)
@@ -78,6 +83,16 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
   async function chooseTitle(title: string) {
     await db.profiles.update('player', { selectedTitle: title })
     notify(`已佩戴称号：${title}`)
+  }
+
+  async function chooseTechnique(techniqueId: string) {
+    try {
+      const next = await equipTechnique(techniqueId)
+      const technique = CULTIVATION_TECHNIQUES.find((item) => item.id === next.activeTechniqueId)
+      notify(`已运转功法：${technique?.name}`)
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '功法装备失败')
+    }
   }
 
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
@@ -193,6 +208,24 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
         <div className="mini-stat"><span><strong>{profile.multipleSolutionReviews}</strong><small>多解完成</small></span></div>
       </section>
 
+      <section className="section-block technique-section">
+        <div className="section-heading"><div><p className="eyebrow"><ScrollText size={14} /> 功法阁</p><h2>选择本轮修炼加成</h2></div></div>
+        <div className="technique-list">
+          {CULTIVATION_TECHNIQUES.map((technique) => {
+            const unlocked = technique.unlocked(profile)
+            const active = profile.activeTechniqueId === technique.id
+            const progress = getTechniqueProgress(profile.techniqueMastery[technique.id] || 0)
+            return (
+              <button type="button" className={`technique-item ${active ? 'active' : ''} ${unlocked ? '' : 'locked'}`} disabled={!unlocked} onClick={() => chooseTechnique(technique.id)} key={technique.id}>
+                <span className="technique-seal">{unlocked ? progress.level : <LockKeyhole size={16} />}</span>
+                <span><strong>{technique.name}<small>{technique.school}</small></strong><p>{technique.description}</p><em>{unlocked ? `${technique.triggerLabel} · 熟练度 ${progress.mastery}${progress.nextLevelAt ? `/${progress.nextLevelAt}` : ' · 圆满'}` : technique.unlockLabel}</em></span>
+                <b>{active ? '运转中' : unlocked ? '装备' : '未解锁'}</b>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
       <section className="section-block avatar-section">
         <div className="section-heading">
           <div><p className="eyebrow"><ShoppingBag size={14} /> 个人形象与坊市</p><h2>做题赚灵石，装扮何耀焜</h2></div>
@@ -304,6 +337,11 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
           <div className="install-hint"><CloudOff size={20} /><p>iPhone 使用 Safari“分享 → 添加到主屏幕”；Android 使用浏览器菜单中的“安装应用”。</p></div>
         )}
         {storage && storage.quota > 0 && <div className="storage-note"><HardDrive size={15} />浏览器可用空间约 {formatBytes(storage.quota)}</div>}
+      </section>
+
+      <section className="section-block update-section">
+        <div className="section-title"><RefreshCw size={20} /><div><h2>版本与在线升级</h2><p>当前 v{appVersion} · 更新不会清除本机题库和记录</p></div></div>
+        <button type="button" className="button button-secondary button-full" onClick={onCheckUpdate}><RefreshCcw size={17} />检查新版本</button>
       </section>
 
       <p className="privacy-note">记录会持续保存在当前浏览器的 IndexedDB。清除站点数据、无痕模式或更换浏览器仍会丢失本机副本，因此外部备份是最终保险。</p>

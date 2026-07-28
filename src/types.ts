@@ -63,6 +63,10 @@ export interface ReviewLog {
   coinsEarned?: number
   selectedOptionIds?: string[]
   isCorrect?: boolean
+  techniqueId?: string
+  techniqueXpBonus?: number
+  techniqueCoinBonus?: number
+  techniqueMasteryGained?: number
 }
 
 export interface RewardCard {
@@ -94,6 +98,10 @@ export interface PlayerProfile {
   equippedWeaponId: string
   equippedAccessoryId: string
   activeCompanionId: string
+  activeTechniqueId: string
+  techniqueMastery: Record<string, number>
+  storyChoices: Record<string, string>
+  characterBonds: Record<string, number>
   avatarImageId?: string
 }
 

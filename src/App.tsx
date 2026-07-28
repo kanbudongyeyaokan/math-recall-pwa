@@ -31,6 +31,7 @@ export default function App() {
   const [showWechatNotice, setShowWechatNotice] = useState(/MicroMessenger/i.test(navigator.userAgent))
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateSW, setUpdateSW] = useState<((reloadPage?: boolean) => Promise<void>)>()
+  const [updateRegistration, setUpdateRegistration] = useState<ServiceWorkerRegistration>()
   const [showInstallGuide, setShowInstallGuide] = useState(false)
   const isWechat = /MicroMessenger/i.test(navigator.userAgent)
 
@@ -58,6 +59,7 @@ export default function App() {
       onRegisteredSW: (_url, nextRegistration) => {
         if (!nextRegistration) return
         registration = nextRegistration
+        setUpdateRegistration(nextRegistration)
         checkForUpdate()
       }
     })
@@ -135,6 +137,23 @@ export default function App() {
     setShowInstallGuide(false)
   }
 
+  async function checkForAppUpdate() {
+    if (!online) {
+      setToast('当前处于离线状态，联网后再检查更新')
+      return
+    }
+    if (!updateRegistration) {
+      setToast('更新服务正在初始化，请稍后再试')
+      return
+    }
+    try {
+      await updateRegistration.update()
+      setToast('检查完成；如有新版本会自动升级，题库和记录保持不变')
+    } catch {
+      setToast('检查更新失败，请确认网络后重试')
+    }
+  }
+
   if (fatalError) {
     return <main className="boot-state"><h1>无法打开本地题库</h1><p>{fatalError}</p><button className="button button-primary" onClick={() => location.reload()}>重新加载</button></main>
   }
@@ -166,7 +185,7 @@ export default function App() {
       {screen === 'review' && <ReviewPage requestedId={reviewId} selection={practiceSelection} onBack={() => navigate(practiceSelection ? 'practice' : 'library')} onComplete={() => navigate('practice')} />}
       {screen === 'library' && <LibraryPage onAdd={() => navigate('form')} onEdit={openEdit} onReview={openReview} notify={setToast} />}
       {screen === 'form' && <ProblemFormPage editId={editId} onBack={() => navigate(editId ? 'library' : 'home')} onSaved={(message) => { setToast(message); navigate('library') }} />}
-      {screen === 'profile' && <ProfilePage canInstall={!!installPrompt} isStandalone={isStandalone} isWechat={isWechat} onInstall={installApp} notify={setToast} />}
+      {screen === 'profile' && <ProfilePage canInstall={!!installPrompt} isStandalone={isStandalone} isWechat={isWechat} onInstall={installApp} onCheckUpdate={checkForAppUpdate} appVersion={__APP_VERSION__} notify={setToast} />}
       <BottomNav active={screen} onNavigate={navigate} />
       {showInstallGuide && <InstallGuide canInstall={!!installPrompt} isWechat={isWechat} onInstall={installApp} onClose={() => setShowInstallGuide(false)} />}
       {toast && (

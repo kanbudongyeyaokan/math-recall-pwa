@@ -72,7 +72,7 @@ export async function createBackup(): Promise<BackupPayload> {
   return {
     format: BACKUP_FORMAT,
     exportedAt: new Date().toISOString(),
-    appVersion: '0.5.0',
+    appVersion: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.6.0',
     data: { problems, images: serializedImages, reviews, rewards, profiles, settings }
   }
 }

@@ -1,6 +1,7 @@
-import { Coins, Crown, Layers3, Sparkles, X, Zap } from 'lucide-react'
+import { Coins, Crown, Layers3, ScrollText, Sparkles, X, Zap } from 'lucide-react'
 import type { PlayerProfile, RewardCard } from '../types'
 import type { RealmProgress } from '../domain/gamification'
+import type { TechniqueResolution } from '../domain/cultivation'
 import { CultivatorScene } from './CultivatorScene'
 
 interface RewardRevealProps {
@@ -13,6 +14,7 @@ interface RewardRevealProps {
   coinsEarned: number
   encouragement: string
   profile: PlayerProfile
+  technique: TechniqueResolution
   continueLabel?: string
   onClose: () => void
 }
@@ -24,7 +26,7 @@ const rarityLabel = {
   legendary: '传奇'
 }
 
-export function RewardReveal({ card, xp, intervalDays, advanced, realmBreakthrough, nextRealm, coinsEarned, encouragement, profile, continueLabel = '收下卡片，继续', onClose }: RewardRevealProps) {
+export function RewardReveal({ card, xp, intervalDays, advanced, realmBreakthrough, nextRealm, coinsEarned, encouragement, profile, technique, continueLabel = '收下卡片，继续', onClose }: RewardRevealProps) {
   return (
     <div className={`reward-backdrop ${realmBreakthrough ? 'is-breakthrough' : advanced ? 'is-advanced' : ''}`} role="dialog" aria-modal="true" aria-label="做题奖励">
       <div className="reward-rays" aria-hidden="true" />
@@ -48,6 +50,18 @@ export function RewardReveal({ card, xp, intervalDays, advanced, realmBreakthrou
         <h2>{card.name}</h2>
         <p>{card.description}</p>
         <p className="personal-encouragement">{encouragement}</p>
+        <div className={`technique-result ${technique.triggered ? 'triggered' : ''}`}>
+          <ScrollText size={19} />
+          <span><small>{technique.triggered ? '功法触发' : '本题未触发'}</small><strong>{technique.technique.name}</strong></span>
+          <b>{technique.triggered ? `熟练度 +${technique.masteryGained}` : technique.technique.triggerLabel}</b>
+        </div>
+        {technique.triggered && (
+          <div className="technique-bonuses">
+            <span>额外经验 +{technique.xpBonus}</span>
+            <span>额外灵石 +{technique.coinBonus}</span>
+            {technique.nextLevel > technique.previousLevel && <strong>功法升至 {technique.nextLevel} 重</strong>}
+          </div>
+        )}
         <div className="reward-stats">
           <span><strong>+{xp}</strong> 斗气经验</span>
           <span><strong><Coins size={15} />+{coinsEarned}</strong> 灵石</span>

@@ -11,6 +11,7 @@ import {
   Lightbulb,
   ListChecks,
   Route,
+  ScrollText,
   ShieldAlert
 } from 'lucide-react'
 import { CultivatorScene } from '../components/CultivatorScene'
@@ -28,6 +29,7 @@ import {
   type PracticeSelection
 } from '../domain/curriculum'
 import type { RealmProgress } from '../domain/gamification'
+import { getTechnique, type TechniqueResolution } from '../domain/cultivation'
 import { isChoiceAnswerCorrect } from '../domain/questions'
 import type { PlayerProfile, ReviewRating, RewardCard } from '../types'
 
@@ -78,6 +80,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     coinsEarned: number
     encouragement: string
     profile: PlayerProfile
+    technique: TechniqueResolution
   }>()
 
   const problem = queue?.[queueIndex]
@@ -130,7 +133,8 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         nextRealm: result.advance.next,
         coinsEarned: result.coinsEarned,
         encouragement: result.encouragement,
-        profile: result.profile
+        profile: result.profile,
+        technique: result.technique
       })
     } finally {
       setSaving(false)
@@ -176,6 +180,8 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       <div className="session-progress" role="progressbar" aria-label="本次做题进度" aria-valuemin={0} aria-valuemax={queue.length} aria-valuenow={queueIndex + 1}>
         <span style={{ width: `${((queueIndex + 1) / queue.length) * 100}%` }} />
       </div>
+
+      <div className="active-technique-strip"><ScrollText size={16} /><span>运转功法</span><strong>{getTechnique(profile.activeTechniqueId).name}</strong><small>{getTechnique(profile.activeTechniqueId).triggerLabel}</small></div>
 
       <article className="review-card">
         <div className="review-meta">

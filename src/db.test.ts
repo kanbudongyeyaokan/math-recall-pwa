@@ -37,6 +37,9 @@ describe('旧数据迁移归一化', () => {
     expect(migrated.equippedWeaponId).toBe('weapon-scroll')
     expect(migrated.equippedAccessoryId).toBe('accessory-none')
     expect(migrated.activeCompanionId).toBe('companion-none')
+    expect(migrated.activeTechniqueId).toBe('definition-heart')
+    expect(migrated.techniqueMastery).toEqual({})
+    expect(migrated.storyChoices).toEqual({})
   })
 
   it('真实打开 v1 数据库时执行 v2 升级并保留已删种子', async () => {

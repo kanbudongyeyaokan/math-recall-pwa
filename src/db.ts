@@ -10,6 +10,8 @@ import {
   SHOP_ITEMS
 } from './domain/gamification'
 import { getReviewOutcome } from './domain/scheduler'
+import { CULTIVATION_TECHNIQUES, resolveTechnique } from './domain/cultivation'
+import { STORY_ENCOUNTERS } from './domain/encounters'
 import type {
   AppSetting,
   ImageAsset,
@@ -46,7 +48,11 @@ export const defaultProfile: PlayerProfile = {
   equippedAuraId: 'aura-none',
   equippedWeaponId: 'weapon-scroll',
   equippedAccessoryId: 'accessory-none',
-  activeCompanionId: 'companion-none'
+  activeCompanionId: 'companion-none',
+  activeTechniqueId: 'definition-heart',
+  techniqueMastery: {},
+  storyChoices: {},
+  characterBonds: {}
 }
 
 export function normalizeProblemRecord(problem: Problem): Problem {
@@ -83,7 +89,11 @@ export function normalizeProfileRecord(profile?: PlayerProfile): PlayerProfile {
     equippedAuraId: profile?.equippedAuraId || defaultProfile.equippedAuraId,
     equippedWeaponId: profile?.equippedWeaponId || defaultProfile.equippedWeaponId,
     equippedAccessoryId: profile?.equippedAccessoryId || defaultProfile.equippedAccessoryId,
-    activeCompanionId: profile?.activeCompanionId || defaultProfile.activeCompanionId
+    activeCompanionId: profile?.activeCompanionId || defaultProfile.activeCompanionId,
+    activeTechniqueId: profile?.activeTechniqueId || defaultProfile.activeTechniqueId,
+    techniqueMastery: profile?.techniqueMastery && typeof profile.techniqueMastery === 'object' ? profile.techniqueMastery : {},
+    storyChoices: profile?.storyChoices && typeof profile.storyChoices === 'object' ? profile.storyChoices : {},
+    characterBonds: profile?.characterBonds && typeof profile.characterBonds === 'object' ? profile.characterBonds : {}
   }
 }
 
@@ -154,6 +164,19 @@ export class MathRecallDatabase extends Dexie {
       problems: 'id, kind, questionFormat, nextReviewAt, updatedAt, source, *tags',
       images: 'id, createdAt',
       reviews: '++id, problemId, reviewedAt, isCorrect',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    }).upgrade(async (transaction) => {
+      const profiles = transaction.table<PlayerProfile>('profiles')
+      const profile = await profiles.get('player')
+      if (profile) await profiles.put(normalizeProfileRecord(profile))
+    })
+    this.version(5).stores({
+      problems: 'id, kind, questionFormat, nextReviewAt, updatedAt, source, *tags',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
       rewards: 'id, problemId, earnedAt, rarity',
       profiles: 'id',
       settings: 'key, updatedAt',
@@ -261,18 +284,36 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
     const alreadyRewardedToday = previousReviews.some((review) => (
       (review.coinsEarned || 0) > 0 && getTodayKey(new Date(review.reviewedAt)) === getTodayKey(new Date(now))
     ))
-    const outcome = getReviewOutcome(problem.intervalIndex, rating, now)
+    const baseOutcome = getReviewOutcome(problem.intervalIndex, rating, now)
     const reward = createRewardCard(problemId, rating, now)
     const currentProfile = normalizeProfileRecord(await db.profiles.get('player'))
-    const coinsEarned = calculateCoinReward(rating, answerMeta.isCorrect, alreadyRewardedToday)
+    const resolvedTechnique = resolveTechnique(currentProfile, problem, rating, answerMeta.isCorrect)
+    const technique = alreadyRewardedToday ? {
+      ...resolvedTechnique,
+      triggered: false,
+      xpBonus: 0,
+      coinBonus: 0,
+      masteryGained: 0,
+      nextMastery: resolvedTechnique.previousMastery,
+      nextLevel: resolvedTechnique.previousLevel
+    } : resolvedTechnique
+    const outcome = { ...baseOutcome, xp: baseOutcome.xp + technique.xpBonus }
+    const coinsEarned = calculateCoinReward(rating, answerMeta.isCorrect, alreadyRewardedToday) + technique.coinBonus
     const encouragement = getEncouragement(currentProfile.name, rating, answerMeta.isCorrect, now)
     const advance = getRealmAdvance(currentProfile.xp, currentProfile.xp + outcome.xp)
-    const nextProfile = applyStudyToProfile(currentProfile, outcome.xp, new Date(now), {
+    const studiedProfile = applyStudyToProfile(currentProfile, outcome.xp, new Date(now), {
       rating,
       isCorrect: answerMeta.isCorrect,
       realmBreakthrough: advance.realmBreakthrough,
       coinsEarned
     })
+    const nextProfile: PlayerProfile = {
+      ...studiedProfile,
+      techniqueMastery: {
+        ...studiedProfile.techniqueMastery,
+        [technique.technique.id]: technique.nextMastery
+      }
+    }
 
     await db.problems.update(problemId, {
       nextReviewAt: outcome.nextReviewAt,
@@ -289,15 +330,54 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
       xpEarned: outcome.xp,
       coinsEarned,
       selectedOptionIds: answerMeta.selectedOptionIds,
-      isCorrect: answerMeta.isCorrect
+      isCorrect: answerMeta.isCorrect,
+      techniqueId: technique.technique.id,
+      techniqueXpBonus: technique.xpBonus,
+      techniqueCoinBonus: technique.coinBonus,
+      techniqueMasteryGained: technique.masteryGained
     })
     await db.rewards.add(reward)
     await db.profiles.put(nextProfile)
 
-    return { outcome, reward, profile: nextProfile, advance, coinsEarned, encouragement }
+    return { outcome, reward, profile: nextProfile, advance, coinsEarned, encouragement, technique }
   })
   await createRecoverySnapshot('完成做题')
   return result
+}
+
+export async function equipTechnique(techniqueId: string) {
+  return db.transaction('rw', db.profiles, async () => {
+    const profile = normalizeProfileRecord(await db.profiles.get('player'))
+    const technique = CULTIVATION_TECHNIQUES.find((candidate) => candidate.id === techniqueId)
+    if (!technique) throw new Error('功法不存在')
+    if (!technique.unlocked(profile)) throw new Error(`尚未解锁：${technique.unlockLabel}`)
+    const next = { ...profile, activeTechniqueId: technique.id }
+    await db.profiles.put(next)
+    return next
+  })
+}
+
+export async function chooseStoryEncounter(encounterId: string, choiceId: string) {
+  return db.transaction('rw', db.profiles, async () => {
+    const profile = normalizeProfileRecord(await db.profiles.get('player'))
+    const encounter = STORY_ENCOUNTERS.find((candidate) => candidate.id === encounterId)
+    const selected = encounter?.choices.find((candidate) => candidate.id === choiceId)
+    if (!encounter || !selected) throw new Error('剧情选择不存在')
+    if (profile.totalReviews < encounter.threshold) throw new Error('这段剧情尚未解锁')
+    if (profile.storyChoices[encounter.id]) return profile
+    const next: PlayerProfile = {
+      ...profile,
+      coins: profile.coins + selected.coinReward,
+      lifetimeCoins: profile.lifetimeCoins + selected.coinReward,
+      storyChoices: { ...profile.storyChoices, [encounter.id]: selected.id },
+      characterBonds: {
+        ...profile.characterBonds,
+        [selected.bondTargetId]: (profile.characterBonds[selected.bondTargetId] || 0) + selected.bondGain
+      }
+    }
+    await db.profiles.put(next)
+    return next
+  })
 }
 
 export async function purchaseShopItem(itemId: string) {

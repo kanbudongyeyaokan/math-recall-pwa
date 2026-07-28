@@ -1,4 +1,4 @@
-import { House, Library, Plus, Sigma, Trophy } from 'lucide-react'
+import { House, Library, Plus, Sigma, TentTree } from 'lucide-react'
 
 export type Screen = 'home' | 'practice' | 'review' | 'library' | 'form' | 'profile'
 
@@ -12,7 +12,7 @@ const items = [
   { id: 'practice' as const, label: '做题', Icon: Sigma },
   { id: 'form' as const, label: '新增', Icon: Plus, prominent: true },
   { id: 'library' as const, label: '题库', Icon: Library },
-  { id: 'profile' as const, label: '战绩', Icon: Trophy }
+  { id: 'profile' as const, label: '洞府', Icon: TentTree }
 ]
 
 export function BottomNav({ active, onNavigate }: BottomNavProps) {

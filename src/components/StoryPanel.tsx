@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronRight, HeartHandshake, LockKeyhole, MapPin, MessageCircle, Swords, UsersRound } from 'lucide-react'
-import { db } from '../db'
+import { ChevronRight, Coins, HeartHandshake, LockKeyhole, MapPin, MessageCircle, Swords, UsersRound } from 'lucide-react'
+import { chooseStoryEncounter, db } from '../db'
+import { getBondStatus, getPendingEncounter } from '../domain/encounters'
 import {
   getCharacter,
   getRomanceRouteStatus,
@@ -31,14 +32,24 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
   const routeSetting = useLiveQuery(() => db.settings.get(routeSettingKey))
   const [lineIndex, setLineIndex] = useState(0)
   const [showRoster, setShowRoster] = useState(false)
+  const [encounterReply, setEncounterReply] = useState<{ title: string; reply: string; bondTargetId: string; bondGain: number; coinReward: number }>()
   const currentCharacter = getCharacter(progress.current.portraitId)
   const activeRouteId = routeSetting?.value as RomanceRouteId | undefined
   const activeRoute = ROMANCE_ROUTES.find((route) => route.id === activeRouteId)
+  const pendingEncounter = getPendingEncounter(profile)
 
   useEffect(() => setLineIndex(0), [progress.current.id])
 
   async function chooseRoute(routeId: RomanceRouteId) {
     await db.settings.put({ key: routeSettingKey, value: routeId, updatedAt: Date.now() })
+  }
+
+  async function chooseEncounter(choiceId: string) {
+    if (!pendingEncounter) return
+    const selected = pendingEncounter.choices.find((choice) => choice.id === choiceId)
+    if (!selected) return
+    await chooseStoryEncounter(pendingEncounter.id, selected.id)
+    setEncounterReply({ title: pendingEncounter.title, reply: selected.reply, bondTargetId: selected.bondTargetId, bondGain: selected.bondGain, coinReward: selected.coinReward })
   }
 
   const hasNextLine = lineIndex < progress.current.dialogue.length - 1
@@ -75,6 +86,18 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
       </div>
       {progress.next && <small className="story-next">再完成 {progress.remaining} 道题，解锁「{progress.next.title}」</small>}
 
+      {encounterReply ? (
+        <div className="encounter-result">
+          <MessageCircle size={18} /><div><strong>{encounterReply.title}</strong><p>{encounterReply.reply}</p><small><HeartHandshake size={14} /> 羁绊 +{encounterReply.bondGain} <Coins size={14} /> 灵石 +{encounterReply.coinReward}</small></div>
+          <button type="button" onClick={() => setEncounterReply(undefined)} aria-label="收下剧情奖励"><ChevronRight size={18} /></button>
+        </div>
+      ) : pendingEncounter && (
+        <div className="story-encounter">
+          <span>命运抉择</span><strong>{pendingEncounter.title}</strong><p>{pendingEncounter.prompt}</p>
+          <div>{pendingEncounter.choices.map((choice) => <button type="button" onClick={() => chooseEncounter(choice.id)} key={choice.id}>{choice.label}</button>)}</div>
+        </div>
+      )}
+
       <div className="story-secondary-actions">
         <button type="button" onClick={() => setShowRoster((value) => !value)} aria-expanded={showRoster}>
           <UsersRound size={16} />人物志 · {STORY_CHARACTERS.filter((character) => profile.totalReviews >= character.unlockAt).length}/{STORY_CHARACTERS.length}
@@ -95,6 +118,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
                 <strong>{unlocked ? character.name : `${character.unlockAt} 题解锁`}</strong>
                 <small>{unlocked ? character.title : '尚未相遇'}</small>
                 {unlocked && <p>{character.summary}</p>}
+                {unlocked && (profile.characterBonds[character.id] || 0) > 0 && <em>{getBondStatus(profile.characterBonds[character.id])} · {profile.characterBonds[character.id]} 羁绊</em>}
               </div>
             )
           })}

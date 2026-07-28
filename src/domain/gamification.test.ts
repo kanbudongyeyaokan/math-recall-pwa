@@ -21,7 +21,11 @@ const profile: PlayerProfile = {
   equippedAuraId: 'aura-none',
   equippedWeaponId: 'weapon-scroll',
   equippedAccessoryId: 'accessory-none',
-  activeCompanionId: 'companion-none'
+  activeCompanionId: 'companion-none',
+  activeTechniqueId: 'definition-heart',
+  techniqueMastery: {},
+  storyChoices: {},
+  characterBonds: {}
 }
 
 describe('斗气境界与奖励进度', () => {
