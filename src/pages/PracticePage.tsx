@@ -23,6 +23,11 @@ const roles: PracticeRole[] = ['all', 'concept', 'example', 'choice', 'exercise'
 
 export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: PracticePageProps) {
   const problems = useLiveQuery(() => db.problems.filter((problem) => !problem.archived).toArray(), [], [])
+  const privateCount = useLiveQuery(
+    () => db.problems.filter((problem) => problem.source.includes('张宇基础30讲')).count(),
+    [],
+    0
+  )
   const [lectureId, setLectureId] = useState('lecture-01')
   const [role, setRole] = useState<PracticeRole>('all')
   const [sectionId, setSectionId] = useState<string>()
@@ -37,7 +42,6 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
     lecture.id,
     classified.filter((item) => item.lectureIds.includes(lecture.id)).length
   ])), [classified])
-  const privateCount = problems.filter((problem) => problem.source.includes('张宇基础30讲')).length
   const selectedProblems = problems.filter((problem) => matchesPracticeSelection(problem, {
     lectureId,
     sectionId,
@@ -77,11 +81,14 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
         <span><Sigma size={22} /><strong>18</strong> 讲</span>
       </header>
 
-      {privateCount === 0 && (
+      {privateCount < 1000 && (
         <section className="private-bank-callout">
           <FileUp size={21} />
-          <div><strong>私人《基础30讲》题包尚未导入此浏览器</strong><p>已整理的 300 张双解卡不会公开进 GitHub。导入后会自动落到下面 18 讲中。</p></div>
-          <button type="button" onClick={onOpenProfile}>去导入</button>
+          <div>
+            <strong>{privateCount === 0 ? '私人《基础30讲》千题包尚未导入' : `千题包可增量升级 · 当前 ${privateCount}/1000`}</strong>
+            <p>{privateCount === 0 ? '1000 张双解题卡只保存在你的私人文件中，导入后会自动归入下面 18 讲。' : '导入时保持“导入前清空本机数据”关闭，只补齐缺失题目，已有做题记录、金币与人物羁绊不会被覆盖。'}</p>
+          </div>
+          <button type="button" onClick={onOpenProfile}>{privateCount === 0 ? '去导入' : '升级题库'}</button>
         </section>
       )}
 

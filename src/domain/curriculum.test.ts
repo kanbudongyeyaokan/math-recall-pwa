@@ -32,6 +32,14 @@ describe('高数18讲做题分类', () => {
     expect(getProblemLectureIds(problem())).toContain('lecture-06')
   })
 
+  it('明确讲次标签优先于共享大类名称，避免相邻讲次重复计数', () => {
+    expect(getProblemLectureIds(problem({
+      title: '导数与微分经典例题',
+      page: '99-118',
+      tags: ['高等数学', '导数与微分', '第3讲']
+    }))).toEqual(['lecture-03'])
+  })
+
   it('识别经典例题并支持讲内板块筛选', () => {
     const item = problem()
     expect(getProblemRole(item)).toBe('example')

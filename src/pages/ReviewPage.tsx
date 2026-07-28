@@ -190,7 +190,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         </div>
         <h1>{problem.title}</h1>
         <div className="tag-list">
-          {problem.tags.map((tag) => <span className="tag" key={tag}>{tag}</span>)}
+          {[...new Set(problem.tags)].map((tag) => <span className="tag" key={tag}>{tag}</span>)}
         </div>
         {problem.questionImageId && (
           <DbImage

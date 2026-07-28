@@ -221,11 +221,19 @@ export function getProblemRole(problem: Problem): PracticeRole {
 
 export function getProblemLectureIds(problem: Problem) {
   const text = normalizedProblemText(problem)
+  const taggedLectureIds = problem.tags.flatMap((tag) => {
+    const match = tag.match(/^第\s*0?(\d{1,2})\s*讲$/)
+    if (!match) return []
+    const lecture = CALCULUS_LECTURES.find((item) => item.number === Number(match[1]))
+    return lecture ? [lecture.id] : []
+  })
+  if (taggedLectureIds.length) return [...new Set(taggedLectureIds)]
+
   const direct = CALCULUS_LECTURES.filter((lecture) => lecture.aliases.some((alias) => text.includes(alias.toLocaleLowerCase())))
   const pageRange = parsePageRange(problem.page)
   if (pageRange && (text.includes('高等数学') || text.includes('张宇基础30讲'))) {
     const pageMatches = CALCULUS_LECTURES.filter((lecture) => pageRange[0] <= lecture.printPages[1] && pageRange[1] >= lecture.printPages[0])
-    if (pageMatches.length) return [...new Set([...direct, ...pageMatches].map((lecture) => lecture.id))]
+    if (pageMatches.length) return pageMatches.map((lecture) => lecture.id)
   }
   if (direct.length === 1) return [direct[0].id]
   if (direct.length > 1) {

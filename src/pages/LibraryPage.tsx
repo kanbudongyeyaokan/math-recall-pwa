@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { BookOpen, CalendarClock, Edit3, FileQuestion, Filter, ListChecks, Plus, Search, Tags, Trash2 } from 'lucide-react'
+import { BookOpen, CalendarClock, ChevronDown, Edit3, FileQuestion, Filter, ListChecks, Plus, Search, Tags, Trash2 } from 'lucide-react'
 import { db, deleteProblem } from '../db'
 import type { ProblemKind, QuestionFormat } from '../types'
 import { DbImage } from '../components/DbImage'
@@ -14,6 +14,7 @@ interface LibraryPageProps {
 
 type KindFilter = 'all' | ProblemKind
 type FormatFilter = 'all' | QuestionFormat
+const PAGE_SIZE = 50
 
 export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProps) {
   const problems = useLiveQuery(() => db.problems.orderBy('updatedAt').reverse().toArray(), [], [])
@@ -21,6 +22,7 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
   const [tag, setTag] = useState('all')
   const [kind, setKind] = useState<KindFilter>('all')
   const [format, setFormat] = useState<FormatFilter>('all')
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   const tags = useMemo(() => Array.from(new Set(problems.flatMap((problem) => problem.tags))).sort(), [problems])
   const filtered = useMemo(() => {
@@ -43,6 +45,11 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
       ].join(' ').toLowerCase().includes(normalized)
     })
   }, [problems, query, tag, kind, format])
+  const visibleProblems = filtered.slice(0, visibleCount)
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [query, tag, kind, format])
 
   async function remove(problemId: string, title: string) {
     if (!window.confirm(`确定删除“${title}”吗？相关图片、做题记录和奖励卡也会一并删除。`)) return
@@ -100,7 +107,7 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
       </div>
 
       <section className="problem-list">
-        {filtered.map((problem) => {
+        {visibleProblems.map((problem) => {
           const isDue = problem.nextReviewAt <= Date.now()
           return (
             <article className="library-card" key={problem.id}>
@@ -116,7 +123,7 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
                 <h2>{problem.title}</h2>
                 <p>{problem.statement || problem.coreMethod || '图片题卡'}</p>
                 <div className="tag-list compact">
-                  {problem.tags.slice(0, 3).map((item) => <span className="tag" key={item}>{item}</span>)}
+                  {[...new Set(problem.tags)].slice(0, 3).map((item) => <span className="tag" key={item}>{item}</span>)}
                 </div>
                 <div className="card-actions">
                   <button type="button" className="text-button primary-text" onClick={() => onReview(problem.id)}><BookOpen size={16} />做题</button>
@@ -128,6 +135,12 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
           )
         })}
       </section>
+
+      {visibleProblems.length < filtered.length && (
+        <button type="button" className="button button-secondary button-full library-load-more" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
+          <ChevronDown size={18} />继续加载 · 已显示 {visibleProblems.length}/{filtered.length}
+        </button>
+      )}
 
       {!filtered.length && (
         <section className="empty-state">

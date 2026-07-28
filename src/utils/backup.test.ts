@@ -85,4 +85,48 @@ describe('备份格式校验', () => {
     expect(await db.problems.get('same-id')).toMatchObject({ reviewCount: 7, intervalIndex: 2, nextReviewAt: 99 })
     expect(await db.profiles.get('player')).toMatchObject({ xp: 320, coins: 45 })
   })
+
+  it('从300题增量升级到1000题可重复导入且不覆盖个人战绩', async () => {
+    const existingProblems = Array.from({ length: 300 }, (_, index) => problem(`zy30-${String(index + 1).padStart(3, '0')}`, index === 0 ? 12 : 0))
+    const packageProblems = Array.from({ length: 1000 }, (_, index) => problem(`zy30-${String(index + 1).padStart(3, '0')}`, 0))
+    const localProfile = {
+      ...defaultProfile,
+      xp: 8860,
+      coins: 520,
+      totalReviews: 88,
+      storyChoices: { 'act-1': 'stand-ground' },
+      characterBonds: { 'chen-yanjun': 37, 'he-xinping': 12, 'zhong-shanyan': 12 }
+    }
+    await db.problems.bulkPut(existingProblems)
+    await db.profiles.put(localProfile)
+    await db.reviews.add({ problemId: 'zy30-001', rating: 'independent', reviewedAt: 10, nextReviewAt: 20, intervalIndex: 2, xpEarned: 18, coinsEarned: 4 })
+    await db.rewards.put({ id: 'reward-local', problemId: 'zy30-001', name: '本机奖励', description: '不可被题包覆盖', rarity: 'epic', earnedAt: 10 })
+
+    const payload = {
+      format: BACKUP_FORMAT,
+      exportedAt: new Date().toISOString(),
+      appVersion: '0.8.0',
+      data: {
+        problems: packageProblems,
+        images: [],
+        reviews: [],
+        rewards: [],
+        profiles: [defaultProfile],
+        settings: [{ key: 'zy30-private-manifest', value: { cards: 1000 }, updatedAt: 1 }]
+      }
+    }
+    const makeFile = () => new File([JSON.stringify(payload)], '千题包.json', { type: 'application/json' }) as unknown as globalThis.File
+
+    const firstImport = await restoreBackup(makeFile(), false)
+    const secondImport = await restoreBackup(makeFile(), false)
+
+    expect(firstImport).toEqual({ problems: 700, images: 0, preservedProblems: 300 })
+    expect(secondImport).toEqual({ problems: 0, images: 0, preservedProblems: 1000 })
+    expect(await db.problems.count()).toBe(1000)
+    expect(await db.problems.get('zy30-001')).toMatchObject({ reviewCount: 12, intervalIndex: 2, nextReviewAt: 99 })
+    expect(await db.profiles.get('player')).toMatchObject(localProfile)
+    expect(await db.reviews.count()).toBe(1)
+    expect(await db.rewards.get('reward-local')).toBeTruthy()
+    expect(await db.settings.get('zy30-private-manifest')).toMatchObject({ value: { cards: 1000 } })
+  })
 })
