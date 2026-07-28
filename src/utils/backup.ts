@@ -99,25 +99,58 @@ export async function restoreBackup(file: File, replaceExisting: boolean) {
   })))
   const problems = parsed.data.problems.map(normalizeProblemRecord)
   const profiles = parsed.data.profiles.map(normalizeProfileRecord)
+  let importedProblems = problems.length
+  let importedImages = images.length
+  let preservedProblems = 0
 
   await db.transaction('rw', [db.problems, db.images, db.reviews, db.rewards, db.profiles, db.settings], async () => {
     if (replaceExisting) {
       await Promise.all([
         db.problems.clear(), db.images.clear(), db.reviews.clear(), db.rewards.clear(), db.profiles.clear(), db.settings.clear()
       ])
+      await db.problems.bulkPut(problems)
+      await db.images.bulkPut(images)
+      await db.reviews.bulkPut(parsed.data.reviews)
+      await db.rewards.bulkPut(parsed.data.rewards)
+      if (profiles.length) await db.profiles.bulkPut(profiles)
+      else await db.profiles.put(defaultProfile)
+      if (parsed.data.settings?.length) await db.settings.bulkPut(parsed.data.settings)
+      return
     }
-    await db.problems.bulkPut(problems)
-    await db.images.bulkPut(images)
-    await db.reviews.bulkPut(parsed.data.reviews)
-    await db.rewards.bulkPut(parsed.data.rewards)
-    if (profiles.length) {
-      await db.profiles.bulkPut(profiles)
-    } else if (replaceExisting || !(await db.profiles.get('player'))) {
-      await db.profiles.put(defaultProfile)
-    }
-    if (parsed.data.settings?.length) await db.settings.bulkPut(parsed.data.settings)
+
+    const [problemIds, imageIds, reviewIds, rewardIds, profileIds, settingKeys] = await Promise.all([
+      db.problems.toCollection().primaryKeys(),
+      db.images.toCollection().primaryKeys(),
+      db.reviews.toCollection().primaryKeys(),
+      db.rewards.toCollection().primaryKeys(),
+      db.profiles.toCollection().primaryKeys(),
+      db.settings.toCollection().primaryKeys()
+    ])
+    const existingProblemIds = new Set(problemIds)
+    const existingImageIds = new Set(imageIds)
+    const existingReviewIds = new Set(reviewIds)
+    const existingRewardIds = new Set(rewardIds)
+    const existingProfileIds = new Set(profileIds)
+    const existingSettingKeys = new Set(settingKeys)
+    const newProblems = problems.filter((problem) => !existingProblemIds.has(problem.id))
+    const newImages = images.filter((image) => !existingImageIds.has(image.id))
+    const newReviews = parsed.data.reviews.filter((review) => review.id === undefined || !existingReviewIds.has(review.id))
+    const newRewards = parsed.data.rewards.filter((reward) => !existingRewardIds.has(reward.id))
+    const newProfiles = profiles.filter((profile) => !existingProfileIds.has(profile.id))
+    const newSettings = (parsed.data.settings || []).filter((setting) => !existingSettingKeys.has(setting.key))
+
+    importedProblems = newProblems.length
+    importedImages = newImages.length
+    preservedProblems = problems.length - newProblems.length
+    if (newProblems.length) await db.problems.bulkPut(newProblems)
+    if (newImages.length) await db.images.bulkPut(newImages)
+    if (newReviews.length) await db.reviews.bulkPut(newReviews)
+    if (newRewards.length) await db.rewards.bulkPut(newRewards)
+    if (newProfiles.length) await db.profiles.bulkPut(newProfiles)
+    else if (!(await db.profiles.get('player'))) await db.profiles.put(defaultProfile)
+    if (newSettings.length) await db.settings.bulkPut(newSettings)
   })
 
   await createRecoverySnapshot('导入备份')
-  return { problems: problems.length, images: images.length }
+  return { problems: importedProblems, images: importedImages, preservedProblems }
 }

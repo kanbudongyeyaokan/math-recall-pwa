@@ -139,7 +139,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, not
     setBusy(true)
     try {
       const result = await restoreBackup(file, replaceExisting)
-      notify(`恢复完成：${result.problems} 张题卡、${result.images} 张图片`)
+      notify(`恢复完成：新增 ${result.problems} 张题卡、${result.images} 张图片${result.preservedProblems ? `，保留已有 ${result.preservedProblems} 张题卡` : ''}`)
     } catch (error) {
       notify(error instanceof Error ? error.message : '导入失败，请检查备份文件')
     } finally {
