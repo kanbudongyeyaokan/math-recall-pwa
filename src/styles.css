@@ -636,11 +636,14 @@ h1, h2, h3, p { margin-top: 0; }
 .mission-strip small { margin-top: 2px; color: #727a76; font-size: .54rem; line-height: 1.25; }
 
 .story-panel { margin: 16px 0; padding: 18px; color: #e9edeb; background: #1c2220; border: 1px solid #39423f; border-left: 4px solid #c2473f; border-radius: 8px; }
-.story-memory { border-left-color: #e0b552; }
+.story-family { border-left-color: #e0b552; }
 .story-mentor { border-left-color: #54b8aa; }
 .story-rival { border-left-color: #ca4039; }
-.story-ally { border-left-color: #609bc0; }
-.story-encounter { border-left-color: #b97798; }
+.story-friend { border-left-color: #609bc0; }
+.story-classmate { border-left-color: #7aa970; }
+.story-romance { border-left-color: #c87491; }
+.story-stranger { border-left-color: #a58b68; }
+.story-protagonist { border-left-color: #e0b552; }
 .story-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .story-heading > div { min-width: 0; }
 .story-act { display: inline-flex; align-items: center; gap: 5px; color: #e0b552; font-size: .62rem; font-weight: 900; }
@@ -669,6 +672,37 @@ h1, h2, h3, p { margin-top: 0; }
 .story-progress { height: 5px; overflow: hidden; margin-top: 12px; background: #3a423f; border-radius: 999px; }
 .story-progress span { display: block; height: 100%; background: linear-gradient(90deg, #a82f2c, #e0b552); }
 .story-next { display: block; margin-top: 7px; color: #77837e; font-size: .57rem; }
+.story-portrait img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center 18%; transform: scale(1.04); transition: transform .3s ease; }
+.story-panel:hover .story-portrait img { transform: scale(1.09); }
+.story-secondary-actions { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 13px; padding-top: 11px; border-top: 1px solid #303936; }
+.story-secondary-actions button, .story-secondary-actions span { display: inline-flex; align-items: center; gap: 6px; color: #b8c2bd; font-size: .61rem; font-weight: 800; }
+.story-secondary-actions button { min-height: 34px; padding: 6px 8px; background: #252d2a; border: 1px solid #414c47; border-radius: 6px; }
+.story-secondary-actions span { color: #dda6b7; }
+.story-roster { display: flex; gap: 12px; overflow-x: auto; margin: 13px -18px 0; padding: 3px 18px 11px; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+.roster-person { width: 112px; flex: 0 0 112px; scroll-snap-align: start; }
+.roster-portrait { position: relative; width: 80px; aspect-ratio: 4 / 5; overflow: hidden; margin-bottom: 7px; background: #2d3532; border: 1px solid #515e58; border-radius: 6px; }
+.roster-portrait img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center 18%; }
+.roster-person > strong, .roster-person > small { display: block; }
+.roster-person > strong { overflow: hidden; color: #f1f3f2; font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+.roster-person > small { margin-top: 2px; color: #89958f; font-size: .52rem; }
+.roster-person > p { display: -webkit-box; overflow: hidden; margin: 6px 0 0; color: #aeb8b3; font-size: .54rem; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.roster-person.locked .roster-portrait img { opacity: .32; filter: grayscale(1) blur(2px); }
+.roster-person.locked .roster-portrait svg { position: absolute; inset: 0; margin: auto; color: #d4dad7; }
+.romance-routes { margin-top: 13px; padding-top: 13px; border-top: 1px solid #303936; }
+.romance-route-heading { display: flex; align-items: center; gap: 6px; color: #dda6b7; }
+.romance-route-heading strong { font-size: .68rem; }
+.romance-route-heading small { margin-left: auto; color: #7f8c86; font-size: .52rem; }
+.romance-route-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 9px; }
+.romance-route { position: relative; min-width: 0; min-height: 55px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 6px; padding: 5px; text-align: left; color: #dfe4e1; background: #252c2a; border: 1px solid #3a4540; border-radius: 6px; }
+.romance-route img { width: 34px; height: 42px; display: block; object-fit: cover; object-position: center 18%; border-radius: 4px; }
+.romance-route span, .romance-route strong, .romance-route small { min-width: 0; display: block; }
+.romance-route strong, .romance-route small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.romance-route strong { font-size: .57rem; }.romance-route small { margin-top: 3px; color: #85918b; font-size: .45rem; }
+.romance-route > svg { display: none; }
+.romance-route.active { background: #40282f; border-color: #bd6c87; box-shadow: inset 0 0 0 1px rgba(222,151,174,.16); }
+.romance-route.active > svg { position: absolute; top: 4px; right: 4px; display: block; }
+.romance-route:disabled { opacity: .42; }
+.romance-promise { margin: 9px 0 0; color: #c4adaf; font-size: .58rem; line-height: 1.5; }
 
 .journey-actions { margin-top: 20px; }
 .journey-action-grid { display: grid; gap: 8px; }
@@ -742,6 +776,23 @@ h1, h2, h3, p { margin-top: 0; }
 .pose-breakthrough .cultivator-character { animation: breakthrough-rise 1.5s ease-in-out infinite; }.pose-breakthrough .aura-ring { animation: breakthrough-ring 1.2s ease-out infinite; }.pose-breakthrough .ring-two { animation-delay: -.5s; }.pose-breakthrough .victory-impact { opacity: 1; }.pose-breakthrough .victory-impact span { font-size: .78rem; }
 
 .cultivator-scene.compact .cultivator-backdrop { transform: scale(.56); transform-origin: center bottom; }.cultivator-scene.compact .cultivator-character { left: calc(50% - 33px); bottom: 7px; scale: .53; transform: translateX(-50%); transform-origin: center bottom; }.cultivator-scene.compact .scene-floor { bottom: 3px; transform: translateX(-50%) scale(.65); }.cultivator-scene.compact .companion-spirit { right: 5px; bottom: 31px; scale: .58; }.cultivator-scene.compact .victory-impact { top: 1px; }.cultivator-scene.compact .victory-impact span { font-size: .6rem; }
+
+.art-scene .cultivator-character { bottom: 9px; width: min(92%, 292px); height: 310px; }
+.art-scene .cultivator-character::after { content: ""; position: absolute; inset: 9% 12% 2%; background: radial-gradient(ellipse, color-mix(in srgb, var(--aura) 24%, transparent), transparent 67%); filter: blur(12px); }
+.hero-art-glow { position: absolute; z-index: 0; inset: 12% 12% 4%; background: radial-gradient(ellipse, color-mix(in srgb, var(--aura) 38%, transparent), transparent 66%); animation: hero-art-glow 2.8s ease-in-out infinite; }
+.cultivator-character-art { position: relative; z-index: 2; width: 100%; height: 100%; display: block; object-fit: contain; object-position: center bottom; filter: saturate(1.05) contrast(1.03) drop-shadow(0 15px 18px rgba(0,0,0,.42)); -webkit-mask-image: radial-gradient(ellipse 68% 78% at 50% 50%, #000 52%, transparent 100%); mask-image: radial-gradient(ellipse 68% 78% at 50% 50%, #000 52%, transparent 100%); }
+.art-scene.outfit-apprentice .cultivator-character-art { filter: saturate(.95) contrast(1.02) drop-shadow(0 15px 18px rgba(0,0,0,.42)); }
+.art-scene.outfit-jiaoda .cultivator-character-art { filter: saturate(1.12) contrast(1.06) drop-shadow(0 0 18px rgba(195,54,49,.34)); }
+.art-scene.pose-focus .cultivator-character-art { animation: art-focus 1.7s ease-in-out infinite; }
+.art-scene.pose-victory .cultivator-character-art { animation: art-victory .85s cubic-bezier(.2,.8,.2,1) both; }
+.art-scene.pose-breakthrough .cultivator-character-art { animation: art-breakthrough 1.4s ease-in-out infinite; }
+.art-scene.compact .cultivator-character { left: 50%; bottom: -3px; width: 142px; height: 155px; scale: 1; transform: translateX(-50%); }
+.art-scene.compact .cultivator-character-art { -webkit-mask-image: radial-gradient(ellipse 70% 82% at 50% 50%, #000 56%, transparent 100%); mask-image: radial-gradient(ellipse 70% 82% at 50% 50%, #000 56%, transparent 100%); }
+
+@keyframes hero-art-glow { 0%,100% { opacity: .55; transform: scale(.94) } 50% { opacity: 1; transform: scale(1.04) } }
+@keyframes art-focus { 0%,100% { transform: translateY(0) scale(1) } 50% { transform: translateY(3px) scale(1.015); filter: brightness(1.08) } }
+@keyframes art-victory { 0% { transform: translateY(8px) scale(.97) } 42% { transform: translateY(-17px) scale(1.04) rotate(-1deg) } 70% { transform: translateY(2px) scale(1.01) } 100% { transform: translateY(0) scale(1) } }
+@keyframes art-breakthrough { 0%,100% { transform: translateY(0) scale(1); filter: brightness(1) } 50% { transform: translateY(-8px) scale(1.035); filter: brightness(1.22) } }
 
 @keyframes cultivator-idle { 0%,100% { transform: translateX(-50%) translateY(0) } 50% { transform: translateX(-50%) translateY(-4px) } }
 @keyframes cultivator-focus { 0%,100% { transform: translateX(-50%) rotate(0) } 50% { transform: translateX(-50%) rotate(-1deg) translateY(2px) } }

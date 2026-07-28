@@ -1,4 +1,3 @@
-import { BookOpenCheck, Sigma, Sparkles } from 'lucide-react'
 import type { PlayerProfile } from '../types'
 
 export type CultivatorPose = 'idle' | 'focus' | 'victory' | 'breakthrough' | 'story'
@@ -12,6 +11,13 @@ interface CultivatorSceneProps {
 
 const formulae = ['∫', 'lim', 'Σ', '∇']
 
+function getHeroArt(outfitId: string) {
+  const characterBase = `${import.meta.env.BASE_URL}characters/`
+  if (outfitId === 'outfit-apprentice') return `${characterBase}hero-apprentice.webp`
+  if (outfitId === 'outfit-jiaoda') return `${characterBase}hero-jiaoda.webp`
+  return `${characterBase}hero-standard.webp`
+}
+
 export function CultivatorScene({ profile, pose = 'idle', compact = false, label }: CultivatorSceneProps) {
   const equipment = [
     profile.equippedOutfitId,
@@ -23,7 +29,7 @@ export function CultivatorScene({ profile, pose = 'idle', compact = false, label
 
   return (
     <div
-      className={`cultivator-scene pose-${pose} ${compact ? 'compact' : ''} ${equipment}`}
+      className={`cultivator-scene art-scene pose-${pose} ${compact ? 'compact' : ''} ${equipment}`}
       role="img"
       aria-label={label || `${profile.name}的原创数学修炼者动画形象`}
     >
@@ -37,41 +43,12 @@ export function CultivatorScene({ profile, pose = 'idle', compact = false, label
       </div>
 
       <div className="cultivator-character" aria-hidden="true">
-        <div className="cultivator-shadow" />
-        <div className="cultivator-ponytail"><span /></div>
-        <div className="cultivator-cape" />
-        <div className="cultivator-legs"><span /><span /></div>
-        <div className="cultivator-torso">
-          <div className="cultivator-inner-robe" />
-          <div className="cultivator-belt"><span /></div>
-          <div className="cultivator-emblem"><Sigma size={15} /></div>
-        </div>
-        <div className="cultivator-shoulder shoulder-left" />
-        <div className="cultivator-shoulder shoulder-right" />
-        <div className="cultivator-arm arm-left"><span className="cultivator-hand" /></div>
-        <div className="cultivator-arm arm-right"><span className="cultivator-hand" /></div>
-        <div className="cultivator-neck" />
-        <div className="cultivator-head">
-          <div className="cultivator-ear ear-left" />
-          <div className="cultivator-ear ear-right" />
-          <div className="cultivator-hair hair-back" />
-          <div className="cultivator-face">
-            <span className="cultivator-brow brow-left" />
-            <span className="cultivator-brow brow-right" />
-            <span className="cultivator-eye eye-left" />
-            <span className="cultivator-eye eye-right" />
-            <span className="cultivator-nose" />
-            <span className="cultivator-mouth" />
-          </div>
-          <div className="cultivator-hair hair-fringe"><span /><span /><span /></div>
-          <div className="cultivator-crown" />
-        </div>
-        <div className="cultivator-weapon"><BookOpenCheck size={28} /></div>
-        <div className="cultivator-accessory"><Sparkles size={17} /></div>
+        <span className="hero-art-glow" />
+        <img className="cultivator-character-art" src={getHeroArt(profile.equippedOutfitId)} alt="" />
       </div>
 
       <div className="companion-spirit" aria-hidden="true"><span /><i /></div>
-      <div className="victory-impact" aria-hidden="true"><span>漂亮！</span></div>
+      <div className="victory-impact" aria-hidden="true"><span>{pose === 'breakthrough' ? '破境！' : '漂亮！'}</span></div>
       <div className="scene-floor" aria-hidden="true" />
     </div>
   )

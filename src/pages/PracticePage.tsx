@@ -80,7 +80,7 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
       {privateCount === 0 && (
         <section className="private-bank-callout">
           <FileUp size={21} />
-          <div><strong>私人《基础30讲》题包尚未导入此浏览器</strong><p>已生成的 108 张双解卡不会公开进 GitHub。导入后会自动落到下面 18 讲中。</p></div>
+          <div><strong>私人《基础30讲》题包尚未导入此浏览器</strong><p>已整理的 200 张双解卡不会公开进 GitHub。导入后会自动落到下面 18 讲中。</p></div>
           <button type="button" onClick={onOpenProfile}>去导入</button>
         </section>
       )}

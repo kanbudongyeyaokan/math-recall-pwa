@@ -41,8 +41,8 @@ export function HomePage({ online, onOpenPractice, onStartProblem, onAdd, onInst
       <section className="journey-hero" aria-labelledby="journey-title">
         <div className="journey-hero-copy">
           <p className="eyebrow">主线目标 · 上海交通大学</p>
-          <h1 id="journey-title">为守护奶奶，<br />炼成最强斗魂。</h1>
-          <p>从第 1 讲到第 18 讲，把定义、经典例题和课后训练真正做成自己的路。</p>
+          <h1 id="journey-title">为爸妈拼出<br />更好的生活。</h1>
+          <p>从第 1 讲到第 18 讲，把交大目标拆成今天真正做会的每一道题。</p>
           <div className="hero-identity">
             <span>{profile.name}</span><strong>{realm.label}</strong><small>{profile.selectedTitle}</small>
           </div>

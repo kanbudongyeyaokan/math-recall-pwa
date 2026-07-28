@@ -27,7 +27,7 @@ export default defineConfig({
       manifest: {
         name: '斗破数学 · 何耀焜的交大斗魂之路',
         short_name: '斗破数学',
-        description: '按高数讲次自由做题，在交大斗魂主线中积累经验、灵石、称号与装备',
+        description: '何耀焜按高数讲次自由做题，在让父母过上更好生活的交大主线中积累经验、灵石、称号与角色羁绊',
         theme_color: '#101814',
         background_color: '#f3f3ef',
         display: 'standalone',
@@ -70,7 +70,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2}'],
         cleanupOutdatedCaches: true,
         navigateFallback: 'index.html'
       }
