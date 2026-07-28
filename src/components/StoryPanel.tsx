@@ -1,6 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronRight, Coins, HeartHandshake, LockKeyhole, MapPin, MessageCircle, Swords, UsersRound } from 'lucide-react'
+import {
+  BookOpen,
+  ChevronRight,
+  Coins,
+  HeartHandshake,
+  LockKeyhole,
+  MapPin,
+  MessageCircle,
+  Quote,
+  Sparkles,
+  Swords,
+  Target,
+  UsersRound,
+  X
+} from 'lucide-react'
 import { chooseStoryEncounter, db } from '../db'
 import { getBondStatus, getPendingEncounter } from '../domain/encounters'
 import {
@@ -10,6 +24,7 @@ import {
   ROMANCE_ROUTES,
   STORY_CHARACTERS,
   type RomanceRouteId,
+  type StoryCharacter,
   type StoryRole
 } from '../domain/story'
 import type { PlayerProfile } from '../types'
@@ -17,7 +32,7 @@ import type { PlayerProfile } from '../types'
 const roleLabel: Record<StoryRole, string> = {
   family: '家人',
   mentor: '引路人',
-  rival: '对手',
+  rival: '宿敌',
   friend: '益友',
   classmate: '同学',
   romance: '情缘',
@@ -27,11 +42,96 @@ const roleLabel: Record<StoryRole, string> = {
 
 const routeSettingKey = 'active-romance-route'
 
+interface ArchiveProps {
+  character: StoryCharacter
+  profile: PlayerProfile
+  activeRouteId?: RomanceRouteId
+  onClose: () => void
+}
+
+function CharacterArchive({ character, profile, activeRouteId, onClose }: ArchiveProps) {
+  const bondPoints = profile.characterBonds[character.id] || 0
+  const route = ROMANCE_ROUTES.find((candidate) => candidate.id === character.id)
+  const routeStatus = route ? getRomanceRouteStatus(route, profile.totalReviews) : undefined
+  const currentRelation = character.role === 'protagonist'
+    ? '本命角色 · 由每一次做题持续塑造'
+    : route && routeStatus
+      ? `${routeStatus.label}${activeRouteId === route.id ? ` · 正在同行「${route.routeName}」` : ' · 尚未选择同行路线'}`
+      : character.role === 'family'
+        ? `至亲 · ${getBondStatus(bondPoints)}`
+        : getBondStatus(bondPoints)
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [onClose])
+
+  return (
+    <div className="character-archive-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <article className={`character-archive archive-${character.role}`} role="dialog" aria-modal="true" aria-labelledby="character-archive-title">
+        <button className="character-archive-close" type="button" onClick={onClose} aria-label="关闭人物档案" title="关闭人物档案">
+          <X size={21} />
+        </button>
+        <div className="character-archive-visual">
+          <img src={character.portrait} alt={`${character.name}人物原画`} />
+          <div className="character-archive-vignette" />
+          <div className="character-archive-identity">
+            <span>{roleLabel[character.role]}档案</span>
+            <h2 id="character-archive-title">{character.name}</h2>
+            <p>{character.title}</p>
+          </div>
+        </div>
+
+        <div className="character-archive-body">
+          <div className="character-current-relation">
+            <HeartHandshake size={18} />
+            <div><small>当前关系</small><strong>{currentRelation}</strong></div>
+            {character.role !== 'protagonist' && <b>{bondPoints} 羁绊</b>}
+          </div>
+          {character.role !== 'protagonist' && (
+            <div className="character-bond-track" role="progressbar" aria-label={`${character.name}羁绊`} aria-valuemin={0} aria-valuemax={48} aria-valuenow={Math.min(48, bondPoints)}>
+              <span style={{ width: `${Math.min(100, (bondPoints / 48) * 100)}%` }} />
+            </div>
+          )}
+
+          <blockquote className="character-quote"><Quote size={19} /><p>{character.quote}</p></blockquote>
+
+          <section className="character-archive-section">
+            <h3><BookOpen size={17} />人物背景</h3>
+            <p>{character.backstory}</p>
+          </section>
+          <section className="character-archive-section">
+            <h3><Target size={17} />个人目标</h3>
+            <p>{character.motivation}</p>
+          </section>
+          <section className="character-archive-section">
+            <h3><Sparkles size={17} />初次相遇</h3>
+            <p>{character.firstMeeting}</p>
+          </section>
+          <section className="character-archive-section relation-note">
+            <h3><HeartHandshake size={17} />与你的关系</h3>
+            <p>{character.relationship}</p>
+          </section>
+        </div>
+      </article>
+    </div>
+  )
+}
+
 export function StoryPanel({ profile }: { profile: PlayerProfile }) {
   const progress = getStoryProgress(profile)
   const routeSetting = useLiveQuery(() => db.settings.get(routeSettingKey))
   const [lineIndex, setLineIndex] = useState(0)
   const [showRoster, setShowRoster] = useState(false)
+  const [selectedCharacter, setSelectedCharacter] = useState<StoryCharacter>()
   const [encounterReply, setEncounterReply] = useState<{ title: string; reply: string; bondTargetId: string; bondGain: number; coinReward: number }>()
   const currentCharacter = getCharacter(progress.current.portraitId)
   const activeRouteId = routeSetting?.value as RomanceRouteId | undefined
@@ -61,15 +161,16 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
           <h2 id="story-title">{progress.current.title}</h2>
           <p><MapPin size={14} />{progress.current.location}</p>
         </div>
-        <div className="story-speaker">
-          <div className="story-portrait" role="img" aria-label={`${progress.current.speaker}人物原画`}>
+        <button className="story-speaker" type="button" onClick={() => setSelectedCharacter(currentCharacter)} aria-label={`查看${currentCharacter.name}人物档案`}>
+          <span className="story-portrait speaking-portrait">
             <img src={currentCharacter.portrait} alt="" />
-          </div>
+            <i aria-hidden="true" />
+          </span>
           <strong>{progress.current.speaker}</strong>
-          <small>{roleLabel[progress.current.role]}</small>
-        </div>
+          <small>{roleLabel[progress.current.role]} · 点开档案</small>
+        </button>
       </div>
-      <blockquote className="story-dialogue">
+      <blockquote className="story-dialogue" key={`${progress.current.id}-${lineIndex}`}>
         <MessageCircle size={19} />
         <p>{progress.current.dialogue[lineIndex]}</p>
       </blockquote>
@@ -87,7 +188,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
       {progress.next && <small className="story-next">再完成 {progress.remaining} 道题，解锁「{progress.next.title}」</small>}
 
       {encounterReply ? (
-        <div className="encounter-result">
+        <div className="encounter-result bond-awarded">
           <MessageCircle size={18} /><div><strong>{encounterReply.title}</strong><p>{encounterReply.reply}</p><small><HeartHandshake size={14} /> 羁绊 +{encounterReply.bondGain} <Coins size={14} /> 灵石 +{encounterReply.coinReward}</small></div>
           <button type="button" onClick={() => setEncounterReply(undefined)} aria-label="收下剧情奖励"><ChevronRight size={18} /></button>
         </div>
@@ -109,17 +210,26 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
         <div className="story-roster" aria-label="已相遇人物">
           {STORY_CHARACTERS.map((character) => {
             const unlocked = profile.totalReviews >= character.unlockAt
+            const bonds = profile.characterBonds[character.id] || 0
             return (
-              <div className={unlocked ? 'roster-person' : 'roster-person locked'} key={character.id}>
-                <div className="roster-portrait">
+              <button
+                type="button"
+                className={unlocked ? 'roster-person' : 'roster-person locked'}
+                disabled={!unlocked}
+                onClick={() => setSelectedCharacter(character)}
+                aria-label={unlocked ? `查看${character.name}人物档案` : `${character.unlockAt}题后解锁人物`}
+                key={character.id}
+              >
+                <span className="roster-portrait">
                   <img src={character.portrait} alt="" />
                   {!unlocked && <LockKeyhole size={16} />}
-                </div>
+                  {unlocked && <i aria-hidden="true" />}
+                </span>
                 <strong>{unlocked ? character.name : `${character.unlockAt} 题解锁`}</strong>
                 <small>{unlocked ? character.title : '尚未相遇'}</small>
                 {unlocked && <p>{character.summary}</p>}
-                {unlocked && (profile.characterBonds[character.id] || 0) > 0 && <em>{getBondStatus(profile.characterBonds[character.id])} · {profile.characterBonds[character.id]} 羁绊</em>}
-              </div>
+                {unlocked && bonds > 0 && <em>{getBondStatus(bonds)} · {bonds} 羁绊</em>}
+              </button>
             )
           })}
         </div>
@@ -127,7 +237,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
 
       {profile.totalReviews >= ROMANCE_ROUTES[0].unlockAt && (
         <div className="romance-routes" aria-label="情缘路线">
-          <div className="romance-route-heading"><HeartHandshake size={17} /><strong>情缘路线</strong><small>一次选择一条同行路线</small></div>
+          <div className="romance-route-heading"><HeartHandshake size={17} /><strong>情缘路线</strong><small>选择同行路线，点击查看档案</small></div>
           <div className="romance-route-list">
             {ROMANCE_ROUTES.map((route) => {
               const character = getCharacter(route.portraitId)
@@ -135,7 +245,16 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
               const status = getRomanceRouteStatus(route, profile.totalReviews)
               const active = activeRouteId === route.id
               return (
-                <button type="button" className={active ? 'romance-route active' : 'romance-route'} disabled={!unlocked} onClick={() => chooseRoute(route.id)} key={route.id}>
+                <button
+                  type="button"
+                  className={active ? 'romance-route active' : 'romance-route'}
+                  disabled={!unlocked}
+                  onClick={() => {
+                    void chooseRoute(route.id)
+                    setSelectedCharacter(character)
+                  }}
+                  key={route.id}
+                >
                   <img src={character.portrait} alt="" />
                   <span><strong>{unlocked ? route.name : `${route.unlockAt} 题`}</strong><small>{unlocked ? `${route.routeName} · ${status.label}` : '尚未相遇'}</small></span>
                   {active && <HeartHandshake size={16} />}
@@ -145,6 +264,10 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
           </div>
           {activeRoute && <p className="romance-promise">{activeRoute.promise}</p>}
         </div>
+      )}
+
+      {selectedCharacter && (
+        <CharacterArchive character={selectedCharacter} profile={profile} activeRouteId={activeRouteId} onClose={() => setSelectedCharacter(undefined)} />
       )}
     </section>
   )

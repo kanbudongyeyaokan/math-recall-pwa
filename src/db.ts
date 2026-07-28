@@ -28,6 +28,25 @@ const DISMISSED_SEEDS_KEY = 'dismissed-seed-ids'
 const STORAGE_PERSISTENCE_KEY = 'storage-persistence'
 const LAST_EXTERNAL_BACKUP_KEY = 'last-external-backup-at'
 const LEGACY_SEED_IDS = Array.from({ length: 15 }, (_, index) => `seed-${String(index + 1).padStart(2, '0')}`)
+const LEGACY_CHARACTER_IDS: Record<string, string> = {
+  'he-jiancheng': 'he-xinping',
+  'chen-xiulan': 'zhong-shanyan',
+  'pei-shenxing': 'zeng-yuxin',
+  'shen-li': 'yuan-yue',
+  'han-che': 'chen-ruibin',
+  'lin-jianyue': 'chen-yanjun',
+  'su-wanqiao': 'medusa',
+  'tang-zhixia': 'xiaoyixian'
+}
+
+function migrateCharacterBonds(bonds?: Record<string, number>) {
+  const migrated: Record<string, number> = {}
+  for (const [characterId, points] of Object.entries(bonds || {})) {
+    const nextId = LEGACY_CHARACTER_IDS[characterId] || characterId
+    migrated[nextId] = (migrated[nextId] || 0) + points
+  }
+  return migrated
+}
 
 export const defaultProfile: PlayerProfile = {
   id: 'player',
@@ -93,7 +112,9 @@ export function normalizeProfileRecord(profile?: PlayerProfile): PlayerProfile {
     activeTechniqueId: profile?.activeTechniqueId || defaultProfile.activeTechniqueId,
     techniqueMastery: profile?.techniqueMastery && typeof profile.techniqueMastery === 'object' ? profile.techniqueMastery : {},
     storyChoices: profile?.storyChoices && typeof profile.storyChoices === 'object' ? profile.storyChoices : {},
-    characterBonds: profile?.characterBonds && typeof profile.characterBonds === 'object' ? profile.characterBonds : {}
+    characterBonds: profile?.characterBonds && typeof profile.characterBonds === 'object'
+      ? migrateCharacterBonds(profile.characterBonds)
+      : {}
   }
 }
 
@@ -185,6 +206,30 @@ export class MathRecallDatabase extends Dexie {
       const profiles = transaction.table<PlayerProfile>('profiles')
       const profile = await profiles.get('player')
       if (profile) await profiles.put(normalizeProfileRecord(profile))
+    })
+    this.version(6).stores({
+      problems: 'id, kind, questionFormat, nextReviewAt, updatedAt, source, *tags',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    }).upgrade(async (transaction) => {
+      const profiles = transaction.table<PlayerProfile>('profiles')
+      const settings = transaction.table<AppSetting>('settings')
+      const [profile, routeSetting] = await Promise.all([
+        profiles.get('player'),
+        settings.get('active-romance-route')
+      ])
+      if (profile) await profiles.put(normalizeProfileRecord(profile))
+      if (typeof routeSetting?.value === 'string' && LEGACY_CHARACTER_IDS[routeSetting.value]) {
+        await settings.put({
+          ...routeSetting,
+          value: LEGACY_CHARACTER_IDS[routeSetting.value],
+          updatedAt: Date.now()
+        })
+      }
     })
   }
 }

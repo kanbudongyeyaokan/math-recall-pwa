@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultProfile } from '../db'
-import { getRomanceRouteStatus, getStoryProgress, ROMANCE_ROUTES, STORY_CHARACTERS } from './story'
+import { getRomanceRouteStatus, getStoryProgress, ROMANCE_ROUTES, STORY_CHAPTERS, STORY_CHARACTERS } from './story'
 
 describe('交大斗魂剧情进度', () => {
   it('新玩家从父母与交大目标的序章出发', () => {
@@ -11,8 +11,8 @@ describe('交大斗魂剧情进度', () => {
 
   it('按真实做题数量解锁宿敌与后续对话', () => {
     const progress = getStoryProgress({ ...defaultProfile, totalReviews: 32 })
-    expect(progress.current.id).toBe('stone-steps')
-    expect(progress.current.speaker).toBe('沈砺')
+    expect(progress.current.id).toBe('yuan-speedboard')
+    expect(progress.current.speaker).toBe('袁越')
     expect(progress.next?.id).toBe('two-methods')
   })
 
@@ -25,6 +25,19 @@ describe('交大斗魂剧情进度', () => {
   it('收录主角与十五名剧情角色，并提供三条情缘路线', () => {
     expect(STORY_CHARACTERS).toHaveLength(16)
     expect(ROMANCE_ROUTES).toHaveLength(3)
+    expect(ROMANCE_ROUTES.map((route) => route.id)).toEqual(['chen-yanjun', 'medusa', 'xiaoyixian'])
+  })
+
+  it('每个人物档案完整，陈彦君拥有最多且贯穿全程的个人主线', () => {
+    expect(STORY_CHARACTERS.every((character) => (
+      character.backstory && character.motivation && character.firstMeeting && character.quote && character.relationship
+    ))).toBe(true)
+    const chapterCounts = STORY_CHAPTERS.reduce<Record<string, number>>((counts, chapter) => {
+      counts[chapter.portraitId] = (counts[chapter.portraitId] || 0) + 1
+      return counts
+    }, {})
+    expect(chapterCounts['chen-yanjun']).toBe(5)
+    expect(chapterCounts['chen-yanjun']).toBeGreaterThan(Math.max(chapterCounts.medusa || 0, chapterCounts.xiaoyixian || 0))
   })
 
   it('情缘关系按未相识、相识、知己、恋人四阶段推进', () => {
