@@ -44,4 +44,22 @@ describe('做题会话持久化', () => {
       problemId: 'q2', rating: 'independent', isCorrect: true
     }, 3))).toBeUndefined()
   })
+
+  it('突发邀战在刷新后保留题序、截止时间和随机种子', () => {
+    const ambushSelection = {
+      ...selection,
+      mode: 'ambush' as const,
+      challengeId: 'ambush-1',
+      rivalId: 'zeng-yuxin',
+      deadlineAt: 480_001,
+      challengeSeed: 17
+    }
+    const session = createPracticeSession({ mode: 'ambush', selection: ambushSelection, queueIds: ['q5', 'q2', 'q9', 'q1', 'q7'], now: 1 })
+    const restored = sanitizePracticeSession(session, new Set(session.queueIds))
+
+    expect(restored?.selection).toEqual(ambushSelection)
+    expect(restored?.queueIds).toEqual(['q5', 'q2', 'q9', 'q1', 'q7'])
+    expect(sessionMatchesRequest(restored, undefined, ambushSelection)).toBe(true)
+    expect(sessionMatchesRequest(restored, undefined, { ...ambushSelection, challengeId: 'ambush-2' })).toBe(false)
+  })
 })

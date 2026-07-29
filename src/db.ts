@@ -24,6 +24,17 @@ import {
   type PracticeCycleState
 } from './domain/practiceCycle'
 import { ACTIVE_PRACTICE_SESSION_KEY } from './domain/practiceSession'
+import {
+  buildSurpriseChallengeQueue,
+  normalizeSurpriseChallengeState,
+  prepareSurpriseChallengeOffer,
+  SURPRISE_CHALLENGE_COOLDOWN_MS,
+  SURPRISE_CHALLENGE_DECLINE_MS,
+  SURPRISE_CHALLENGE_STATE_KEY,
+  SURPRISE_CHALLENGE_WIN_COINS,
+  type SurpriseChallengeOffer,
+  type SurpriseChallengeState
+} from './domain/surpriseChallenge'
 import type {
   ActivePracticeSession,
   AppSetting,
@@ -88,7 +99,10 @@ export const defaultProfile: PlayerProfile = {
   masteredProblemIds: [],
   correctedProblemIds: [],
   bossVictories: {},
-  bossAttempts: 0
+  bossAttempts: 0,
+  surpriseChallengeWins: 0,
+  surpriseChallengeLosses: 0,
+  surpriseChallengeBestScore: 0
 }
 
 export function normalizeProblemRecord(problem: Problem): Problem {
@@ -136,7 +150,12 @@ export function normalizeProfileRecord(profile?: PlayerProfile): PlayerProfile {
     masteredProblemIds: Array.isArray(profile?.masteredProblemIds) ? [...new Set(profile.masteredProblemIds)] : [],
     correctedProblemIds: Array.isArray(profile?.correctedProblemIds) ? [...new Set(profile.correctedProblemIds)] : [],
     bossVictories: profile?.bossVictories && typeof profile.bossVictories === 'object' ? profile.bossVictories : {},
-    bossAttempts: profile?.bossAttempts || 0
+    bossAttempts: profile?.bossAttempts || 0,
+    surpriseChallengeWins: profile?.surpriseChallengeWins || 0,
+    surpriseChallengeLosses: profile?.surpriseChallengeLosses || 0,
+    surpriseChallengeBestScore: profile?.surpriseChallengeBestScore || 0,
+    lastSurpriseChallengeId: profile?.lastSurpriseChallengeId,
+    lastSurpriseChallengeAt: profile?.lastSurpriseChallengeAt
   }
 }
 
@@ -347,6 +366,103 @@ export async function clearActivePracticeSession(sessionId?: string) {
     if (active?.id !== sessionId) return
   }
   await db.settings.delete(ACTIVE_PRACTICE_SESSION_KEY)
+}
+
+export async function getSurpriseChallengeState() {
+  return normalizeSurpriseChallengeState(await getSettingValue<SurpriseChallengeState | undefined>(SURPRISE_CHALLENGE_STATE_KEY, undefined))
+}
+
+export async function getOrCreateSurpriseChallengeOffer(now = Date.now(), seed = now) {
+  return db.transaction('rw', db.profiles, db.problems, db.settings, async () => {
+    const profile = normalizeProfileRecord(await db.profiles.get('player'))
+    const state = normalizeSurpriseChallengeState((await db.settings.get(SURPRISE_CHALLENGE_STATE_KEY))?.value as SurpriseChallengeState | undefined)
+    const problems = await db.problems.filter((problem) => !problem.archived).toArray()
+    const prepared = prepareSurpriseChallengeOffer({
+      profile,
+      state,
+      availableProblemCount: buildSurpriseChallengeQueue(problems, seed).length,
+      now,
+      seed
+    })
+    if (prepared.changed) await db.settings.put({ key: SURPRISE_CHALLENGE_STATE_KEY, value: prepared.state, updatedAt: now })
+    return prepared.offer
+  })
+}
+
+async function resolveSurpriseChallengeOffer(offerId: string, accepted: boolean, now = Date.now()) {
+  return db.transaction('rw', db.settings, async () => {
+    const record = await db.settings.get(SURPRISE_CHALLENGE_STATE_KEY)
+    const state = normalizeSurpriseChallengeState(record?.value as SurpriseChallengeState | undefined)
+    if (state.pendingOffer?.id !== offerId) return state
+    const next: SurpriseChallengeState = {
+      ...state,
+      pendingOffer: undefined,
+      nextEligibleAt: now + (accepted ? SURPRISE_CHALLENGE_COOLDOWN_MS : SURPRISE_CHALLENGE_DECLINE_MS)
+    }
+    await db.settings.put({ key: SURPRISE_CHALLENGE_STATE_KEY, value: next, updatedAt: now })
+    return next
+  })
+}
+
+export function acceptSurpriseChallengeOffer(offerId: string, now = Date.now()) {
+  return resolveSurpriseChallengeOffer(offerId, true, now)
+}
+
+export function declineSurpriseChallengeOffer(offerId: string, now = Date.now()) {
+  return resolveSurpriseChallengeOffer(offerId, false, now)
+}
+
+export async function recordSurpriseChallengeResult(input: {
+  challengeId: string
+  rivalId: SurpriseChallengeOffer['rivalId']
+  score: number
+  passed: boolean
+  timedOut: boolean
+  now?: number
+}) {
+  const now = input.now ?? Date.now()
+  const result = await db.transaction('rw', db.profiles, db.settings, async () => {
+    const current = normalizeProfileRecord(await db.profiles.get('player'))
+    const state = normalizeSurpriseChallengeState((await db.settings.get(SURPRISE_CHALLENGE_STATE_KEY))?.value as SurpriseChallengeState | undefined)
+    const alreadySettled = current.lastSurpriseChallengeId === input.challengeId || state.settledChallengeIds.includes(input.challengeId)
+    if (alreadySettled) {
+      if (!state.settledChallengeIds.includes(input.challengeId)) {
+        await db.settings.put({
+          key: SURPRISE_CHALLENGE_STATE_KEY,
+          value: { ...state, settledChallengeIds: [...state.settledChallengeIds, input.challengeId].slice(-50) },
+          updatedAt: now
+        })
+      }
+      return { profile: current, coinBonus: 0, duplicate: true }
+    }
+    const coinBonus = input.passed ? SURPRISE_CHALLENGE_WIN_COINS : 0
+    const next: PlayerProfile = {
+      ...current,
+      coins: current.coins + coinBonus,
+      lifetimeCoins: current.lifetimeCoins + coinBonus,
+      surpriseChallengeWins: current.surpriseChallengeWins + Number(input.passed),
+      surpriseChallengeLosses: current.surpriseChallengeLosses + Number(!input.passed),
+      surpriseChallengeBestScore: Math.max(current.surpriseChallengeBestScore, input.score),
+      lastSurpriseChallengeId: input.challengeId,
+      lastSurpriseChallengeAt: now
+    }
+    const nextState: SurpriseChallengeState = {
+      ...state,
+      pendingOffer: undefined,
+      lastResultAt: now,
+      nextEligibleAt: Math.max(state.nextEligibleAt, now + SURPRISE_CHALLENGE_COOLDOWN_MS),
+      settledChallengeIds: [...state.settledChallengeIds, input.challengeId].slice(-50)
+    }
+    await Promise.all([
+      db.profiles.put(next),
+      db.settings.put({ key: SURPRISE_CHALLENGE_STATE_KEY, value: nextState, updatedAt: now })
+    ])
+    return { profile: next, coinBonus, duplicate: false }
+  })
+  if (!result.duplicate) {
+    await createRecoverySnapshot(input.timedOut ? '突发邀战超时' : input.passed ? '突发邀战胜利' : '突发邀战失利')
+  }
+  return result
 }
 
 export async function getOrStartPracticeCycle(lectureId: string, problemIds: readonly string[], seed = Date.now()) {

@@ -3,9 +3,14 @@ import { BookOpenCheck, CheckCircle2, RefreshCw, Smartphone, X } from 'lucide-re
 import { registerSW } from 'virtual:pwa-register'
 import { BottomNav, type Screen } from './components/BottomNav'
 import { InstallGuide } from './components/InstallGuide'
+import { SurpriseChallengeOfferModal } from './components/SurpriseChallengeModal'
 import {
+  acceptSurpriseChallengeOffer,
   clearActivePracticeSession,
+  declineSurpriseChallengeOffer,
   getActivePracticeSession,
+  getOrCreateSurpriseChallengeOffer,
+  getSurpriseChallengeState,
   initializeDatabase,
   repairStreakIfNeeded,
   requestPersistentStorage,
@@ -13,6 +18,12 @@ import {
 } from './db'
 import type { PracticeSelection } from './domain/curriculum'
 import { getPendingPracticeSession } from './domain/practiceSession'
+import {
+  getSurpriseChallengeDelay,
+  getSurpriseRival,
+  SURPRISE_CHALLENGE_TIME_MS,
+  type SurpriseChallengeOffer
+} from './domain/surpriseChallenge'
 import { HomePage } from './pages/HomePage'
 import { LibraryPage } from './pages/LibraryPage'
 import { PracticePage } from './pages/PracticePage'
@@ -21,7 +32,8 @@ import { ProfilePage } from './pages/ProfilePage'
 import { ReviewPage } from './pages/ReviewPage'
 import { WorldPage } from './pages/WorldPage'
 import type { ActivePracticeSession } from './types'
-import { pauseBackgroundMusic, resumeBackgroundMusic, setBackgroundMusicScene } from './utils/sound'
+import { getAudioPreferences, pauseBackgroundMusic, playSound, playSoundSequence, resumeBackgroundMusic, setBackgroundMusicScene } from './utils/sound'
+import { getStoryVoiceCue, speakCharacterVoice, stopCharacterVoice } from './utils/voice'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -45,6 +57,8 @@ export default function App() {
   const [updateRegistration, setUpdateRegistration] = useState<ServiceWorkerRegistration>()
   const [showInstallGuide, setShowInstallGuide] = useState(false)
   const [resumableSession, setResumableSession] = useState<ActivePracticeSession>()
+  const [surpriseOffer, setSurpriseOffer] = useState<SurpriseChallengeOffer>()
+  const [surpriseProcessing, setSurpriseProcessing] = useState(false)
   const isWechat = /MicroMessenger/i.test(navigator.userAgent)
 
   useEffect(() => {
@@ -121,7 +135,7 @@ export default function App() {
   }, [toast])
 
   useEffect(() => {
-    const scene = screen === 'review' && practiceSelection?.mode === 'boss'
+    const scene = screen === 'review' && (practiceSelection?.mode === 'boss' || practiceSelection?.mode === 'ambush')
       ? 'battle'
       : screen === 'review'
         ? 'focus'
@@ -151,6 +165,34 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!ready || surpriseOffer || resumableSession || screen === 'review' || screen === 'form') return
+    let cancelled = false
+    let timer: number | undefined
+
+    async function scheduleOffer() {
+      const state = await getSurpriseChallengeState().catch(() => undefined)
+      if (cancelled) return
+      const hasPending = !!state?.pendingOffer && state.pendingOffer.expiresAt > Date.now()
+      const delay = hasPending ? 1800 : getSurpriseChallengeDelay(Date.now() + screen.length)
+      timer = window.setTimeout(async () => {
+        if (cancelled || document.visibilityState !== 'visible' || await getActivePracticeSession().catch(() => undefined)) return
+        const offer = await getOrCreateSurpriseChallengeOffer().catch(() => undefined)
+        if (!offer || cancelled) return
+        setSurpriseOffer(offer)
+        playSoundSequence([{ effect: 'ambush-alert' }, { effect: 'rival-open', delayMs: 420 }])
+        const rival = getSurpriseRival(offer.rivalId)
+        if (getAudioPreferences().autoVoice) speakCharacterVoice(getStoryVoiceCue(rival.id, rival.invite), { delayMs: 880 })
+      }, delay)
+    }
+
+    void scheduleOffer()
+    return () => {
+      cancelled = true
+      if (timer) window.clearTimeout(timer)
+    }
+  }, [ready, resumableSession, screen, surpriseOffer])
+
   function navigate(next: Screen) {
     if (next === 'form') setEditId(undefined)
     if (next === 'practice') {
@@ -172,12 +214,60 @@ export default function App() {
   async function exitReview() {
     const session = getPendingPracticeSession(await getActivePracticeSession().catch(() => undefined))
     setResumableSession(session)
-    navigate(practiceSelection ? 'practice' : 'library')
+    navigate(practiceSelection?.mode === 'ambush' ? 'home' : practiceSelection ? 'practice' : 'library')
   }
 
   function completeReview() {
+    const destination = practiceSelection?.mode === 'ambush' ? 'home' : 'practice'
     setResumableSession(undefined)
-    navigate('practice')
+    navigate(destination)
+  }
+
+  async function acceptSurpriseOffer() {
+    if (!surpriseOffer || surpriseProcessing) return
+    setSurpriseProcessing(true)
+    try {
+      if (Date.now() >= surpriseOffer.expiresAt) {
+        await declineSurpriseChallengeOffer(surpriseOffer.id)
+        stopCharacterVoice()
+        setSurpriseOffer(undefined)
+        setToast('这封邀战已经过期，宿敌将在之后重新发起挑战')
+        return
+      }
+      await acceptSurpriseChallengeOffer(surpriseOffer.id)
+      stopCharacterVoice()
+      playSound('battle-start')
+      const rival = getSurpriseRival(surpriseOffer.rivalId)
+      const selection: PracticeSelection = {
+        lectureId: 'lecture-01',
+        role: 'choice',
+        mode: 'ambush',
+        label: `突发邀战 · ${rival.name}`,
+        challengeId: surpriseOffer.id,
+        rivalId: surpriseOffer.rivalId,
+        deadlineAt: Date.now() + SURPRISE_CHALLENGE_TIME_MS,
+        challengeSeed: surpriseOffer.seed
+      }
+      setSurpriseOffer(undefined)
+      openReview(undefined, selection)
+    } finally {
+      setSurpriseProcessing(false)
+    }
+  }
+
+  async function declineSurpriseOffer() {
+    if (!surpriseOffer || surpriseProcessing) return
+    setSurpriseProcessing(true)
+    try {
+      const rival = getSurpriseRival(surpriseOffer.rivalId)
+      await declineSurpriseChallengeOffer(surpriseOffer.id)
+      setSurpriseOffer(undefined)
+      playSound('story-next')
+      if (getAudioPreferences().autoVoice) speakCharacterVoice(getStoryVoiceCue(rival.id, rival.declined), { delayMs: 160 })
+      setToast('已暂避邀战，90 分钟内不会再次打扰')
+    } finally {
+      setSurpriseProcessing(false)
+    }
   }
 
   function openEdit(id: string) {
@@ -273,6 +363,7 @@ export default function App() {
       {screen === 'profile' && <ProfilePage canInstall={!!installPrompt} isStandalone={isStandalone} isWechat={isWechat} onInstall={installApp} onCheckUpdate={checkForAppUpdate} onOpenWorld={() => navigate('world')} appVersion={__APP_VERSION__} notify={setToast} />}
       {screen !== 'review' && <BottomNav active={screen} onNavigate={navigate} />}
       {showInstallGuide && <InstallGuide canInstall={!!installPrompt} isWechat={isWechat} onInstall={installApp} onClose={() => setShowInstallGuide(false)} />}
+      {surpriseOffer && <SurpriseChallengeOfferModal offer={surpriseOffer} processing={surpriseProcessing} onAccept={() => void acceptSurpriseOffer()} onDecline={() => void declineSurpriseOffer()} />}
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={19} /> <span>{toast}</span>

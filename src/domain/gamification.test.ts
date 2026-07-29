@@ -29,7 +29,10 @@ const profile: PlayerProfile = {
   masteredProblemIds: [],
   correctedProblemIds: [],
   bossVictories: {},
-  bossAttempts: 0
+  bossAttempts: 0,
+  surpriseChallengeWins: 0,
+  surpriseChallengeLosses: 0,
+  surpriseChallengeBestScore: 0
 }
 
 describe('斗气境界与奖励进度', () => {

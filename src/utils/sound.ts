@@ -41,6 +41,8 @@ export type SoundEffect =
   | 'rival-open'
   | 'romance-open'
   | 'campus-bell'
+  | 'ambush-alert'
+  | 'countdown-warning'
   | 'sound-on'
   | 'sound-off'
 
@@ -191,6 +193,12 @@ export const SOUND_PATTERNS: Readonly<Record<SoundEffect, readonly ToneSpec[]>> 
   'rival-open': [tone(82, 0, 360, 0.058, 'sine', 110), tone(165, 70, 260, 0.04, 'sawtooth', 220, -0.2), tone(330, 260, 210, 0.036, 'triangle', 247, 0.2)],
   'romance-open': [tone(261.63, 0, 300, 0.03, 'sine', 329.63, -0.18), tone(523.25, 100, 310, 0.034, 'sine', 659.25, 0.18), tone(783.99, 290, 420, 0.035)],
   'campus-bell': [tone(523.25, 0, 390, 0.036, 'sine'), tone(659.25, 210, 420, 0.04, 'sine'), tone(783.99, 430, 520, 0.044, 'sine'), tone(1046.5, 690, 620, 0.036, 'triangle')],
+  'ambush-alert': [
+    tone(82, 0, 520, 0.074, 'sawtooth', 123, -0.22), tone(659, 80, 120, 0.052, 'square', 988, 0.2),
+    tone(82, 290, 520, 0.078, 'sawtooth', 147, 0.2), tone(784, 380, 150, 0.056, 'square', 1175, -0.18),
+    tone(196, 650, 420, 0.058, 'triangle', 294), tone(587, 820, 380, 0.05, 'square', 880)
+  ],
+  'countdown-warning': [tone(880, 0, 115, 0.052, 'square', 660), tone(880, 240, 115, 0.054, 'square', 660), tone(1047, 480, 180, 0.056, 'square', 784)],
   'sound-on': [tone(392, 0, 110, 0.035, 'triangle', undefined, -0.1), tone(587, 85, 180, 0.04, 'sine', undefined, 0.1)],
   'sound-off': [tone(440, 0, 120, 0.03, 'triangle', 330, 0.1), tone(220, 85, 150, 0.022, 'sine', undefined, -0.1)]
 }
@@ -218,7 +226,8 @@ export const SOUND_TEXTURES: Readonly<Partial<Record<SoundEffect, readonly Noise
   'chapter-open': [noise(90, 620, 0.012, 2400, 'highpass')],
   'bond-up': [noise(80, 520, 0.01, 1800, 'bandpass')],
   'rival-open': [noise(0, 420, 0.03, 210, 'lowpass')],
-  'campus-bell': [noise(260, 920, 0.009, 3600, 'highpass')]
+  'campus-bell': [noise(260, 920, 0.009, 3600, 'highpass')],
+  'ambush-alert': [noise(0, 900, 0.045, 190, 'lowpass'), noise(320, 620, 0.021, 2100, 'bandpass')]
 }
 
 export const RATING_SOUND: Readonly<Record<ReviewRating, SoundEffect>> = {

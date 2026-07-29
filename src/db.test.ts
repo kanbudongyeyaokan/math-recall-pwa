@@ -1,7 +1,14 @@
 import 'fake-indexeddb/auto'
 import Dexie from 'dexie'
 import { afterEach, describe, expect, it } from 'vitest'
-import { MathRecallDatabase, normalizeProblemRecord, normalizeProfileRecord } from './db'
+import {
+  db,
+  defaultProfile,
+  MathRecallDatabase,
+  normalizeProblemRecord,
+  normalizeProfileRecord,
+  recordSurpriseChallengeResult
+} from './db'
 import { LEGACY_PRIVATE_BANK_SOURCE } from './data/questionQuality'
 import type { PlayerProfile, Problem } from './types'
 
@@ -41,6 +48,9 @@ describe('旧数据迁移归一化', () => {
     expect(migrated.activeTechniqueId).toBe('definition-heart')
     expect(migrated.techniqueMastery).toEqual({})
     expect(migrated.storyChoices).toEqual({})
+    expect(migrated.surpriseChallengeWins).toBe(0)
+    expect(migrated.surpriseChallengeLosses).toBe(0)
+    expect(migrated.surpriseChallengeBestScore).toBe(0)
   })
 
   it('把旧人物羁绊归并到新版角色且不丢点数', () => {
@@ -176,5 +186,59 @@ describe('旧数据迁移归一化', () => {
     expect(await upgraded.reviews.where('problemId').equals('seed-56').count()).toBe(1)
     expect(await upgraded.reviews.where('problemId').equals('zy30-heyaokun-001').count()).toBe(1)
     upgraded.close()
+  })
+
+  it('同一场突发邀战重复结算时不会重复增加灵石或胜场', async () => {
+    await db.delete()
+    await db.open()
+    await db.profiles.put({ ...defaultProfile, coins: 10, lifetimeCoins: 10 })
+
+    const first = await recordSurpriseChallengeResult({
+      challengeId: 'ambush-idempotent',
+      rivalId: 'zeng-yuxin',
+      score: 88,
+      passed: true,
+      timedOut: false,
+      now: 100
+    })
+    const repeated = await recordSurpriseChallengeResult({
+      challengeId: 'ambush-idempotent',
+      rivalId: 'zeng-yuxin',
+      score: 88,
+      passed: true,
+      timedOut: false,
+      now: 101
+    })
+    await recordSurpriseChallengeResult({
+      challengeId: 'ambush-later-defeat',
+      rivalId: 'yuan-yue',
+      score: 60,
+      passed: false,
+      timedOut: false,
+      now: 102
+    })
+    const staleRepeat = await recordSurpriseChallengeResult({
+      challengeId: 'ambush-idempotent',
+      rivalId: 'zeng-yuxin',
+      score: 88,
+      passed: true,
+      timedOut: false,
+      now: 103
+    })
+
+    expect(first).toMatchObject({ coinBonus: 66, duplicate: false })
+    expect(repeated).toMatchObject({ coinBonus: 0, duplicate: true })
+    expect(staleRepeat).toMatchObject({ coinBonus: 0, duplicate: true })
+    expect(await db.profiles.get('player')).toMatchObject({
+      coins: 76,
+      lifetimeCoins: 76,
+      surpriseChallengeWins: 1,
+      surpriseChallengeLosses: 1,
+      surpriseChallengeBestScore: 88,
+      lastSurpriseChallengeId: 'ambush-later-defeat'
+    })
+
+    db.close()
+    await db.delete()
   })
 })

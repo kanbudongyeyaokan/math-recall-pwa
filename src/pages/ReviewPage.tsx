@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
   Brain,
   Check,
   CheckCircle2,
+  Clock3,
   ChevronDown,
   ChevronUp,
   CircleX,
@@ -26,6 +27,7 @@ import { DbImage } from '../components/DbImage'
 import { Lightbox } from '../components/Lightbox'
 import { MathText } from '../components/MathText'
 import { RewardReveal } from '../components/RewardReveal'
+import { SurpriseChallengeResultModal } from '../components/SurpriseChallengeModal'
 import {
   clearActivePracticeSession,
   db,
@@ -35,6 +37,7 @@ import {
   recordPracticeCycleCompletion,
   recordBossBattleResult,
   recordReview,
+  recordSurpriseChallengeResult,
   saveActivePracticeSession
 } from '../db'
 import {
@@ -61,6 +64,16 @@ import {
   updateSessionAnswer
 } from '../domain/practiceSession'
 import type { RomanceRouteId } from '../domain/story'
+import {
+  buildSurpriseChallengeQueue,
+  formatChallengeTime,
+  getSurpriseRival,
+  scoreSurpriseChallenge,
+  SURPRISE_CHALLENGE_QUESTION_COUNT,
+  SURPRISE_CHALLENGE_TIME_MS,
+  type SurpriseChallengeOffer,
+  type SurpriseChallengeScore
+} from '../domain/surpriseChallenge'
 import type { ActivePracticeSession, PlayerProfile, Problem, ReviewRating, RewardCard, UnlockEvent } from '../types'
 import {
   getAudioPreferences,
@@ -111,6 +124,15 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['answer', 'core']))
   const [saving, setSaving] = useState(false)
   const [lightbox, setLightbox] = useState<{ id: string; alt: string }>()
+  const [ambushTimeRemaining, setAmbushTimeRemaining] = useState(0)
+  const ambushResolvingRef = useRef(false)
+  const ambushWarningPlayedRef = useRef(false)
+  const [ambushResult, setAmbushResult] = useState<{
+    offer: SurpriseChallengeOffer
+    score: SurpriseChallengeScore
+    profile: PlayerProfile
+    coinBonus: number
+  }>()
   const [reward, setReward] = useState<{
     card: RewardCard
     xp: number
@@ -136,6 +158,22 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   const voiceSupported = hasCharacterVoiceSupport()
   const boss = selection?.mode === 'boss' ? getLectureBoss(selection.lectureId) : undefined
   const bossProgress = boss ? scoreBossBattle(activeSession?.outcomes || [], queue || []) : undefined
+  const ambushRival = selection?.mode === 'ambush' ? getSurpriseRival(selection.rivalId) : undefined
+  const ambushOffer: SurpriseChallengeOffer | undefined = ambushRival && selection?.challengeId && selection.deadlineAt
+    ? {
+        id: selection.challengeId,
+        rivalId: ambushRival.id,
+        createdAt: selection.deadlineAt - SURPRISE_CHALLENGE_TIME_MS,
+        expiresAt: selection.deadlineAt,
+        seed: selection.challengeSeed || selection.deadlineAt
+      }
+    : undefined
+  const ambushProgress = ambushOffer && queue
+    ? scoreSurpriseChallenge({ outcomes: activeSession?.outcomes || [], problems: queue, deadlineAt: selection!.deadlineAt!, completedAt: Date.now() })
+    : undefined
+  const effectiveAmbushTime = selection?.deadlineAt
+    ? ambushTimeRemaining || Math.max(0, selection.deadlineAt - Date.now())
+    : 0
 
   useEffect(() => {
     let cancelled = false
@@ -165,7 +203,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           restored = pending
         }
         const session = restored || createPracticeSession({
-          mode: requestedId ? 'single' : selection?.mode === 'boss' ? 'boss' : 'practice',
+          mode: requestedId ? 'single' : selection?.mode === 'boss' ? 'boss' : selection?.mode === 'ambush' ? 'ambush' : 'practice',
           requestedId,
           selection,
           queueIds: nextProblems.map((problem) => problem.id)
@@ -186,6 +224,12 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       }
       if (!selection) {
         await restoreOrCreate([...allProblems!].sort(problemOrder))
+        return
+      }
+
+      if (selection.mode === 'ambush') {
+        const queueIds = buildSurpriseChallengeQueue(allProblems!, selection.challengeSeed)
+        await restoreOrCreate(queueIds.flatMap((id) => availableById.get(id) || []))
         return
       }
 
@@ -244,6 +288,59 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       document.body.style.overflow = previousOverflow
     }
   }, [audioOpen])
+
+  useEffect(() => {
+    ambushResolvingRef.current = false
+    ambushWarningPlayedRef.current = false
+    setAmbushResult(undefined)
+  }, [selection?.challengeId])
+
+  useEffect(() => {
+    if (!ambushOffer || !selection?.deadlineAt || ambushResult) return
+    const updateCountdown = () => {
+      const remaining = Math.max(0, selection.deadlineAt! - Date.now())
+      setAmbushTimeRemaining(remaining)
+      if (remaining > 0 && remaining <= 60_000 && !ambushWarningPlayedRef.current) {
+        ambushWarningPlayedRef.current = true
+        playSound('countdown-warning')
+        pulseHaptic([35, 45, 35])
+      }
+      if (remaining === 0 && !saving && activeSession && queue?.length) void finishAmbush(activeSession, true)
+    }
+    updateCountdown()
+    const timer = window.setInterval(updateCountdown, 1000)
+    return () => window.clearInterval(timer)
+  }, [activeSession?.id, activeSession?.outcomes.length, ambushOffer?.id, ambushResult, queue?.length, saving, selection?.deadlineAt])
+
+  async function finishAmbush(session: ActivePracticeSession, forcedTimeout = false) {
+    if (!ambushOffer || !ambushRival || !queue || !selection?.deadlineAt || ambushResolvingRef.current) return
+    ambushResolvingRef.current = true
+    try {
+      const completedAt = forcedTimeout ? Math.max(Date.now(), selection.deadlineAt + 1) : Date.now()
+      const score = scoreSurpriseChallenge({ outcomes: session.outcomes, problems: queue, deadlineAt: selection.deadlineAt, completedAt })
+      const recorded = await recordSurpriseChallengeResult({
+        challengeId: ambushOffer.id,
+        rivalId: ambushRival.id,
+        score: score.score,
+        passed: score.passed,
+        timedOut: score.timedOut
+      })
+      await clearActivePracticeSession(session.id)
+      const result = { offer: ambushOffer, score, profile: recorded.profile, coinBonus: recorded.coinBonus }
+      setAmbushResult(result)
+      if (forcedTimeout) {
+        stopCharacterVoice()
+        setReward(undefined)
+        playSound('boss-defeat')
+        pulseHaptic([90, 45, 120])
+        if (getAudioPreferences().autoVoice) speakCharacterVoice(getStoryVoiceCue(ambushRival.id, ambushRival.defeat), { delayMs: 760 })
+      }
+      return result
+    } catch (error) {
+      ambushResolvingRef.current = false
+      throw error
+    }
+  }
 
   function persistAnswer(patch: Partial<ActivePracticeSession['answer']>) {
     setActiveSession((current) => {
@@ -339,6 +436,10 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
 
   async function grade(rating: ReviewRating) {
     if (!problem || saving || !revealed) return
+    if (ambushOffer && selection?.deadlineAt && Date.now() >= selection.deadlineAt && activeSession) {
+      await finishAmbush(activeSession, true)
+      return
+    }
     setSaving(true)
     try {
       const result = await recordReview(problem.id, rating, isChoice ? {
@@ -346,7 +447,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         isCorrect: choiceCorrect
       } : {})
       const cycleLectureId = selection?.lectureId || getProblemLectureIds(problem)[0]
-      if (cycleLectureId && allProblems && selection?.mode !== 'boss') {
+      if (cycleLectureId && allProblems && selection?.mode !== 'boss' && selection?.mode !== 'ambush') {
         const lectureProblemIds = allProblems
           .filter((candidate) => getProblemLectureIds(candidate).includes(cycleLectureId))
           .map((candidate) => candidate.id)
@@ -358,6 +459,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       let rewardEncouragement = result.encouragement
       let rewardUnlockEvents = result.unlockEvents
       let bossResultStatus: 'victory' | 'defeat' | undefined
+      let ambushBattleResult: Awaited<ReturnType<typeof finishAmbush>> | undefined = undefined
       if (activeSession) {
         completedSession = completeSessionProblem(activeSession, {
           problemId: problem.id,
@@ -378,6 +480,17 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           ? `${result.encouragement} ${boss.name}已被击破，真实掌握通过检验。`
           : `${result.encouragement} ${boss.name}还剩 ${battleScore.remainingHp} 点生命；补强薄弱题后再战。`
       }
+      if (ambushOffer && ambushRival && queue && completedSession && queueIndex === queue.length - 1) {
+        ambushBattleResult = await finishAmbush(completedSession)
+        if (ambushBattleResult) {
+          rewardProfile = ambushBattleResult.profile
+          rewardCoins += ambushBattleResult.coinBonus
+          bossResultStatus = ambushBattleResult.score.passed ? 'victory' : 'defeat'
+          rewardEncouragement = ambushBattleResult.score.passed
+            ? `${result.encouragement} ${ambushRival.name}的突袭被你正面踩住，额外夺得 ${ambushBattleResult.coinBonus} 灵石。`
+            : `${result.encouragement} ${ambushRival.name}赢下这一场；错题已经留下，下一次用结果打回去。`
+        }
+      }
       const soundDuration = playRewardSound({
         rating,
         techniqueTriggered: result.technique.triggered,
@@ -386,21 +499,26 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         realmBreakthrough: result.advance.realmBreakthrough,
         masteryGained: result.problemMastered,
         corrected: result.problemCorrected,
-        bossHit: !!boss && (rating === 'independent' || rating === 'multiple') && (!isChoice || choiceCorrect),
+        bossHit: (!!boss || !!ambushRival) && (rating === 'independent' || rating === 'multiple') && (!isChoice || choiceCorrect),
         bossResult: bossResultStatus
       })
       const unlockSoundDuration = rewardUnlockEvents.length
         ? playUnlockSounds(rewardUnlockEvents, soundDuration + 120)
         : 0
-      const voiceCue = getReviewVoiceCue({
-        profile: rewardProfile,
-        rating,
-        isCorrect: choiceCorrect,
-        advanced: result.advance.advanced,
-        realmBreakthrough: result.advance.realmBreakthrough,
-        activeRouteId: romanceSetting?.value as RomanceRouteId | undefined,
-        seed: rewardProfile.totalReviews + problem.reviewCount
-      })
+      const voiceCue = ambushBattleResult && ambushRival
+        ? getStoryVoiceCue(
+            ambushBattleResult.score.passed ? 'he-yaokun' : ambushRival.id,
+            ambushBattleResult.score.passed ? '突发邀战拿下。想用嘲讽压住我，只会让我下一题更强。' : ambushRival.defeat
+          )
+        : getReviewVoiceCue({
+            profile: rewardProfile,
+            rating,
+            isCorrect: choiceCorrect,
+            advanced: result.advance.advanced,
+            realmBreakthrough: result.advance.realmBreakthrough,
+            activeRouteId: romanceSetting?.value as RomanceRouteId | undefined,
+            seed: rewardProfile.totalReviews + problem.reviewCount
+          })
       pulseHaptic(result.advance.realmBreakthrough ? [55, 35, 85, 35, 120] : result.advance.advanced ? [35, 25, 55, 25, 75] : [28, 24, 48])
       setReward({
         card: result.reward,
@@ -426,6 +544,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     stopCharacterVoice()
     playSound('next')
     setReward(undefined)
+    if (ambushResult && queue && queueIndex === queue.length - 1) return
     if (queue && queueIndex < queue.length - 1) {
       if (activeSession) {
         const next = advancePracticeSession(activeSession)
@@ -442,6 +561,13 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     }
     await clearActivePracticeSession(activeSession?.id)
     setActiveSession(undefined)
+    onComplete()
+  }
+
+  function closeAmbushResult() {
+    stopCharacterVoice()
+    playSound('next')
+    setAmbushResult(undefined)
     onComplete()
   }
 
@@ -502,6 +628,15 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           <b>HP {Math.max(0, boss.maxHp - bossProgress.damage)}/{boss.maxHp}</b>
           <div className="boss-hp-track"><span style={{ width: `${Math.max(0, boss.maxHp - bossProgress.damage)}%` }} /></div>
           <small>至少 4 题独立完成且造成 80 点伤害</small>
+        </section>
+      )}
+
+      {ambushRival && ambushOffer && ambushProgress && selection?.deadlineAt && (
+        <section className={`ambush-battle-hud ${effectiveAmbushTime <= 60_000 ? 'is-urgent' : ''}`} aria-label={`${ambushRival.name}突发邀战倒计时`}>
+          <div><span><Swords size={15} />突发邀战 · {ambushRival.title}</span><strong>{ambushRival.name}</strong></div>
+          <b><Clock3 size={16} />{formatChallengeTime(effectiveAmbushTime)}</b>
+          <div className="ambush-time-track"><span style={{ width: `${Math.min(100, (effectiveAmbushTime / SURPRISE_CHALLENGE_TIME_MS) * 100)}%` }} /></div>
+          <small>已完成 {ambushProgress.completed}/{SURPRISE_CHALLENGE_QUESTION_COUNT} · 独立命中 {ambushProgress.strongWins}/4 · 压制 {ambushProgress.score}/100</small>
         </section>
       )}
 
@@ -662,10 +797,11 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         <RewardReveal
           {...reward}
           onReplayVoice={() => speakCharacterVoice(reward.voiceCue)}
-          continueLabel={queueIndex < queue.length - 1 ? `继续下一题 · ${queueIndex + 2}/${queue.length}` : selection ? '完成本轮，返回讲次' : '完成本题'}
+          continueLabel={queueIndex < queue.length - 1 ? `继续下一题 · ${queueIndex + 2}/${queue.length}` : ambushResult ? '查看邀战结算' : selection ? '完成本轮，返回讲次' : '完成本题'}
           onClose={closeReward}
         />
       )}
+      {ambushResult && !reward && <SurpriseChallengeResultModal {...ambushResult} onClose={closeAmbushResult} />}
     </main>
   )
 }

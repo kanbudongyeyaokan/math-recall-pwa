@@ -87,14 +87,18 @@ export interface BossVictory {
   lastDefeatedAt: number
 }
 
-export type PracticeSessionMode = 'practice' | 'boss' | 'single'
+export type PracticeSessionMode = 'practice' | 'boss' | 'ambush' | 'single'
 
 export interface PracticeSessionSelection {
   lectureId: string
   sectionId?: string
   role: 'all' | 'concept' | 'example' | 'choice' | 'exercise'
   label: string
-  mode?: 'practice' | 'boss'
+  mode?: 'practice' | 'boss' | 'ambush'
+  challengeId?: string
+  rivalId?: string
+  deadlineAt?: number
+  challengeSeed?: number
 }
 
 export interface PracticeSessionAnswer {
@@ -163,6 +167,11 @@ export interface PlayerProfile {
   correctedProblemIds: string[]
   bossVictories: Record<string, BossVictory>
   bossAttempts: number
+  surpriseChallengeWins: number
+  surpriseChallengeLosses: number
+  surpriseChallengeBestScore: number
+  lastSurpriseChallengeId?: string
+  lastSurpriseChallengeAt?: number
   avatarImageId?: string
 }
 

@@ -199,6 +199,12 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
         <div className="mini-stat"><span><strong>{profile.multipleSolutionReviews}</strong><small>多解完成</small></span></div>
       </section>
 
+      <section className="stats-row profile-stats ambush-profile-stats" aria-label="突发邀战战绩">
+        <div className="mini-stat"><span><strong>{profile.surpriseChallengeWins}</strong><small>邀战胜利</small></span></div>
+        <div className="mini-stat"><span><strong>{profile.surpriseChallengeLosses}</strong><small>邀战失利</small></span></div>
+        <div className="mini-stat"><span><strong>{profile.surpriseChallengeBestScore}</strong><small>最高压制</small></span></div>
+      </section>
+
       <section className="world-handoff">
         <Map size={24} />
         <div><p className="eyebrow">玩法已迁入斗界</p><h2>人物、坊市、任务都在独立入口</h2><p>从底部中间的“斗界”进入，查看羁绊、购买装备、切换功法和领取称号。</p></div>

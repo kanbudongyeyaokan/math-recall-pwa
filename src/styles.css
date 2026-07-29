@@ -596,6 +596,10 @@ h1, h2, h3, p { margin-top: 0; }
 .profile-hero-copy small { display: block; margin-top: 7px; color: #aab5ad; font-size: .62rem; }
 .profile-stats .mini-stat { justify-content: center; text-align: center; }
 .profile-stats .mini-stat strong { font-size: 1.1rem; }
+.ambush-profile-stats { margin-top: -6px; }
+.ambush-profile-stats .mini-stat { color: #edf2ef; background: #242a28; border-bottom: 2px solid #a53d38; }
+.ambush-profile-stats .mini-stat small { color: #adb8b3; }
+.ambush-profile-stats .mini-stat strong { color: #f0c75f; }
 .coin-balance { display: inline-flex; align-items: center; gap: 6px; color: #7a5900 !important; }
 .avatar-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
 .avatar-actions .button { min-height: 42px; padding: 9px 12px; font-size: .7rem; }
@@ -1477,4 +1481,65 @@ h1, h2, h3, p { margin-top: 0; }
 @keyframes reward-unlock-enter {
   from { opacity: 0; transform: translateY(8px) scale(.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 突发邀战 */
+.ambush-backdrop { position: fixed; z-index: 160; inset: 0; display: grid; place-items: center; overflow-y: auto; padding: 12px; background: rgba(7,9,8,.9); backdrop-filter: blur(10px); }
+.ambush-modal { width: min(100%, 390px); overflow: hidden; color: #edf2ef; background: #202624; border: 1px solid #505a55; border-top: 4px solid #d04a42; border-radius: 8px; box-shadow: 0 24px 80px rgba(0,0,0,.55); animation: ambush-arrive .42s cubic-bezier(.16,.84,.24,1) both; }
+.ambush-warning { min-height: 42px; display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 8px; padding: 8px 13px; color: #ffd87d; background: #421d1c; border-bottom: 1px solid #71302d; }
+.ambush-warning span { font-size: .7rem; font-weight: 950; }
+.ambush-warning b { font-variant-numeric: tabular-nums; font-size: .82rem; }
+.ambush-opponent-stage { position: relative; height: 205px; overflow: hidden; background: #151918; border-bottom: 1px solid #3d4742; }
+.ambush-opponent-stage > img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; animation: character-challenge 2.1s ease-in-out infinite; }
+.ambush-opponent-stage > span { position: absolute; right: 11px; bottom: 10px; padding: 5px 8px; color: #1c2320; background: #efc75e; border-radius: 5px; font-size: .58rem; font-weight: 950; }
+.ambush-copy { padding: 15px 16px 8px; }
+.ambush-copy small { color: #ef8e82; font-size: .57rem; font-weight: 900; }
+.ambush-copy h2 { margin: 4px 0 9px; font-size: 1.28rem; }
+.ambush-copy blockquote { margin: 0; padding: 10px 11px; color: #ced6d2; background: #2c3431; border-left: 3px solid #d04a42; font-size: .7rem; line-height: 1.6; }
+.ambush-rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 7px 16px 13px; }
+.ambush-rules span { min-width: 0; padding: 8px 5px; text-align: center; color: #aeb9b4; background: #171c1a; border: 1px solid #3b4540; border-radius: 6px; font-size: .5rem; }
+.ambush-rules strong { display: block; color: #f1cb67; font-size: .82rem; }
+.ambush-actions { display: grid; grid-template-columns: 1.35fr 1fr; gap: 7px; padding: 0 16px; }
+.ambush-actions .button { min-height: 47px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.ambush-actions + p { margin: 10px 16px 15px; color: #8f9b95; text-align: center; font-size: .53rem; line-height: 1.5; }
+.ambush-battle-hud { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; margin: 0 0 12px; padding: 11px 12px; color: #edf2ef; background: #242a28; border-left: 4px solid #d04a42; border-radius: 7px; }
+.ambush-battle-hud > div:first-child span, .ambush-battle-hud > div:first-child strong { display: block; }
+.ambush-battle-hud > div:first-child span { display: flex; align-items: center; gap: 5px; color: #f0c75f; font-size: .56rem; font-weight: 900; }
+.ambush-battle-hud > div:first-child strong { margin-top: 3px; font-size: .78rem; }
+.ambush-battle-hud > b { display: flex; align-items: center; align-self: center; gap: 5px; color: #fff1b2; font-variant-numeric: tabular-nums; font-size: .88rem; }
+.ambush-time-track { grid-column: 1 / -1; height: 8px; overflow: hidden; background: #101513; border: 1px solid #434c48; border-radius: 3px; }
+.ambush-time-track span { display: block; height: 100%; background: #d5ae4f; transition: width .5s linear; }
+.ambush-battle-hud > small { grid-column: 1 / -1; color: #a9b4af; font-size: .54rem; }
+.ambush-battle-hud.is-urgent { border-left-color: #ef5c50; animation: ambush-urgent 1s ease-in-out infinite; }
+.ambush-battle-hud.is-urgent .ambush-time-track span { background: #e8554c; }
+.ambush-result-modal { padding-bottom: 16px; text-align: center; }
+.ambush-result-stage { height: 228px; display: grid; grid-template-columns: 1fr 1fr; align-items: end; gap: 4px; overflow: hidden; padding: 8px 8px 0; background: #151a18; border-bottom: 1px solid #3f4944; }
+.ambush-result-stage > .cultivator-scene { width: 100%; height: 210px; transform: none; }
+.ambush-defeated-rival, .ambush-rival-victory { height: 210px; overflow: hidden; }
+.ambush-defeated-rival > img, .ambush-rival-victory > img { width: 100%; height: 100%; object-fit: cover; object-position: center 15%; }
+.ambush-defeated-rival { transform-origin: 50% 100%; animation: ambush-rival-down .72s .18s cubic-bezier(.25,.75,.25,1) both; filter: grayscale(.72) brightness(.68); }
+.ambush-rival-victory > img { animation: character-victory .76s ease both, character-challenge 2.4s .8s ease-in-out infinite; }
+.ambush-result-backdrop.is-defeat .ambush-result-stage { grid-template-columns: 1.18fr .82fr; }
+.ambush-result-backdrop.is-defeat .ambush-result-stage > .cultivator-scene { filter: saturate(.55) brightness(.75); }
+.ambush-result-mark { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: #f0c65e; font-size: .62rem; font-weight: 950; }
+.ambush-result-backdrop.is-defeat .ambush-result-mark { color: #ed7c72; }
+.ambush-result-modal h2 { margin: 6px 16px 7px; font-size: 1.22rem; }
+.ambush-result-modal > p { margin: 0 17px; color: #b8c2bd; font-size: .65rem; line-height: 1.58; }
+.ambush-result-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 13px 14px; }
+.ambush-result-stats span { padding: 8px 3px; background: #151a18; border: 1px solid #3c4641; border-radius: 6px; }
+.ambush-result-stats small, .ambush-result-stats strong { display: block; }
+.ambush-result-stats small { color: #8f9c96; font-size: .47rem; }
+.ambush-result-stats strong { margin-top: 2px; color: #f3cf72; font-size: .78rem; }
+.ambush-result-modal > .button { width: calc(100% - 28px); margin: 0 14px; }
+.ambush-retry-note { display: flex; align-items: center; justify-content: center; gap: 5px; margin: 9px 14px 0; color: #9ba6a1; font-size: .51rem; }
+@keyframes ambush-arrive { from { opacity: 0; transform: translateY(18px) scale(.96); filter: brightness(.55) } to { opacity: 1; transform: translateY(0) scale(1); filter: brightness(1) } }
+@keyframes ambush-urgent { 0%,100% { box-shadow: 0 0 0 rgba(232,77,69,0) } 50% { box-shadow: 0 0 18px rgba(232,77,69,.28) } }
+@keyframes ambush-rival-down { 0% { transform: translateY(0) rotate(0) scaleY(1) } 55% { transform: translateY(18px) rotate(5deg) scaleY(.84) } 100% { transform: translateY(38px) rotate(8deg) scaleY(.7) } }
+
+@media (max-width: 390px) {
+  .ambush-backdrop { align-items: end; padding: 0; }
+  .ambush-modal { border-right: 0; border-bottom: 0; border-left: 0; border-radius: 8px 8px 0 0; }
+  .ambush-opponent-stage { height: 184px; }
+  .ambush-result-stage { height: 205px; }
+  .ambush-result-stage > .cultivator-scene, .ambush-defeated-rival, .ambush-rival-victory { height: 190px; }
 }
