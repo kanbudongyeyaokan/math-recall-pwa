@@ -68,6 +68,7 @@ import {
   playSound,
   playUnlockSounds,
   pulseHaptic,
+  resumeBackgroundMusic,
   saveAudioPreferences
 } from '../utils/sound'
 import { getReviewVoiceCue, getStoryVoiceCue, hasCharacterVoiceSupport, speakCharacterVoice, stopCharacterVoice, type CharacterVoiceCue } from '../utils/voice'
@@ -356,6 +357,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       let rewardCoins = result.coinsEarned
       let rewardEncouragement = result.encouragement
       let rewardUnlockEvents = result.unlockEvents
+      let bossResultStatus: 'victory' | 'defeat' | undefined
       if (activeSession) {
         completedSession = completeSessionProblem(activeSession, {
           problemId: problem.id,
@@ -370,6 +372,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         const bossResult = await recordBossBattleResult(boss.lectureId, battleScore.score, battleScore.passed)
         rewardProfile = bossResult.profile
         rewardCoins += bossResult.coinBonus
+        bossResultStatus = battleScore.passed ? 'victory' : 'defeat'
         rewardUnlockEvents = [...new Map([...result.unlockEvents, ...bossResult.unlockEvents].map((event) => [event.id, event])).values()]
         rewardEncouragement = battleScore.passed
           ? `${result.encouragement} ${boss.name}已被击破，真实掌握通过检验。`
@@ -380,7 +383,11 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         techniqueTriggered: result.technique.triggered,
         coinsEarned: rewardCoins,
         advanced: result.advance.advanced,
-        realmBreakthrough: result.advance.realmBreakthrough
+        realmBreakthrough: result.advance.realmBreakthrough,
+        masteryGained: result.problemMastered,
+        corrected: result.problemCorrected,
+        bossHit: !!boss && (rating === 'independent' || rating === 'multiple') && (!isChoice || choiceCorrect),
+        bossResult: bossResultStatus
       })
       const unlockSoundDuration = rewardUnlockEvents.length
         ? playUnlockSounds(rewardUnlockEvents, soundDuration + 120)
@@ -480,7 +487,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
               <label><span><strong>做题音效</strong><small>答题、灵石与突破反馈</small></span><input type="checkbox" role="switch" checked={audioPreferences.soundEnabled} onChange={toggleSound} /></label>
               <label><span><strong>角色语音</strong><small>{voiceSupported ? '结算鼓励与剧情台词' : '当前浏览器不支持语音'}</small></span><input type="checkbox" role="switch" checked={audioPreferences.voiceEnabled && voiceSupported} onChange={toggleVoice} disabled={!voiceSupported} /></label>
             </div>
-            <AudioSettingsControls preferences={audioPreferences} voiceSupported={voiceSupported} onChange={updateAudioPreferences} onPreviewSound={() => playSound('coin')} onPreviewVoice={previewVoice} idPrefix="review-audio" compact />
+            <AudioSettingsControls preferences={audioPreferences} voiceSupported={voiceSupported} onChange={updateAudioPreferences} onPreviewMusic={() => void resumeBackgroundMusic()} onPreviewSound={() => playSound('coin')} onPreviewVoice={previewVoice} idPrefix="review-audio" compact />
           </section>
         </div>
       )}

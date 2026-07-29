@@ -487,6 +487,8 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
       techniqueMasteryGained: technique.masteryGained
     }
     const nextProfile = applyProblemMasteryToProfile(profileWithTechnique, problem, [...previousReviews, reviewRecord])
+    const problemMastered = !currentProfile.masteredProblemIds.includes(problem.id) && nextProfile.masteredProblemIds.includes(problem.id)
+    const problemCorrected = !currentProfile.correctedProblemIds.includes(problem.id) && nextProfile.correctedProblemIds.includes(problem.id)
     const unlockEvents = getNewUnlockEvents(currentProfile, nextProfile)
 
     await db.problems.update(problemId, {
@@ -499,7 +501,7 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
     await db.rewards.add(reward)
     await db.profiles.put(nextProfile)
 
-    return { outcome, reward, profile: nextProfile, advance, coinsEarned, encouragement, technique, unlockEvents }
+    return { outcome, reward, profile: nextProfile, advance, coinsEarned, encouragement, technique, unlockEvents, problemMastered, problemCorrected }
   })
   await createRecoverySnapshot('完成做题')
   return result

@@ -35,7 +35,7 @@ import {
 } from '../domain/story'
 import { CharacterPortrait } from './CharacterPortrait'
 import type { PlayerProfile } from '../types'
-import { getAudioPreferences, playSound } from '../utils/sound'
+import { getAudioPreferences, playSound, playSoundSequence, type SoundEffect } from '../utils/sound'
 import { getStoryVoiceCue, speakCharacterVoice, stopCharacterVoice } from '../utils/voice'
 
 export const STORY_ROLE_LABELS: Record<StoryRole, string> = {
@@ -47,6 +47,12 @@ export const STORY_ROLE_LABELS: Record<StoryRole, string> = {
   romance: '情缘',
   stranger: '途中相遇',
   protagonist: '何耀焜'
+}
+
+export function getCharacterOpenEffect(role: StoryRole): SoundEffect {
+  if (role === 'rival') return 'rival-open'
+  if (role === 'romance') return 'romance-open'
+  return 'character-open'
 }
 
 const routeSettingKey = 'active-romance-route'
@@ -96,7 +102,7 @@ export function CharacterArchive({ character, profile, activeRouteId, onClose }:
       setSpeaking(false)
       return
     }
-    playSound('character-open')
+    playSound(getCharacterOpenEffect(character.role))
     const started = speakCharacterVoice(getStoryVoiceCue(character.id, character.quote), {
       onStart: () => setSpeaking(true),
       onEnd: () => setSpeaking(false)
@@ -192,7 +198,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
   useEffect(() => () => stopCharacterVoice(), [])
 
   function openCharacter(character: StoryCharacter) {
-    playSound('character-open')
+    playSound(getCharacterOpenEffect(character.role))
     stopCharacterVoice()
     setSpeaking(false)
     setSelectedCharacter(character)
@@ -215,7 +221,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
       setSpeaking(false)
       return
     }
-    playSound('character-open')
+    playSound(getCharacterOpenEffect(dialogueCharacter.role))
     speakDialogue(lineIndex, 130)
   }
 
@@ -223,7 +229,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
     const nextIndex = lineIndex + 1
     stopCharacterVoice()
     setSpeaking(false)
-    playSound('story-next')
+    playSound(/交大|思源|闵行|东川/.test(progress.current.location) ? 'campus-bell' : 'story-next')
     setLineIndex(nextIndex)
     if (getAudioPreferences().autoVoice) speakDialogue(nextIndex, 180)
   }
@@ -236,7 +242,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
     if (!pendingEncounter) return
     const selected = pendingEncounter.choices.find((choice) => choice.id === choiceId)
     if (!selected) return
-    playSound('story-choice')
+    playSoundSequence([{ effect: 'story-choice' }, { effect: 'bond-up', delayMs: 260 }])
     await chooseStoryEncounter(pendingEncounter.id, selected.id)
     setEncounterReply({ title: pendingEncounter.title, reply: selected.reply, bondTargetId: selected.bondTargetId, bondGain: selected.bondGain, coinReward: selected.coinReward })
     if (getAudioPreferences().autoVoice) speakCharacterVoice(getStoryVoiceCue(pendingEncounter.characterId, selected.reply), { delayMs: 380 })

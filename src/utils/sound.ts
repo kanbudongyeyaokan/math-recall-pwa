@@ -31,10 +31,20 @@ export type SoundEffect =
   | 'equip'
   | 'mission-open'
   | 'battle-start'
+  | 'mastery-up'
+  | 'correction'
+  | 'boss-hit'
+  | 'boss-victory'
+  | 'boss-defeat'
+  | 'chapter-open'
+  | 'bond-up'
+  | 'rival-open'
+  | 'romance-open'
+  | 'campus-bell'
   | 'sound-on'
   | 'sound-off'
 
-export type MusicScene = 'journey' | 'focus' | 'market' | 'battle'
+export type MusicScene = 'home' | 'practice' | 'focus' | 'story' | 'market' | 'battle' | 'resolve'
 
 export interface AudioPreferences {
   soundEnabled: boolean
@@ -77,6 +87,10 @@ export interface RewardSoundOptions {
   coinsEarned: number
   advanced: boolean
   realmBreakthrough: boolean
+  masteryGained?: boolean
+  corrected?: boolean
+  bossHit?: boolean
+  bossResult?: 'victory' | 'defeat'
 }
 
 const tone = (
@@ -154,6 +168,29 @@ export const SOUND_PATTERNS: Readonly<Record<SoundEffect, readonly ToneSpec[]>> 
   equip: [tone(196, 0, 170, 0.036, 'triangle', 294), tone(587, 80, 190, 0.032, 'sine', 784, -0.16), tone(1175, 205, 210, 0.025, 'triangle', undefined, 0.16)],
   'mission-open': [tone(262, 0, 140, 0.028, 'triangle', 330, -0.16), tone(523, 85, 160, 0.03, 'sine', 659, 0.16), tone(988, 190, 210, 0.022)],
   'battle-start': [tone(98, 0, 420, 0.048, 'sawtooth', 147, -0.18), tone(196, 180, 360, 0.04, 'triangle', 294, 0.18), tone(587, 430, 260, 0.034, 'square', 784)],
+  'mastery-up': [
+    tone(196, 0, 280, 0.038, 'sine', 294), tone(392, 40, 160, 0.043, 'triangle', undefined, -0.22),
+    tone(523, 125, 180, 0.047, 'sine', undefined, 0.2), tone(659, 220, 210, 0.05), tone(988, 330, 360, 0.035)
+  ],
+  correction: [
+    tone(147, 0, 210, 0.04, 'triangle', 196, -0.15), tone(294, 120, 190, 0.042, 'sine', 392, 0.12),
+    tone(523, 260, 240, 0.048, 'triangle', 784), tone(1047, 400, 260, 0.028)
+  ],
+  'boss-hit': [
+    tone(72, 0, 230, 0.07, 'sine', 48), tone(144, 5, 150, 0.052, 'sawtooth', 96, -0.22),
+    tone(880, 32, 100, 0.035, 'square', 1320, 0.2), tone(1760, 92, 130, 0.023)
+  ],
+  'boss-victory': [
+    tone(65, 0, 820, 0.07, 'sine', 98), tone(196, 60, 250, 0.047, 'triangle', 294, -0.25),
+    tone(392, 230, 260, 0.05, 'triangle', 523, 0.2), tone(659, 430, 310, 0.055),
+    tone(784, 620, 380, 0.058, 'triangle'), tone(1047, 790, 480, 0.052), tone(1568, 980, 520, 0.034)
+  ],
+  'boss-defeat': [tone(147, 0, 330, 0.052, 'triangle', 110, -0.15), tone(220, 180, 300, 0.036, 'sine', 165, 0.14), tone(294, 420, 310, 0.028, 'triangle', 392)],
+  'chapter-open': [tone(262, 0, 260, 0.036, 'sine', 392, -0.2), tone(523, 110, 280, 0.04, 'triangle', 659, 0.18), tone(784, 270, 410, 0.042), tone(1175, 460, 360, 0.026)],
+  'bond-up': [tone(220, 0, 240, 0.035, 'sine', 330, -0.2), tone(440, 90, 250, 0.038, 'triangle', 554, 0.18), tone(659, 230, 340, 0.042), tone(880, 390, 330, 0.027)],
+  'rival-open': [tone(82, 0, 360, 0.058, 'sine', 110), tone(165, 70, 260, 0.04, 'sawtooth', 220, -0.2), tone(330, 260, 210, 0.036, 'triangle', 247, 0.2)],
+  'romance-open': [tone(261.63, 0, 300, 0.03, 'sine', 329.63, -0.18), tone(523.25, 100, 310, 0.034, 'sine', 659.25, 0.18), tone(783.99, 290, 420, 0.035)],
+  'campus-bell': [tone(523.25, 0, 390, 0.036, 'sine'), tone(659.25, 210, 420, 0.04, 'sine'), tone(783.99, 430, 520, 0.044, 'sine'), tone(1046.5, 690, 620, 0.036, 'triangle')],
   'sound-on': [tone(392, 0, 110, 0.035, 'triangle', undefined, -0.1), tone(587, 85, 180, 0.04, 'sine', undefined, 0.1)],
   'sound-off': [tone(440, 0, 120, 0.03, 'triangle', 330, 0.1), tone(220, 85, 150, 0.022, 'sine', undefined, -0.1)]
 }
@@ -172,7 +209,16 @@ export const SOUND_TEXTURES: Readonly<Partial<Record<SoundEffect, readonly Noise
   'challenge-unlock': [noise(0, 620, 0.03, 240, 'lowpass'), noise(280, 440, 0.014, 1300, 'bandpass')],
   'quest-unlock': [noise(20, 500, 0.013, 2300, 'bandpass')],
   'story-next': [noise(0, 125, 0.012, 1500, 'bandpass', -0.18)],
-  'story-choice': [noise(0, 230, 0.015, 760, 'bandpass')]
+  'story-choice': [noise(0, 230, 0.015, 760, 'bandpass')],
+  'mastery-up': [noise(70, 540, 0.018, 2100, 'bandpass')],
+  correction: [noise(0, 220, 0.018, 480, 'bandpass'), noise(270, 320, 0.012, 2600, 'highpass')],
+  'boss-hit': [noise(0, 220, 0.055, 170, 'lowpass'), noise(20, 160, 0.026, 2600, 'bandpass')],
+  'boss-victory': [noise(0, 900, 0.038, 380, 'lowpass'), noise(300, 980, 0.024, 2600, 'bandpass')],
+  'boss-defeat': [noise(0, 520, 0.026, 240, 'lowpass')],
+  'chapter-open': [noise(90, 620, 0.012, 2400, 'highpass')],
+  'bond-up': [noise(80, 520, 0.01, 1800, 'bandpass')],
+  'rival-open': [noise(0, 420, 0.03, 210, 'lowpass')],
+  'campus-bell': [noise(260, 920, 0.009, 3600, 'highpass')]
 }
 
 export const RATING_SOUND: Readonly<Record<ReviewRating, SoundEffect>> = {
@@ -187,8 +233,8 @@ export const DEFAULT_AUDIO_PREFERENCES: AudioPreferences = {
   musicEnabled: true,
   voiceEnabled: true,
   autoVoice: true,
-  soundVolume: 0.78,
-  musicVolume: 0.2,
+  soundVolume: 0.86,
+  musicVolume: 0.46,
   voiceVolume: 0.82,
   voiceRate: 1
 }
@@ -199,13 +245,23 @@ export const AUDIO_PREFERENCES_EVENT = 'doupo-audio-preferences-changed'
 let audioContext: AudioContext | undefined
 let outputNode: GainNode | undefined
 let musicOutputNode: GainNode | undefined
-let musicScene: MusicScene = 'journey'
+let musicScene: MusicScene = 'home'
 let activeMusicScene: MusicScene | undefined
 let musicTimer: number | undefined
-let musicSources: OscillatorNode[] = []
+let musicSources: AudioScheduledSourceNode[] = []
 let musicRestartToken = 0
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+export function getSoundOutputGain(volume: number) {
+  const normalized = clamp(finiteNumber(volume, 0), 0, 1)
+  return normalized <= 0 ? 0.0001 : 1.65 * Math.pow(normalized, 0.78)
+}
+
+export function getMusicOutputGain(volume: number) {
+  const normalized = clamp(finiteNumber(volume, 0), 0, 1)
+  return normalized <= 0 ? 0.0001 : 1.2 * Math.pow(normalized, 0.72)
+}
 
 function finiteNumber(value: unknown, fallback: number) {
   const parsed = Number(value)
@@ -223,7 +279,7 @@ function normalizePreferences(value?: Partial<AudioPreferences>): AudioPreferenc
     voiceEnabled: booleanValue(value?.voiceEnabled, DEFAULT_AUDIO_PREFERENCES.voiceEnabled),
     autoVoice: booleanValue(value?.autoVoice, DEFAULT_AUDIO_PREFERENCES.autoVoice),
     soundVolume: clamp(finiteNumber(value?.soundVolume, DEFAULT_AUDIO_PREFERENCES.soundVolume), 0, 1),
-    musicVolume: clamp(finiteNumber(value?.musicVolume, DEFAULT_AUDIO_PREFERENCES.musicVolume), 0, 0.6),
+    musicVolume: clamp(finiteNumber(value?.musicVolume, DEFAULT_AUDIO_PREFERENCES.musicVolume), 0, 1),
     voiceVolume: clamp(finiteNumber(value?.voiceVolume, DEFAULT_AUDIO_PREFERENCES.voiceVolume), 0, 1),
     voiceRate: clamp(finiteNumber(value?.voiceRate, DEFAULT_AUDIO_PREFERENCES.voiceRate), 0.8, 1.2)
   }
@@ -252,9 +308,9 @@ export function saveAudioPreferences(patch: Partial<AudioPreferences>): AudioPre
       // Audio preferences are optional; restricted storage must not block doing a problem.
     }
   }
-  if (audioContext && outputNode) outputNode.gain.setTargetAtTime(0.72 * next.soundVolume, audioContext.currentTime, 0.02)
+  if (audioContext && outputNode) outputNode.gain.setTargetAtTime(getSoundOutputGain(next.soundVolume), audioContext.currentTime, 0.02)
   if (audioContext && musicOutputNode) {
-    musicOutputNode.gain.setTargetAtTime(next.musicEnabled ? next.musicVolume : 0.0001, audioContext.currentTime, 0.08)
+    musicOutputNode.gain.setTargetAtTime(next.musicEnabled ? getMusicOutputGain(next.musicVolume) : 0.0001, audioContext.currentTime, 0.08)
     if (!next.musicEnabled) stopMusicSources()
     else if (!document.hidden) void resumeBackgroundMusic()
   }
@@ -293,13 +349,13 @@ function ensureAudioGraph() {
   if (!audioContext || audioContext.state === 'closed') {
     audioContext = new AudioContextClass({ latencyHint: 'interactive' })
     const compressor = audioContext.createDynamicsCompressor()
-    compressor.threshold.value = -18
-    compressor.knee.value = 18
-    compressor.ratio.value = 5
-    compressor.attack.value = 0.003
-    compressor.release.value = 0.18
+    compressor.threshold.value = -14
+    compressor.knee.value = 12
+    compressor.ratio.value = 4
+    compressor.attack.value = 0.002
+    compressor.release.value = 0.22
     outputNode = audioContext.createGain()
-    outputNode.gain.value = 0.72 * getAudioPreferences().soundVolume
+    outputNode.gain.value = getSoundOutputGain(getAudioPreferences().soundVolume)
     musicOutputNode = audioContext.createGain()
     musicOutputNode.gain.value = 0.0001
     outputNode.connect(compressor)
@@ -310,36 +366,60 @@ function ensureAudioGraph() {
 }
 
 interface MusicSceneSpec {
+  title: string
   tempo: number
   steps: readonly (readonly number[])[]
   bass: readonly number[]
+  accent: readonly number[]
   wave: OscillatorType
+  filterFrequency: number
+  noteGain: number
+  bassGain: number
+  rhythmGain: number
 }
 
 export const MUSIC_SCENES: Readonly<Record<MusicScene, MusicSceneSpec>> = {
-  journey: {
-    tempo: 66,
-    steps: [[220, 329.63], [246.94, 369.99], [196, 293.66], [220, 329.63], [261.63, 392], [246.94, 369.99], [220, 329.63], [196, 293.66]],
-    bass: [110, 123.47, 98, 110],
-    wave: 'sine'
+  home: {
+    title: '交大晨光', tempo: 72,
+    steps: [[261.63, 392], [329.63, 493.88], [293.66, 440], [349.23, 523.25], [392, 587.33], [349.23, 523.25], [329.63, 493.88], [293.66, 440]],
+    bass: [130.81, 146.83, 174.61, 146.83], accent: [659.25, 783.99, 698.46, 880, 783.99, 698.46, 659.25, 587.33],
+    wave: 'sine', filterFrequency: 1750, noteGain: 0.052, bassGain: 0.046, rhythmGain: 0.012
+  },
+  practice: {
+    title: '山门启程', tempo: 80,
+    steps: [[220, 329.63], [246.94, 369.99], [261.63, 392], [293.66, 440], [261.63, 392], [246.94, 369.99], [220, 329.63], [196, 293.66]],
+    bass: [110, 123.47, 130.81, 98], accent: [440, 493.88, 523.25, 587.33, 523.25, 493.88, 440, 392],
+    wave: 'triangle', filterFrequency: 1450, noteGain: 0.048, bassGain: 0.05, rhythmGain: 0.018
   },
   focus: {
-    tempo: 58,
+    title: '深夜推演', tempo: 60,
     steps: [[196], [293.66], [220], [329.63], [174.61], [261.63], [196], [293.66]],
-    bass: [98, 110, 87.31, 98],
-    wave: 'triangle'
+    bass: [98, 110, 87.31, 98], accent: [392, 440, 392, 493.88, 349.23, 440, 392, 329.63],
+    wave: 'triangle', filterFrequency: 920, noteGain: 0.042, bassGain: 0.044, rhythmGain: 0
+  },
+  story: {
+    title: '同行长路', tempo: 68,
+    steps: [[196, 293.66], [220, 329.63], [246.94, 369.99], [220, 329.63], [174.61, 261.63], [196, 293.66], [220, 329.63], [246.94, 369.99]],
+    bass: [98, 110, 87.31, 123.47], accent: [587.33, 659.25, 739.99, 659.25, 523.25, 587.33, 659.25, 739.99],
+    wave: 'sine', filterFrequency: 1550, noteGain: 0.047, bassGain: 0.042, rhythmGain: 0.006
   },
   market: {
-    tempo: 82,
+    title: '黑角坊市', tempo: 88,
     steps: [[293.66, 440], [329.63], [392, 493.88], [329.63], [261.63, 392], [329.63], [440, 523.25], [392]],
-    bass: [146.83, 164.81, 130.81, 146.83],
-    wave: 'triangle'
+    bass: [146.83, 164.81, 130.81, 146.83], accent: [880, 987.77, 1174.66, 987.77, 783.99, 987.77, 1318.51, 1174.66],
+    wave: 'triangle', filterFrequency: 1900, noteGain: 0.048, bassGain: 0.047, rhythmGain: 0.016
   },
   battle: {
-    tempo: 92,
+    title: '宿敌决战', tempo: 104,
     steps: [[220], [220, 329.63], [246.94], [261.63, 392], [196], [220, 329.63], [174.61], [196, 293.66]],
-    bass: [55, 61.74, 49, 55],
-    wave: 'sawtooth'
+    bass: [55, 61.74, 49, 55], accent: [440, 440, 493.88, 523.25, 392, 440, 349.23, 392],
+    wave: 'sawtooth', filterFrequency: 1250, noteGain: 0.052, bassGain: 0.066, rhythmGain: 0.032
+  },
+  resolve: {
+    title: '思源回响', tempo: 64,
+    steps: [[174.61, 261.63], [196, 293.66], [220, 329.63], [246.94, 369.99], [261.63, 392], [246.94, 369.99], [220, 329.63], [196, 293.66]],
+    bass: [87.31, 98, 110, 123.47], accent: [523.25, 587.33, 659.25, 739.99, 783.99, 739.99, 659.25, 587.33],
+    wave: 'sine', filterFrequency: 1650, noteGain: 0.049, bassGain: 0.043, rhythmGain: 0.008
   }
 }
 
@@ -358,7 +438,7 @@ function scheduleMusicPass(context: AudioContext, output: AudioNode, scene: Musi
   const beat = 60 / spec.tempo
   const origin = context.currentTime + 0.06
   const loopDuration = spec.steps.length * beat
-  const sources: OscillatorNode[] = []
+  const sources: AudioScheduledSourceNode[] = []
 
   spec.steps.forEach((chord, index) => {
     chord.forEach((frequency, noteIndex) => {
@@ -370,9 +450,9 @@ function scheduleMusicPass(context: AudioContext, output: AudioNode, scene: Musi
       oscillator.type = spec.wave
       oscillator.frequency.value = frequency
       filter.type = 'lowpass'
-      filter.frequency.value = scene === 'focus' ? 760 : scene === 'battle' ? 980 : 1350
+      filter.frequency.value = spec.filterFrequency
       envelope.gain.setValueAtTime(0.0001, start)
-      envelope.gain.exponentialRampToValueAtTime(scene === 'focus' ? 0.018 : 0.024 / (noteIndex + 1), start + 0.035)
+      envelope.gain.exponentialRampToValueAtTime(spec.noteGain / (1 + noteIndex * 0.55), start + 0.035)
       envelope.gain.exponentialRampToValueAtTime(0.0001, end)
       oscillator.connect(filter)
       filter.connect(envelope)
@@ -391,7 +471,7 @@ function scheduleMusicPass(context: AudioContext, output: AudioNode, scene: Musi
     oscillator.type = 'sine'
     oscillator.frequency.value = frequency
     envelope.gain.setValueAtTime(0.0001, start)
-    envelope.gain.exponentialRampToValueAtTime(scene === 'battle' ? 0.032 : 0.021, start + 0.04)
+    envelope.gain.exponentialRampToValueAtTime(spec.bassGain, start + 0.04)
     envelope.gain.exponentialRampToValueAtTime(0.0001, end)
     oscillator.connect(envelope)
     envelope.connect(output)
@@ -399,6 +479,42 @@ function scheduleMusicPass(context: AudioContext, output: AudioNode, scene: Musi
     oscillator.stop(end + 0.03)
     sources.push(oscillator)
   })
+
+  spec.accent.forEach((frequency, index) => {
+    const oscillator = context.createOscillator()
+    const envelope = context.createGain()
+    const start = origin + index * beat + beat * 0.48
+    const end = start + beat * 0.24
+    oscillator.type = scene === 'battle' ? 'square' : 'sine'
+    oscillator.frequency.value = frequency
+    envelope.gain.setValueAtTime(0.0001, start)
+    envelope.gain.exponentialRampToValueAtTime(spec.noteGain * 0.42, start + 0.018)
+    envelope.gain.exponentialRampToValueAtTime(0.0001, end)
+    oscillator.connect(envelope)
+    connectWithPan(context, envelope, output, index % 2 ? 0.24 : -0.24)
+    oscillator.start(start)
+    oscillator.stop(end + 0.02)
+    sources.push(oscillator)
+  })
+
+  if (spec.rhythmGain > 0) {
+    spec.steps.forEach((_, index) => {
+      const oscillator = context.createOscillator()
+      const envelope = context.createGain()
+      const start = origin + index * beat
+      const end = start + Math.min(0.15, beat * 0.22)
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(index % 2 ? 96 : 82, start)
+      oscillator.frequency.exponentialRampToValueAtTime(48, end)
+      envelope.gain.setValueAtTime(spec.rhythmGain, start)
+      envelope.gain.exponentialRampToValueAtTime(0.0001, end)
+      oscillator.connect(envelope)
+      envelope.connect(output)
+      oscillator.start(start)
+      oscillator.stop(end + 0.02)
+      sources.push(oscillator)
+    })
+  }
 
   musicSources = sources
   activeMusicScene = scene
@@ -430,7 +546,7 @@ export async function resumeBackgroundMusic() {
       musicRestartToken += 1
       scheduleMusicPass(graph.context, musicOutputNode, musicScene)
     }
-    musicOutputNode.gain.setTargetAtTime(getAudioPreferences().musicVolume, graph.context.currentTime, 0.18)
+    musicOutputNode.gain.setTargetAtTime(getMusicOutputGain(getAudioPreferences().musicVolume), graph.context.currentTime, 0.18)
     return true
   } catch {
     return false
@@ -534,8 +650,12 @@ export function playRewardSound(options: RewardSoundOptions) {
   const cardDelay = options.realmBreakthrough ? 1040 : options.advanced ? 590 : Math.max(210, baseDuration - 120)
   const sequence: SoundSequenceItem[] = [{ effect: mainEffect }]
   if (options.techniqueTriggered) sequence.push({ effect: 'technique', delayMs: options.realmBreakthrough ? 720 : options.advanced ? 420 : 240 })
+  if (options.bossHit) sequence.push({ effect: 'boss-hit', delayMs: Math.max(170, baseDuration - 90) })
+  if (options.corrected) sequence.push({ effect: 'correction', delayMs: cardDelay + 80 })
+  else if (options.masteryGained) sequence.push({ effect: 'mastery-up', delayMs: cardDelay + 80 })
   sequence.push({ effect: 'card-drop', delayMs: cardDelay })
   if (options.coinsEarned > 0) sequence.push({ effect: 'coin', delayMs: cardDelay + 250 })
+  if (options.bossResult) sequence.push({ effect: options.bossResult === 'victory' ? 'boss-victory' : 'boss-defeat', delayMs: cardDelay + 520 })
   return playSoundSequence(sequence)
 }
 

@@ -287,14 +287,29 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '完成一次讲次内混合训练。'
   },
   {
+    id: 'sjtu-calendar', threshold: 18, act: '第四幕 · 交大支线', title: '把交大拆进日历', location: '图书馆目标墙', speaker: '许棠', portraitId: 'xu-tang', role: 'friend',
+    dialogue: ['许棠把“考上上海交大”从墙上揭下来，拆成十八讲、每周订正和月底模考：远方如果不能落到日历上，只会制造焦虑。', '何耀焜重新贴好目标：从今天起，交大不只是一张壁纸，而是每一个能被完成、被复盘的动作。'],
+    objective: '用一讲的真实掌握证明计划可以执行。'
+  },
+  {
     id: 'yanjun-first-proof', threshold: 22, act: '第五幕', title: '补全那一行证明', location: '天台观测室', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
     dialogue: ['陈彦君指向“显然”两个字：结果对了，但最关键的条件被藏住了。你愿意从定义重写吗？', '何耀焜补到最后一行。她合上笔记：肯承认缺口，再亲手补上，比聪明更难得。'],
     objective: '解锁情缘「并肩长路」。'
   },
   {
+    id: 'campus-map-promise', threshold: 27, act: '第五幕 · 情缘支线', title: '同一张校园地图', location: '上海交大线上开放日', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
+    dialogue: ['直播画面掠过闵行校区，陈彦君在校园地图上圈下思源湖：先别把自己放进想象里的合影，告诉我你这周准备补哪块短板。', '何耀焜在旁边写下数列极限。她笑了：那就约好，地图负责提醒方向，今天的题负责把我们送近一点。'],
+    objective: '完成数列极限中的一个真实薄弱点。'
+  },
+  {
     id: 'yuan-speedboard', threshold: 32, act: '第六幕', title: '速解榜首', location: '数列速解板', speaker: '袁越', portraitId: 'yuan-yue', role: 'rival',
     dialogue: ['袁越提前交卷：你的完整推导不错，可考场不会为完整暂停计时。', '何耀焜：那我保住每个条件，再把速度一秒秒练回来。你的优势，会成为我的训练坐标。'],
     objective: '独立完成一次数列极限证明。'
+  },
+  {
+    id: 'goal-wall-duel', threshold: 38, act: '第六幕 · 宿敌支线', title: '目标不是护身符', location: '交大目标墙前', speaker: '袁越', portraitId: 'yuan-yue', role: 'rival',
+    dialogue: ['袁越看着墙上的上海交大校名：写得再大，也不能替你在四十五分钟里做完一张卷。', '何耀焜取下装饰性的口号，只留下计时记录：你说得对。目标不是护身符，它是我每天接受检验的理由。'],
+    objective: '在保持步骤完整的前提下完成一次限时训练。'
   },
   {
     id: 'two-methods', threshold: 45, act: '第七幕', title: '两条路在答案相遇', location: '求导兵器阁', speaker: '顾砚舟', portraitId: 'gu-yanzhou', role: 'friend',
@@ -322,9 +337,19 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '完成一次一题多解，并认真比较适用条件。'
   },
   {
+    id: 'east-chuan-train', threshold: 80, act: '第九幕 · 益友支线', title: '开往东川路的列车', location: '校园开放日地铁途中', speaker: '罗一鸣', portraitId: 'luo-yiming', role: 'friend',
+    dialogue: ['车厢屏幕跳出“东川路方向”，罗一鸣把错题本往中间推：先别激动，去程四十分钟，正好互相抽查十个定义。', '列车向闵行驶去。何耀焜第一次感到，朋友的陪伴不是替他抵达，而是让漫长路程始终有下一步。'],
+    objective: '和同行者完成一轮定义口述。'
+  },
+  {
     id: 'home-call', threshold: 85, act: '第十幕', title: '一碗留到深夜的饭', location: '家中厨房', speaker: '母亲 · 钟珊燕', portraitId: 'zhong-shanyan', role: 'family',
     dialogue: ['钟珊燕把饭推近：家里现在不富裕，不等于你必须把每一天都过成苦役。结果重要，你也重要。', '何耀焜：我想让你们以后选喜欢的生活，不再只选最省钱的那一个。但我也会好好走到那里。'],
     objective: '继续做题，也守住睡眠与吃饭。'
+  },
+  {
+    id: 'siyuan-open-day', threshold: 92, act: '第十幕 · 交大支线', title: '思源湖边的三分钟', location: '上海交大闵行校区 · 思源湖', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
+    dialogue: ['开放日人群从湖边经过，陈彦君没有拍照打卡，只问：如果明天又考砸，你还愿不愿意继续把定义写完整？', '何耀焜望着水面：愿意。喜欢这里给了我方向，但真正能留下我的，只会是失败之后仍肯重来的能力。'],
+    objective: '把一次失误订正为真正掌握。'
   },
   {
     id: 'medusa-pact', threshold: 95, act: '第十一幕', title: '女王划定战场', location: '联合训练指挥厅', speaker: '美杜莎', portraitId: 'medusa', role: 'romance',
@@ -352,6 +377,11 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '把三道失分题完成订正和重做。'
   },
   {
+    id: 'campus-dream-taunt', threshold: 128, act: '第十三幕 · 宿敌支线', title: '交大梦的笑话', location: '模拟赛散场通道', speaker: '陈睿斌', portraitId: 'chen-ruibin', role: 'rival',
+    dialogue: ['陈睿斌晃着低分截图：去过一次开放日，就真把自己当交大学生了？', '何耀焜收起卷子：我现在当然不是。所以我会把每个失分点留下证据，直到你的截图只能证明我曾经从哪里爬起来。'],
+    objective: '用连续三次稳定完成回应一次公开轻视。'
+  },
+  {
     id: 'yanjun-lowpoint', threshold: 135, act: '第十四幕', title: '低谷不需要表演', location: '雨夜自习室', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
     dialogue: ['模拟分数落下，何耀焜第一次不想翻开卷子。陈彦君没有劝他振作，只坐在旁边把失分栏分成不会、算错和超时。', '她说：今晚可以难受。明天我陪你拿回第一项，但你不必在我面前装作没有受伤。'],
     objective: '完成低谷后的第一道重做题。'
@@ -362,6 +392,11 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '完成一次限时选择题训练。'
   },
   {
+    id: 'teach-future-classmate', threshold: 160, act: '第十五幕 · 益友支线', title: '讲给未来同学听', location: '空教室黑板前', speaker: '顾砚舟', portraitId: 'gu-yanzhou', role: 'friend',
+    dialogue: ['顾砚舟把粉笔递来：假装台下坐着未来的交大同学，把这道二重积分讲到他们挑不出区域错误。', '讲到第三遍，何耀焜终于不再依赖背过的步骤。顾砚舟点头：能教清楚，才说明它真正属于你。'],
+    objective: '把一道综合题讲成条件、路径与验算三部分。'
+  },
+  {
     id: 'xiaoyixian-rest', threshold: 168, act: '第十六幕', title: '第一张恢复处方', location: '药学研修室', speaker: '小医仙', portraitId: 'xiaoyixian', role: 'romance',
     dialogue: ['小医仙按停计时器：手在抖，继续算只是在重复损耗。今晚的第一项训练是睡足七小时。', '何耀焜迟疑。她把处方递来：休息不是退出战斗，是确保明天还有能力出手。'],
     objective: '解锁情缘「青囊同心」。'
@@ -370,6 +405,11 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     id: 'yanjun-promise', threshold: 185, act: '第十七幕', title: '彼此的约定', location: '江边步道', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
     dialogue: ['陈彦君：我们都有自己的目标。我不会要求你为关系放弃道路，也不会把自己的未来交给你的结果。', '何耀焜：那就约定，无论分数高低都说真话，互相提醒节奏，然后继续成为更有能力的人。'],
     objective: '与陈彦君进入知己阶段。'
+  },
+  {
+    id: 'letters-to-minhang', threshold: 192, act: '第十七幕 · 情缘支线', title: '写给闵行的两封信', location: '闭馆后的自习室', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
+    dialogue: ['陈彦君把两张纸分开：一封写录取后的生活，一封写如果没有如愿，下一步怎样继续。', '何耀焜写完才明白，并肩不是共同幻想唯一结局，而是无论结果如何，都不让彼此停止成长。'],
+    objective: '为成功与失利都准备一条诚实的下一步。'
   },
   {
     id: 'exam-triage', threshold: 198, act: '第十七幕 · 支线', title: '先拿回确定分', location: '限时模拟考场', speaker: '唐知夏', portraitId: 'tang-zhixia', role: 'friend',
@@ -387,6 +427,11 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '让连续做题达到 3 天。'
   },
   {
+    id: 'study-group-oath', threshold: 221, act: '第十九幕 · 益友支线', title: '四个人的缺口清单', location: '清晨看台', speaker: '陈野', portraitId: 'chen-ye', role: 'friend',
+    dialogue: ['陈野、许棠、顾砚舟和何耀焜把各自最怕的章节写在同一张纸上。没有人只展示强项，也没有人替别人承担。', '他们约定每周只问三件事：哪里还不会、怎样验证、下次何时重做。交大目标第一次有了可靠的队伍感。'],
+    objective: '完成一轮薄弱点公开、训练和回访。'
+  },
+  {
     id: 'silent-pressure', threshold: 224, act: '第十九幕 · 支线', title: '无声的三分钟', location: '空教室计时场', speaker: '韩澈', portraitId: 'han-che', role: 'rival',
     dialogue: ['韩澈把两张满分卷放在一起，只看了眼计时器：你比我慢三分钟。', '何耀焜收好答卷：那就把这三分钟拆成每一道题的选择。下一场，我会更完整，也会更快。'],
     objective: '在不丢步骤的前提下缩短一次完成时间。'
@@ -397,14 +442,29 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '将三道错题重新评为“独立完成”。'
   },
   {
+    id: 'gate-taunt', threshold: 238, act: '第二十幕 · 宿敌支线', title: '校门前的最后嘲讽', location: '上海交大校门外', speaker: '曾宇鑫', portraitId: 'zeng-yuxin', role: 'rival',
+    dialogue: ['曾宇鑫发来校门定位：有人来这里参观，有人会拿着通知书回来。你最好想清楚自己是哪一种。', '何耀焜没有回嘴，只启动下一场 Boss 战：我不靠一句狠话决定身份，我靠每一次真实掌握把答案做出来。'],
+    objective: '击破一名讲次 Boss，用结果回应挑衅。'
+  },
+  {
     id: 'rival-triad', threshold: 245, act: '第二十一幕', title: '三面围场', location: '终极训练营', speaker: '曾宇鑫', portraitId: 'zeng-yuxin', role: 'rival',
     dialogue: ['曾宇鑫加量，袁越压缩时间，陈睿斌放大每次失误。三种压力同时袭来，等着何耀焜先乱。', '何耀焜：我会像 C 罗一样把嘘声变成下一组训练。你们越想拉垮我，我越会用更好的完成质量站回来。'],
     objective: '完成一组数量、速度和准确率兼顾的综合训练。'
   },
   {
+    id: 'four-person-sprint', threshold: 250, act: '第二十一幕 · 益友支线', title: '冲刺小队不替你答题', location: '图书馆四人桌', speaker: '顾砚舟', portraitId: 'gu-yanzhou', role: 'friend',
+    dialogue: ['有人负责计时，有人核对条件，有人收集反例，但落笔时每个人都必须独立完成。', '顾砚舟把答案收走：真正的队友不会制造依赖，只会让你更有能力单独走进考场。'],
+    objective: '在同伴监督下独立完成一组综合题。'
+  },
+  {
     id: 'recovery-plan', threshold: 258, act: '第二十二幕', title: '冲刺期的留白', location: '安静药房', speaker: '小医仙', portraitId: 'xiaoyixian', role: 'romance',
     dialogue: ['小医仙划掉考前夜的加练：你现在缺的不是第十一小时，而是让前十小时真正沉淀。', '她把新的节奏表交给何耀焜：能走到最后的人，才有资格谈全力以赴。'],
     objective: '完成一次短时高质量训练后按时休息。'
+  },
+  {
+    id: 'mail-to-future', threshold: 265, act: '第二十二幕 · 情缘支线', title: '定时发送给未来', location: '考前夜的电脑屏幕', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
+    dialogue: ['陈彦君写下一封定时邮件：如果我们都到了闵行，就在思源湖边打开；如果没有，也在新的路上一起打开。', '何耀焜按下保存：最深的情缘不是拿结果绑住彼此，而是让两个人都有勇气面对真实未来。'],
+    objective: '完成考前最后一轮高质量训练，然后按计划休息。'
   },
   {
     id: 'yanjun-before-exam', threshold: 272, act: '第二十三幕', title: '终章前夕', location: '考场外的长廊', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
@@ -417,9 +477,29 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '把对家人的承诺落实为今天的行动。'
   },
   {
+    id: 'empty-seat-photo', threshold: 294, act: '第二十四幕 · 交大支线', title: '校门合影里留出的空位', location: '家中相册', speaker: '母亲 · 钟珊燕', portraitId: 'zhong-shanyan', role: 'family',
+    dialogue: ['钟珊燕翻出开放日照片，校门前特意空着两个人的位置：等真正进去那天，再让你爸和我站进去。', '何耀焜没有许诺必然成功，只说：我会把剩下的每一步走稳。无论结果如何，我都会拥有让你们生活更好的本事。'],
+    objective: '完成终局前最后一次薄弱章节回炉。'
+  },
+  {
     id: 'future', threshold: 300, act: '终章', title: '交大之门', location: '上海交通大学校门前', speaker: '何耀焜', portraitId: 'he-yaokun', role: 'protagonist',
     dialogue: ['爸，妈，我到了。不是来赌一个奇迹，是来兑现一路写下的每一步。', '所谓最强斗魂，是我终于有能力选择未来、照顾家人，也不丢掉自己。同行者仍在，对手仍在，下一程现在开始。'],
     objective: '继续做题，把录取通知书从剧情变成现实。'
+  },
+  {
+    id: 'siyuan-dawn', threshold: 312, act: '录取后日谈 · 一', title: '思源湖的第一场晨光', location: '上海交大闵行校区 · 思源湖', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
+    dialogue: ['晨光落在湖面，两封定时邮件终于同时打开。陈彦君看完笑着问：抵达以后，最怕的是什么？', '何耀焜：怕把录取当成终点。她把新的课程表递来：那就继续并肩，但这一次，为更大的能力和更自由的未来。'],
+    objective: '在新阶段继续保持真实掌握，而不是只收藏胜利。'
+  },
+  {
+    id: 'first-lab', threshold: 326, act: '录取后日谈 · 二', title: '第一盏实验室灯', location: '上海交大教学楼', speaker: '顾砚舟', portraitId: 'gu-yanzhou', role: 'friend',
+    dialogue: ['新问题没有标准答案，顾砚舟却像从前一样把条件写满白板：我们曾经练的，不只是考研题，是面对未知时不慌乱的方式。', '何耀焜打开笔记本。校门已经在身后，真正值得期待的难题才刚刚开始。'],
+    objective: '把数学训练迁移到一个新的真实问题。'
+  },
+  {
+    id: 'parents-campus', threshold: 340, act: '录取后日谈 · 三', title: '带爸妈走进校园', location: '上海交大闵行校区', speaker: '父亲 · 何新平', portraitId: 'he-xinping', role: 'family',
+    dialogue: ['何新平和钟珊燕站进照片里曾经空着的位置。父亲只说了一句：这里很好，但你走到这里的本事，比这里更珍贵。', '何耀焜按下快门。让爸妈过上更好的生活不再只是一句誓言，而是从能力、选择和每个踏实的明天开始。'],
+    objective: '继续积累能让自己与家人拥有更多选择的能力。'
   }
 ]
 

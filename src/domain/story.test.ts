@@ -13,13 +13,14 @@ describe('交大斗魂剧情进度', () => {
     const progress = getStoryProgress({ ...defaultProfile, masteredProblemIds: Array.from({ length: 32 }, (_, index) => `q${index}`) })
     expect(progress.current.id).toBe('yuan-speedboard')
     expect(progress.current.speaker).toBe('袁越')
-    expect(progress.next?.id).toBe('two-methods')
+    expect(progress.next?.id).toBe('goal-wall-duel')
   })
 
-  it('掌握力达到三百后抵达交大终章', () => {
-    const progress = getStoryProgress({ ...defaultProfile, masteredProblemIds: Array.from({ length: 300 }, (_, index) => `q${index}`) })
-    expect(progress.current.id).toBe('future')
+  it('掌握力达到三百四十后完成交大录取日谈', () => {
+    const progress = getStoryProgress({ ...defaultProfile, masteredProblemIds: Array.from({ length: 340 }, (_, index) => `q${index}`) })
+    expect(progress.current.id).toBe('parents-campus')
     expect(progress.percent).toBe(100)
+    expect(progress.next).toBeUndefined()
   })
 
   it('收录主角与二十一名剧情角色，并只保留三条既定情缘路线', () => {
@@ -46,8 +47,19 @@ describe('交大斗魂剧情进度', () => {
       counts[chapter.portraitId] = (counts[chapter.portraitId] || 0) + 1
       return counts
     }, {})
-    expect(chapterCounts['chen-yanjun']).toBe(5)
+    expect(chapterCounts['chen-yanjun']).toBeGreaterThanOrEqual(8)
     expect(chapterCounts['chen-yanjun']).toBeGreaterThan(Math.max(chapterCounts.medusa || 0, chapterCounts.xiaoyixian || 0))
+  })
+
+  it('剧情门槛严格递增并持续覆盖交大、同行与宿敌主线', () => {
+    const thresholds = STORY_CHAPTERS.map((chapter) => chapter.threshold)
+    const campusChapters = STORY_CHAPTERS.filter((chapter) => /交大|闵行|思源|东川/.test(`${chapter.title}${chapter.location}${chapter.dialogue.join('')}`))
+    expect(STORY_CHAPTERS.length).toBeGreaterThanOrEqual(48)
+    expect(thresholds.every((threshold, index) => index === 0 || threshold > thresholds[index - 1])).toBe(true)
+    expect(new Set(STORY_CHAPTERS.map((chapter) => chapter.id)).size).toBe(STORY_CHAPTERS.length)
+    expect(campusChapters.length).toBeGreaterThanOrEqual(12)
+    expect(STORY_CHAPTERS.filter((chapter) => chapter.role === 'friend').length).toBeGreaterThanOrEqual(8)
+    expect(STORY_CHAPTERS.filter((chapter) => chapter.role === 'rival').length).toBeGreaterThanOrEqual(8)
   })
 
   it('情缘关系按未相识、相识、知己、恋人四阶段推进', () => {

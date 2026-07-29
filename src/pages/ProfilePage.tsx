@@ -23,7 +23,7 @@ import type { StoragePersistenceState } from '../types'
 import { downloadBackup, restoreBackup } from '../utils/backup'
 import { PlayerAvatar } from '../components/PlayerAvatar'
 import { AudioSettingsControls } from '../components/AudioSettingsControls'
-import { getAudioPreferences, playSound, saveAudioPreferences, type AudioPreferences } from '../utils/sound'
+import { getAudioPreferences, playSound, resumeBackgroundMusic, saveAudioPreferences, type AudioPreferences } from '../utils/sound'
 import { getStoryVoiceCue, getVoiceDiagnostics, hasCharacterVoiceSupport, speakCharacterVoice, stopCharacterVoice, subscribeToVoiceAvailability } from '../utils/voice'
 
 interface ProfilePageProps {
@@ -233,6 +233,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
           preferences={audioPreferences}
           voiceSupported={voiceSupported}
           onChange={updateAudioPreferences}
+          onPreviewMusic={() => void resumeBackgroundMusic()}
           onPreviewSound={() => playSound('coin')}
           onPreviewVoice={previewCharacterVoice}
           idPrefix="profile-audio"

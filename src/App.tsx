@@ -123,11 +123,17 @@ export default function App() {
   useEffect(() => {
     const scene = screen === 'review' && practiceSelection?.mode === 'boss'
       ? 'battle'
-      : screen === 'review' || screen === 'practice'
+      : screen === 'review'
         ? 'focus'
+        : screen === 'practice'
+          ? 'practice'
       : screen === 'world'
-        ? 'journey'
-        : 'journey'
+        ? 'story'
+        : screen === 'profile'
+          ? 'resolve'
+          : screen === 'home'
+            ? 'home'
+            : 'practice'
     setBackgroundMusicScene(scene)
   }, [screen, practiceSelection?.mode])
 

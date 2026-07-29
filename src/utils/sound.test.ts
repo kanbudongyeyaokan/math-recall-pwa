@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_AUDIO_PREFERENCES,
   getAudioPreferences,
+  getMusicOutputGain,
   getSoundPatternDuration,
+  getSoundOutputGain,
   getSoundSequenceDuration,
   MUSIC_SCENES,
   RATING_SOUND,
@@ -76,10 +78,31 @@ describe('做题分层音效', () => {
     )
   })
 
-  it('四个页面场景均有不同节奏的原创循环音型', () => {
-    expect(Object.keys(MUSIC_SCENES)).toEqual(['journey', 'focus', 'market', 'battle'])
-    expect(new Set(Object.values(MUSIC_SCENES).map((scene) => scene.tempo)).size).toBe(4)
-    expect(Object.values(MUSIC_SCENES).every((scene) => scene.steps.length >= 8 && scene.bass.length >= 4)).toBe(true)
+  it('七个页面场景均有不同节奏的原创循环音型', () => {
+    expect(Object.keys(MUSIC_SCENES)).toEqual(['home', 'practice', 'focus', 'story', 'market', 'battle', 'resolve'])
+    expect(new Set(Object.values(MUSIC_SCENES).map((scene) => scene.tempo)).size).toBe(7)
+    expect(Object.values(MUSIC_SCENES).every((scene) => (
+      scene.steps.length >= 8 && scene.bass.length >= 4 && scene.accent.length >= 8
+    ))).toBe(true)
+  })
+
+  it('最大音量使用增益补偿并保持零音量近似静音', () => {
+    expect(getSoundOutputGain(1)).toBeCloseTo(1.65)
+    expect(getMusicOutputGain(1)).toBeCloseTo(1.2)
+    expect(getSoundOutputGain(0)).toBeLessThan(0.001)
+    expect(getMusicOutputGain(0)).toBeLessThan(0.001)
+    expect(getSoundOutputGain(0.5)).toBeGreaterThan(0.72 * 0.5)
+    expect(getMusicOutputGain(0.5)).toBeGreaterThan(0.5)
+  })
+
+  it('掌握、订正、Boss、羁绊与交大剧情均有专属反馈音', () => {
+    const effects = [
+      'mastery-up', 'correction', 'boss-hit', 'boss-victory', 'boss-defeat',
+      'chapter-open', 'bond-up', 'rival-open', 'romance-open', 'campus-bell'
+    ] as const
+    expect(effects.every((effect) => SOUND_PATTERNS[effect].length >= 3)).toBe(true)
+    expect(getSoundPatternDuration('boss-victory')).toBeGreaterThan(getSoundPatternDuration('boss-hit'))
+    expect(getSoundPatternDuration('campus-bell')).toBeGreaterThan(1000)
   })
 
   it('旧设置中的越界和无效音量会被安全归一化', () => {
@@ -95,7 +118,7 @@ describe('做题分层音效', () => {
     expect(getAudioPreferences()).toMatchObject({
       soundVolume: 1,
       voiceVolume: DEFAULT_AUDIO_PREFERENCES.voiceVolume,
-      musicVolume: 0.6,
+      musicVolume: 1,
       voiceRate: 0.8,
       soundEnabled: DEFAULT_AUDIO_PREFERENCES.soundEnabled
     })

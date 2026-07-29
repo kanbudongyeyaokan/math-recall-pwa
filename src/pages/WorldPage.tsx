@@ -23,7 +23,7 @@ import {
 import { CharacterPortrait } from '../components/CharacterPortrait'
 import { ShopItemArt, SpiritStoneIcon, TitleBadgeArt } from '../components/GameCollectibleArt'
 import { PlayerAvatar } from '../components/PlayerAvatar'
-import { CharacterArchive, STORY_ROLE_LABELS, StoryPanel } from '../components/StoryPanel'
+import { CharacterArchive, getCharacterOpenEffect, STORY_ROLE_LABELS, StoryPanel } from '../components/StoryPanel'
 import { db, defaultProfile, equipShopItem, equipTechnique, purchaseShopItem } from '../db'
 import { CULTIVATION_TECHNIQUES, getTechniqueProgress } from '../domain/cultivation'
 import { getBondStatus, STORY_ENCOUNTERS } from '../domain/encounters'
@@ -133,7 +133,16 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
   )), [ownedOnly, profile.ownedItemIds, shopCategory])
 
   useEffect(() => {
-    setBackgroundMusicScene(tab === 'market' ? 'market' : tab === 'missions' && missionView === 'challenge' ? 'battle' : 'journey')
+    const scene = tab === 'market'
+      ? 'market'
+      : tab === 'characters'
+        ? 'story'
+        : missionView === 'challenge'
+          ? 'battle'
+          : missionView === 'technique'
+            ? 'focus'
+            : 'resolve'
+    setBackgroundMusicScene(scene)
   }, [missionView, tab])
 
   function changeTab(next: WorldTab) {
@@ -241,7 +250,7 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
                 const route = ROMANCE_ROUTES.find((candidate) => candidate.id === character.id)
                 const relation = route ? getRomanceRouteStatus(route, profile).label : character.role === 'protagonist' ? realm.realm : getBondStatus(bond)
                 return (
-                  <button type="button" className={`world-character ${unlocked ? '' : 'locked'} role-${character.role}`} disabled={!unlocked} onClick={() => { playSound('character-open'); setSelectedCharacter(character) }} key={character.id}>
+                  <button type="button" className={`world-character ${unlocked ? '' : 'locked'} role-${character.role}`} disabled={!unlocked} onClick={() => { playSound(getCharacterOpenEffect(character.role)); setSelectedCharacter(character) }} key={character.id}>
                     <span className="world-character-portrait"><CharacterPortrait character={character} pose={character.role === 'rival' ? 'challenge' : 'idle'} /></span>
                     <span className="world-character-copy">
                       <small>{STORY_ROLE_LABELS[character.role]}</small>
@@ -299,7 +308,7 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
             <button type="button" className="button button-accent" onClick={onPractice}><Swords size={18} />进入训练</button>
           </section>
           <nav className="mission-tabs" aria-label="任务分类">
-            {missionViews.map(({ id, label, Icon }) => <button type="button" className={missionView === id ? 'active' : ''} onClick={() => { setMissionView(id); playSound(id === 'challenge' ? 'challenge-unlock' : 'mission-open') }} key={id}><Icon size={17} />{label}</button>)}
+            {missionViews.map(({ id, label, Icon }) => <button type="button" className={missionView === id ? 'active' : ''} onClick={() => { setMissionView(id); playSound(id === 'challenge' ? 'challenge-unlock' : id === 'story' ? 'chapter-open' : 'mission-open') }} key={id}><Icon size={17} />{label}</button>)}
           </nav>
 
           {missionView === 'story' && (
