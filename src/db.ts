@@ -13,10 +13,21 @@ import {
 import { getReviewOutcome } from './domain/scheduler'
 import { CULTIVATION_TECHNIQUES, resolveTechnique } from './domain/cultivation'
 import { STORY_ENCOUNTERS } from './domain/encounters'
-import { isStoryThresholdUnlocked } from './domain/story'
+import { getCharacter, isStoryThresholdUnlocked } from './domain/story'
 import { getLectureBoss } from './domain/boss'
 import { getNewUnlockEvents } from './domain/unlocks'
 import { applyProblemMasteryToProfile, rebuildProfileMastery } from './domain/mastery'
+import {
+  DUEL_SETTLEMENT_KEY,
+  getDuelPresentation,
+  normalizeDuelSettlementState,
+  type DuelSettlementState
+} from './domain/duel'
+import {
+  advanceRivalCompetition,
+  RIVAL_COMPETITION_STATE_KEY,
+  type RivalCompetitionState
+} from './domain/rivalCompetition'
 import {
   getPracticeCycleSettingKey,
   markPracticeProblemSeen as markCycleProblemSeen,
@@ -102,7 +113,10 @@ export const defaultProfile: PlayerProfile = {
   bossAttempts: 0,
   surpriseChallengeWins: 0,
   surpriseChallengeLosses: 0,
-  surpriseChallengeBestScore: 0
+  surpriseChallengeBestScore: 0,
+  duelWins: 0,
+  duelLosses: 0,
+  duelRecords: {}
 }
 
 export function normalizeProblemRecord(problem: Problem): Problem {
@@ -155,7 +169,11 @@ export function normalizeProfileRecord(profile?: PlayerProfile): PlayerProfile {
     surpriseChallengeLosses: profile?.surpriseChallengeLosses || 0,
     surpriseChallengeBestScore: profile?.surpriseChallengeBestScore || 0,
     lastSurpriseChallengeId: profile?.lastSurpriseChallengeId,
-    lastSurpriseChallengeAt: profile?.lastSurpriseChallengeAt
+    lastSurpriseChallengeAt: profile?.lastSurpriseChallengeAt,
+    duelWins: profile?.duelWins || 0,
+    duelLosses: profile?.duelLosses || 0,
+    duelRecords: profile?.duelRecords && typeof profile.duelRecords === 'object' ? profile.duelRecords : {},
+    lastDuelId: profile?.lastDuelId
   }
 }
 
@@ -368,6 +386,19 @@ export async function clearActivePracticeSession(sessionId?: string) {
   await db.settings.delete(ACTIVE_PRACTICE_SESSION_KEY)
 }
 
+export async function refreshRivalCompetitionState(now = Date.now()) {
+  return db.transaction('rw', db.profiles, db.settings, async () => {
+    const profile = normalizeProfileRecord(await db.profiles.get('player'))
+    const record = await db.settings.get(RIVAL_COMPETITION_STATE_KEY)
+    const current = record?.value as Partial<RivalCompetitionState> | undefined
+    const next = advanceRivalCompetition(profile, current, now)
+    if (!current || JSON.stringify(current) !== JSON.stringify(next)) {
+      await db.settings.put({ key: RIVAL_COMPETITION_STATE_KEY, value: next, updatedAt: now })
+    }
+    return next
+  })
+}
+
 export async function getSurpriseChallengeState() {
   return normalizeSurpriseChallengeState(await getSettingValue<SurpriseChallengeState | undefined>(SURPRISE_CHALLENGE_STATE_KEY, undefined))
 }
@@ -461,6 +492,64 @@ export async function recordSurpriseChallengeResult(input: {
   })
   if (!result.duplicate) {
     await createRecoverySnapshot(input.timedOut ? '突发邀战超时' : input.passed ? '突发邀战胜利' : '突发邀战失利')
+  }
+  return result
+}
+
+export async function recordDuelResult(input: {
+  challengeId: string
+  opponentId: string
+  score: number
+  passed: boolean
+  timedOut: boolean
+  now?: number
+}) {
+  const now = input.now ?? Date.now()
+  const result = await db.transaction('rw', db.profiles, db.settings, async () => {
+    const current = normalizeProfileRecord(await db.profiles.get('player'))
+    const state = normalizeDuelSettlementState(
+      (await db.settings.get(DUEL_SETTLEMENT_KEY))?.value as Partial<DuelSettlementState> | undefined
+    )
+    const alreadySettled = current.lastDuelId === input.challengeId || state.settledChallengeIds.includes(input.challengeId)
+    if (alreadySettled) return { profile: current, coinBonus: 0, bondBonus: 0, duplicate: true }
+
+    const presentation = getDuelPresentation(input.opponentId)
+    const character = getCharacter(input.opponentId)
+    const coinBonus = input.passed ? presentation.winCoins : 0
+    const bondBonus = input.passed ? (character.role === 'rival' ? 2 : 3) : 1
+    const previousRecord = current.duelRecords[input.opponentId] || { wins: 0, losses: 0, bestScore: 0, lastPlayedAt: 0 }
+    const next: PlayerProfile = {
+      ...current,
+      coins: current.coins + coinBonus,
+      lifetimeCoins: current.lifetimeCoins + coinBonus,
+      duelWins: current.duelWins + Number(input.passed),
+      duelLosses: current.duelLosses + Number(!input.passed),
+      duelRecords: {
+        ...current.duelRecords,
+        [input.opponentId]: {
+          wins: previousRecord.wins + Number(input.passed),
+          losses: previousRecord.losses + Number(!input.passed),
+          bestScore: Math.max(previousRecord.bestScore, input.score),
+          lastPlayedAt: now
+        }
+      },
+      characterBonds: {
+        ...current.characterBonds,
+        [input.opponentId]: (current.characterBonds[input.opponentId] || 0) + bondBonus
+      },
+      lastDuelId: input.challengeId
+    }
+    const nextState: DuelSettlementState = {
+      settledChallengeIds: [...state.settledChallengeIds, input.challengeId].slice(-100)
+    }
+    await Promise.all([
+      db.profiles.put(next),
+      db.settings.put({ key: DUEL_SETTLEMENT_KEY, value: nextState, updatedAt: now })
+    ])
+    return { profile: next, coinBonus, bondBonus, duplicate: false }
+  })
+  if (!result.duplicate) {
+    await createRecoverySnapshot(input.timedOut ? '五题挑战超时' : input.passed ? '五题挑战胜利' : '五题挑战失利')
   }
   return result
 }

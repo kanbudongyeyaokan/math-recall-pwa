@@ -87,12 +87,12 @@ describe('做题分层音效', () => {
   })
 
   it('最大音量使用增益补偿并保持零音量近似静音', () => {
-    expect(getSoundOutputGain(1)).toBeCloseTo(1.65)
-    expect(getMusicOutputGain(1)).toBeCloseTo(1.2)
+    expect(getSoundOutputGain(1)).toBeCloseTo(2.15)
+    expect(getMusicOutputGain(1)).toBeCloseTo(1.75)
     expect(getSoundOutputGain(0)).toBeLessThan(0.001)
     expect(getMusicOutputGain(0)).toBeLessThan(0.001)
-    expect(getSoundOutputGain(0.5)).toBeGreaterThan(0.72 * 0.5)
-    expect(getMusicOutputGain(0.5)).toBeGreaterThan(0.5)
+    expect(getSoundOutputGain(0.5)).toBeGreaterThan(1.2)
+    expect(getMusicOutputGain(0.5)).toBeGreaterThan(1)
   })
 
   it('掌握、订正、Boss、羁绊与交大剧情均有专属反馈音', () => {

@@ -32,7 +32,10 @@ const profile: PlayerProfile = {
   bossAttempts: 0,
   surpriseChallengeWins: 0,
   surpriseChallengeLosses: 0,
-  surpriseChallengeBestScore: 0
+  surpriseChallengeBestScore: 0,
+  duelWins: 0,
+  duelLosses: 0,
+  duelRecords: {}
 }
 
 describe('斗气境界与奖励进度', () => {

@@ -4,6 +4,7 @@ import { calculus07to12Points } from './calculus07to12'
 import { calculus13to18Points } from './calculus13to18'
 import { linearAlgebraPoints } from './linearAlgebra'
 import { probabilityPoints } from './probability'
+import { wuFoundationPoints } from './wuFoundationRebuiltBank'
 
 export const curatedBankPoints = [
   ...calculus01to06Points,
@@ -13,4 +14,11 @@ export const curatedBankPoints = [
   ...probabilityPoints
 ]
 
-export const curatedQuestionSeeds = buildPointSeeds(curatedBankPoints)
+export const curatedQuestionSeeds = [
+  ...buildPointSeeds(curatedBankPoints),
+  ...buildPointSeeds(wuFoundationPoints, {
+    idPrefix: 'wzx27',
+    sharedTag: '高数基础方法强化',
+    varyChoicePosition: true
+  })
+]

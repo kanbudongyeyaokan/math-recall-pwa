@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Award,
+  BarChart3,
   BookOpenCheck,
   Check,
   ChevronRight,
   CircleUserRound,
   Coins,
   Gem,
+  Gauge,
   LockKeyhole,
   Map,
   PackageCheck,
@@ -17,17 +19,31 @@ import {
   Sparkles,
   Swords,
   Target,
+  TrendingUp,
   UserRoundSearch,
   X
 } from 'lucide-react'
 import { CharacterPortrait } from '../components/CharacterPortrait'
+import { DuelChallengeModal } from '../components/DuelChallengeModal'
 import { ShopItemArt, SpiritStoneIcon, TitleBadgeArt } from '../components/GameCollectibleArt'
 import { PlayerAvatar } from '../components/PlayerAvatar'
 import { CharacterArchive, getCharacterOpenEffect, STORY_ROLE_LABELS, StoryPanel } from '../components/StoryPanel'
-import { db, defaultProfile, equipShopItem, equipTechnique, purchaseShopItem } from '../db'
+import { db, defaultProfile, equipShopItem, equipTechnique, purchaseShopItem, refreshRivalCompetitionState } from '../db'
 import { CULTIVATION_TECHNIQUES, getTechniqueProgress } from '../domain/cultivation'
+import { CALCULUS_LECTURES, type PracticeSelection } from '../domain/curriculum'
+import { createDuelChallengeId, DUEL_TIME_MS } from '../domain/duel'
 import { getBondStatus, STORY_ENCOUNTERS } from '../domain/encounters'
 import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamification'
+import {
+  getCompetitionRows,
+  getCompetitionUpdatedLabel,
+  getRivalAttitude,
+  getRivalDialogue,
+  normalizeRivalCompetitionState,
+  PRIMARY_RIVAL_CONFIGS,
+  RIVAL_COMPETITION_STATE_KEY,
+  type RivalCompetitionState
+} from '../domain/rivalCompetition'
 import {
   getRomanceRouteStatus,
   getStoryProgress,
@@ -46,14 +62,16 @@ import { playSound, setBackgroundMusicScene } from '../utils/sound'
 interface WorldPageProps {
   notify: (message: string) => void
   onPractice: () => void
+  onStartDuel: (selection: PracticeSelection) => void
 }
 
-type WorldTab = 'characters' | 'market' | 'missions'
+type WorldTab = 'characters' | 'competition' | 'market' | 'missions'
 type CharacterFilter = 'all' | Exclude<StoryRole, 'protagonist'>
 type MissionView = 'story' | 'challenge' | 'technique' | 'honor'
 
 const worldTabs = [
   { id: 'characters' as const, label: '人物', Icon: CircleUserRound },
+  { id: 'competition' as const, label: '争锋', Icon: Swords },
   { id: 'market' as const, label: '坊市', Icon: ShoppingBag },
   { id: 'missions' as const, label: '任务', Icon: Target }
 ]
@@ -101,13 +119,20 @@ function nextBondLabel(points: number) {
   return '羁绊已抵达最高阶段'
 }
 
-export function WorldPage({ notify, onPractice }: WorldPageProps) {
+export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
   const rewards = useLiveQuery(() => db.rewards.orderBy('earnedAt').reverse().limit(12).toArray(), [], [])
   const routeSetting = useLiveQuery(() => db.settings.get('active-romance-route'))
+  const rivalSetting = useLiveQuery(() => db.settings.get(RIVAL_COMPETITION_STATE_KEY))
+  const todayStart = useMemo(() => {
+    const date = new Date()
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  }, [])
+  const todayReviewCount = useLiveQuery(() => db.reviews.where('reviewedAt').aboveOrEqual(todayStart).count(), [todayStart], 0) || 0
   const [tab, setTab] = useState<WorldTab>('characters')
   const [characterFilter, setCharacterFilter] = useState<CharacterFilter>('all')
   const [selectedCharacter, setSelectedCharacter] = useState<StoryCharacter>()
+  const [duelCharacter, setDuelCharacter] = useState<StoryCharacter>()
   const [shopCategory, setShopCategory] = useState<'all' | ShopItemCategory>('all')
   const [ownedOnly, setOwnedOnly] = useState(false)
   const [selectedItem, setSelectedItem] = useState<ShopItem>()
@@ -118,6 +143,14 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
   const story = getStoryProgress(profile)
   const titleStatuses = getTitleStatuses(profile)
   const activeRouteId = routeSetting?.value as RomanceRouteId | undefined
+  const rivalState = useMemo(
+    () => normalizeRivalCompetitionState(rivalSetting?.value as Partial<RivalCompetitionState> | undefined, profile),
+    [profile, rivalSetting?.value]
+  )
+  const competitionRows = useMemo(
+    () => getCompetitionRows(profile, rivalState, todayReviewCount),
+    [profile, rivalState, todayReviewCount]
+  )
   const currentChapterIndex = STORY_CHAPTERS.findIndex((chapter) => chapter.id === story.current.id)
   const visibleChapters = showAllChapters
     ? STORY_CHAPTERS
@@ -137,6 +170,8 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
       ? 'market'
       : tab === 'characters'
         ? 'story'
+        : tab === 'competition'
+          ? 'battle'
         : missionView === 'challenge'
           ? 'battle'
           : missionView === 'technique'
@@ -145,10 +180,35 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
     setBackgroundMusicScene(scene)
   }, [missionView, tab])
 
+  useEffect(() => {
+    void refreshRivalCompetitionState().catch(() => undefined)
+  }, [profile.xp, profile.masteredProblemIds.length])
+
   function changeTab(next: WorldTab) {
     setTab(next)
-    playSound(next === 'market' ? 'market-open' : next === 'missions' ? 'mission-open' : 'world-open')
+    playSound(next === 'market' ? 'market-open' : next === 'missions' ? 'mission-open' : next === 'competition' ? 'rival-open' : 'world-open')
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function startDuel(input: { opponentId: string; scope: 'all' | 'lecture' | 'weak' | 'choice'; lectureId?: string }) {
+    const now = Date.now()
+    const character = STORY_CHARACTERS.find((item) => item.id === input.opponentId)
+    const lecture = CALCULUS_LECTURES.find((item) => item.id === input.lectureId)
+    const selection: PracticeSelection = {
+      lectureId: input.lectureId || 'lecture-01',
+      role: input.scope === 'choice' ? 'choice' : 'all',
+      mode: 'duel',
+      label: `${character?.name || '人物'} · 五题挑战${lecture ? ` · 第 ${lecture.number} 讲` : ''}`,
+      challengeId: createDuelChallengeId(input.opponentId, now),
+      opponentId: input.opponentId,
+      duelScope: input.scope,
+      duelLectureId: input.lectureId,
+      deadlineAt: now + DUEL_TIME_MS,
+      challengeSeed: now
+    }
+    setDuelCharacter(undefined)
+    playSound('battle-start')
+    onStartDuel(selection)
   }
 
   function isEquipped(item: ShopItem) {
@@ -230,6 +290,75 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
           </button>
         ))}
       </nav>
+
+      {tab === 'competition' && (
+        <div className="world-content competition-world">
+          <section className="competition-command">
+            <div><p className="eyebrow"><BarChart3 size={14} /> 修炼争锋榜</p><h2>他们没有停下</h2><p>对手每日按固定上限模拟训练；你的真实掌握力决定排名，不靠单纯刷次数。</p></div>
+            <span><Gauge size={18} /><small>{getCompetitionUpdatedLabel(rivalState)}</small></span>
+          </section>
+
+          <section className="world-section competition-table-section">
+            <div className="world-section-heading"><div><p className="eyebrow"><TrendingUp size={14} /> 今日进度</p><h2>何耀焜与宿敌的修炼情况</h2></div><strong>实时本机榜</strong></div>
+            <div className="competition-table" role="table" aria-label="修炼进度排行榜">
+              <div className="competition-table-head" role="row"><span>排名 / 修炼者</span><span>境界</span><span>掌握力</span><span>今日</span></div>
+              {competitionRows.map((row, index) => (
+                <article className={row.isPlayer ? 'is-player' : row.gapToPlayer > 0 ? 'is-ahead' : 'is-behind'} role="row" key={row.id}>
+                  <span className="competition-rank">{index + 1}</span>
+                  <div><strong>{row.name}{row.isPlayer ? ' · 我' : ''}</strong><small>{row.title}</small></div>
+                  <span className="competition-realm">{row.realmLabel}</span>
+                  <strong className="competition-power">{row.power}</strong>
+                  <span className="competition-today">{row.todayQuestions} 题{!row.isPlayer && <small>+{row.todayGain}</small>}</span>
+                  {!row.isPlayer && <em>{row.gapToPlayer > 0 ? `领先我 ${row.gapToPlayer}` : row.gapToPlayer < 0 ? `落后我 ${Math.abs(row.gapToPlayer)}` : '势均力敌'}</em>}
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="world-section rival-pressure-section">
+            <div className="world-section-heading"><div><p className="eyebrow"><Swords size={14} /> 三名宿敌</p><h2>他们正根据差距重新估量你</h2></div><strong>{profile.duelWins} 胜 / {profile.duelLosses} 负</strong></div>
+            <div className="rival-pressure-grid">
+              {PRIMARY_RIVAL_CONFIGS.map((config) => {
+                const character = STORY_CHARACTERS.find((item) => item.id === config.id)!
+                const unlocked = isCharacterUnlocked(profile, character)
+                const attitude = getRivalAttitude(profile, rivalState.rivals[config.id])
+                const record = profile.duelRecords[config.id]
+                return (
+                  <article className={`rival-pressure-card attitude-${attitude} ${unlocked ? '' : 'locked'}`} key={config.id}>
+                    <button type="button" className="rival-pressure-portrait" onClick={() => setSelectedCharacter(character)} aria-label={`查看${character.name}人物档案`}><CharacterPortrait character={character} pose="challenge" /></button>
+                    <div className="rival-pressure-copy">
+                      <small>{config.title} · {rivalState.rivals[config.id].power} 掌握力</small>
+                      <strong>{character.name}</strong>
+                      <blockquote>{getRivalDialogue(profile, rivalState, config.id)}</blockquote>
+                      <span>{record ? `${record.wins} 胜 ${record.losses} 负 · 最佳 ${record.bestScore}` : '尚未正面交锋'}</span>
+                    </div>
+                    <button type="button" className="button button-accent" disabled={!unlocked} onClick={() => { playSound('challenge-unlock'); setDuelCharacter(character) }}>
+                      {unlocked ? <><Swords size={16} />立即挑战</> : <><LockKeyhole size={15} />掌握力 {character.unlockAt}</>}
+                    </button>
+                  </article>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="world-section duel-roster-section">
+            <div className="world-section-heading"><div><p className="eyebrow"><Target size={14} /> 自由约战</p><h2>向任意已相遇人物发起五题切磋</h2></div><strong>{STORY_CHARACTERS.filter((character) => character.role !== 'protagonist' && isCharacterUnlocked(profile, character)).length} 人可约</strong></div>
+            <div className="duel-roster">
+              {STORY_CHARACTERS.filter((character) => character.role !== 'protagonist').map((character) => {
+                const unlocked = isCharacterUnlocked(profile, character)
+                const record = profile.duelRecords[character.id]
+                return (
+                  <button type="button" className={`${unlocked ? '' : 'locked'} role-${character.role}`} disabled={!unlocked} onClick={() => { playSound(character.role === 'rival' ? 'rival-open' : 'character-open'); setDuelCharacter(character) }} key={character.id}>
+                    <span><CharacterPortrait character={character} pose={character.role === 'rival' ? 'challenge' : 'idle'} /></span>
+                    <div><small>{STORY_ROLE_LABELS[character.role]}</small><strong>{unlocked ? character.name : '尚未相遇'}</strong><em>{record ? `${record.wins}胜 ${record.losses}负` : unlocked ? '首次切磋' : `掌握力 ${character.unlockAt} 解锁`}</em></div>
+                    {unlocked ? <Swords size={17} /> : <LockKeyhole size={16} />}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        </div>
+      )}
 
       {tab === 'characters' && (
         <div className="world-content characters-world">
@@ -367,6 +496,18 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
       )}
 
       {selectedCharacter && <CharacterArchive character={selectedCharacter} profile={profile} activeRouteId={activeRouteId} onClose={() => setSelectedCharacter(undefined)} />}
+
+      {duelCharacter && (
+        <DuelChallengeModal
+          character={duelCharacter}
+          profile={profile}
+          openingLine={PRIMARY_RIVAL_CONFIGS.some((config) => config.id === duelCharacter.id)
+            ? getRivalDialogue(profile, rivalState, duelCharacter.id as (typeof PRIMARY_RIVAL_CONFIGS)[number]['id'])
+            : undefined}
+          onClose={() => setDuelCharacter(undefined)}
+          onStart={startDuel}
+        />
+      )}
 
       {selectedItem && (
         <div className="shop-detail-backdrop" role="dialog" aria-modal="true" aria-labelledby="shop-detail-title" onMouseDown={(event) => event.target === event.currentTarget && setSelectedItem(undefined)}>

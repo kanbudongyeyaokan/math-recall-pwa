@@ -24,6 +24,7 @@ import {
 import { AudioSettingsControls } from '../components/AudioSettingsControls'
 import { CultivatorScene } from '../components/CultivatorScene'
 import { DbImage } from '../components/DbImage'
+import { DuelResultModal } from '../components/DuelChallengeModal'
 import { Lightbox } from '../components/Lightbox'
 import { MathText } from '../components/MathText'
 import { RewardReveal } from '../components/RewardReveal'
@@ -36,6 +37,7 @@ import {
   getOrStartPracticeCycle,
   recordPracticeCycleCompletion,
   recordBossBattleResult,
+  recordDuelResult,
   recordReview,
   recordSurpriseChallengeResult,
   saveActivePracticeSession
@@ -49,6 +51,14 @@ import {
   type PracticeSelection
 } from '../domain/curriculum'
 import { buildBossQueue, getLectureBoss, scoreBossBattle } from '../domain/boss'
+import {
+  buildDuelQueue,
+  DUEL_QUESTION_COUNT,
+  DUEL_TIME_MS,
+  getDuelPresentation,
+  scoreDuel,
+  type DuelScore
+} from '../domain/duel'
 import { getLectureMastery } from '../domain/mastery'
 import type { RealmProgress } from '../domain/gamification'
 import { getTechnique, type TechniqueResolution } from '../domain/cultivation'
@@ -125,13 +135,23 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   const [saving, setSaving] = useState(false)
   const [lightbox, setLightbox] = useState<{ id: string; alt: string }>()
   const [ambushTimeRemaining, setAmbushTimeRemaining] = useState(0)
+  const [duelTimeRemaining, setDuelTimeRemaining] = useState(0)
   const ambushResolvingRef = useRef(false)
   const ambushWarningPlayedRef = useRef(false)
+  const duelResolvingRef = useRef(false)
+  const duelWarningPlayedRef = useRef(false)
   const [ambushResult, setAmbushResult] = useState<{
     offer: SurpriseChallengeOffer
     score: SurpriseChallengeScore
     profile: PlayerProfile
     coinBonus: number
+  }>()
+  const [duelResult, setDuelResult] = useState<{
+    opponentId: string
+    score: DuelScore
+    profile: PlayerProfile
+    coinBonus: number
+    bondBonus: number
   }>()
   const [reward, setReward] = useState<{
     card: RewardCard
@@ -171,8 +191,22 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   const ambushProgress = ambushOffer && queue
     ? scoreSurpriseChallenge({ outcomes: activeSession?.outcomes || [], problems: queue, deadlineAt: selection!.deadlineAt!, completedAt: Date.now() })
     : undefined
+  const duelOpponentId = selection?.mode === 'duel' ? selection.opponentId : undefined
+  const duelPresentation = duelOpponentId ? getDuelPresentation(duelOpponentId) : undefined
+  const duelProgress = duelOpponentId && queue && selection?.deadlineAt
+    ? scoreDuel({
+        outcomes: activeSession?.outcomes || [],
+        problems: queue,
+        opponentId: duelOpponentId,
+        deadlineAt: selection.deadlineAt,
+        completedAt: Math.min(Date.now(), selection.deadlineAt)
+      })
+    : undefined
   const effectiveAmbushTime = selection?.deadlineAt
     ? ambushTimeRemaining || Math.max(0, selection.deadlineAt - Date.now())
+    : 0
+  const effectiveDuelTime = selection?.deadlineAt
+    ? duelTimeRemaining || Math.max(0, selection.deadlineAt - Date.now())
     : 0
 
   useEffect(() => {
@@ -203,7 +237,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           restored = pending
         }
         const session = restored || createPracticeSession({
-          mode: requestedId ? 'single' : selection?.mode === 'boss' ? 'boss' : selection?.mode === 'ambush' ? 'ambush' : 'practice',
+          mode: requestedId ? 'single' : selection?.mode === 'boss' ? 'boss' : selection?.mode === 'ambush' ? 'ambush' : selection?.mode === 'duel' ? 'duel' : 'practice',
           requestedId,
           selection,
           queueIds: nextProblems.map((problem) => problem.id)
@@ -229,6 +263,19 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
 
       if (selection.mode === 'ambush') {
         const queueIds = buildSurpriseChallengeQueue(allProblems!, selection.challengeSeed)
+        await restoreOrCreate(queueIds.flatMap((id) => availableById.get(id) || []))
+        return
+      }
+
+      if (selection.mode === 'duel' && selection.opponentId) {
+        const currentProfile = await db.profiles.get('player') || profile
+        const queueIds = buildDuelQueue({
+          problems: allProblems!,
+          profile: currentProfile,
+          scope: selection.duelScope || 'all',
+          lectureId: selection.duelLectureId,
+          seed: selection.challengeSeed
+        })
         await restoreOrCreate(queueIds.flatMap((id) => availableById.get(id) || []))
         return
       }
@@ -259,7 +306,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
 
     void buildQueue()
     return () => { cancelled = true }
-  }, [requestedId, selection?.lectureId, selection?.sectionId, selection?.role, selection?.mode, problemIdKey])
+  }, [requestedId, selection?.lectureId, selection?.sectionId, selection?.role, selection?.mode, selection?.challengeId, selection?.duelScope, selection?.duelLectureId, problemIdKey])
 
   useEffect(() => {
     stopCharacterVoice()
@@ -292,7 +339,10 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   useEffect(() => {
     ambushResolvingRef.current = false
     ambushWarningPlayedRef.current = false
+    duelResolvingRef.current = false
+    duelWarningPlayedRef.current = false
     setAmbushResult(undefined)
+    setDuelResult(undefined)
   }, [selection?.challengeId])
 
   useEffect(() => {
@@ -311,6 +361,23 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     const timer = window.setInterval(updateCountdown, 1000)
     return () => window.clearInterval(timer)
   }, [activeSession?.id, activeSession?.outcomes.length, ambushOffer?.id, ambushResult, queue?.length, saving, selection?.deadlineAt])
+
+  useEffect(() => {
+    if (!duelOpponentId || !selection?.deadlineAt || duelResult) return
+    const updateCountdown = () => {
+      const remaining = Math.max(0, selection.deadlineAt! - Date.now())
+      setDuelTimeRemaining(remaining)
+      if (remaining > 0 && remaining <= 60_000 && !duelWarningPlayedRef.current) {
+        duelWarningPlayedRef.current = true
+        playSound('countdown-warning')
+        pulseHaptic([35, 45, 35])
+      }
+      if (remaining === 0 && !saving && activeSession && queue?.length) void finishDuel(activeSession, true)
+    }
+    updateCountdown()
+    const timer = window.setInterval(updateCountdown, 1000)
+    return () => window.clearInterval(timer)
+  }, [activeSession?.id, activeSession?.outcomes.length, duelOpponentId, duelResult, queue?.length, saving, selection?.deadlineAt])
 
   async function finishAmbush(session: ActivePracticeSession, forcedTimeout = false) {
     if (!ambushOffer || !ambushRival || !queue || !selection?.deadlineAt || ambushResolvingRef.current) return
@@ -338,6 +405,44 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       return result
     } catch (error) {
       ambushResolvingRef.current = false
+      throw error
+    }
+  }
+
+  async function finishDuel(session: ActivePracticeSession, forcedTimeout = false) {
+    if (!duelOpponentId || !queue || !selection?.deadlineAt || !selection.challengeId || duelResolvingRef.current) return
+    duelResolvingRef.current = true
+    try {
+      const completedAt = forcedTimeout ? Math.max(Date.now(), selection.deadlineAt + 1) : Date.now()
+      const score = scoreDuel({ outcomes: session.outcomes, problems: queue, opponentId: duelOpponentId, deadlineAt: selection.deadlineAt, completedAt })
+      const recorded = await recordDuelResult({
+        challengeId: selection.challengeId,
+        opponentId: duelOpponentId,
+        score: score.score,
+        passed: score.passed,
+        timedOut: score.timedOut
+      })
+      await clearActivePracticeSession(session.id)
+      const result = {
+        opponentId: duelOpponentId,
+        score,
+        profile: recorded.profile,
+        coinBonus: recorded.coinBonus,
+        bondBonus: recorded.bondBonus
+      }
+      setDuelResult(result)
+      if (forcedTimeout) {
+        stopCharacterVoice()
+        setReward(undefined)
+        playSound('boss-defeat')
+        pulseHaptic([90, 45, 120])
+        if (getAudioPreferences().autoVoice) {
+          speakCharacterVoice(getStoryVoiceCue(duelOpponentId, getDuelPresentation(duelOpponentId).opponentVictory), { delayMs: 760 })
+        }
+      }
+      return result
+    } catch (error) {
+      duelResolvingRef.current = false
       throw error
     }
   }
@@ -440,6 +545,10 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       await finishAmbush(activeSession, true)
       return
     }
+    if (duelOpponentId && selection?.deadlineAt && Date.now() >= selection.deadlineAt && activeSession) {
+      await finishDuel(activeSession, true)
+      return
+    }
     setSaving(true)
     try {
       const result = await recordReview(problem.id, rating, isChoice ? {
@@ -447,7 +556,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         isCorrect: choiceCorrect
       } : {})
       const cycleLectureId = selection?.lectureId || getProblemLectureIds(problem)[0]
-      if (cycleLectureId && allProblems && selection?.mode !== 'boss' && selection?.mode !== 'ambush') {
+      if (cycleLectureId && allProblems && selection?.mode !== 'boss' && selection?.mode !== 'ambush' && selection?.mode !== 'duel') {
         const lectureProblemIds = allProblems
           .filter((candidate) => getProblemLectureIds(candidate).includes(cycleLectureId))
           .map((candidate) => candidate.id)
@@ -460,6 +569,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       let rewardUnlockEvents = result.unlockEvents
       let bossResultStatus: 'victory' | 'defeat' | undefined
       let ambushBattleResult: Awaited<ReturnType<typeof finishAmbush>> | undefined = undefined
+      let duelBattleResult: Awaited<ReturnType<typeof finishDuel>> | undefined = undefined
       if (activeSession) {
         completedSession = completeSessionProblem(activeSession, {
           problemId: problem.id,
@@ -491,6 +601,17 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
             : `${result.encouragement} ${ambushRival.name}赢下这一场；错题已经留下，下一次用结果打回去。`
         }
       }
+      if (duelOpponentId && duelPresentation && queue && completedSession && queueIndex === queue.length - 1) {
+        duelBattleResult = await finishDuel(completedSession)
+        if (duelBattleResult) {
+          rewardProfile = duelBattleResult.profile
+          rewardCoins += duelBattleResult.coinBonus
+          bossResultStatus = duelBattleResult.score.passed ? 'victory' : 'defeat'
+          rewardEncouragement = duelBattleResult.score.passed
+            ? `${result.encouragement} 你赢下了与${duelPresentation.name}的五题挑战，额外获得 ${duelBattleResult.coinBonus} 灵石。`
+            : `${result.encouragement} ${duelPresentation.name}守住这一场；真实错因已经留下，修正后再战。`
+        }
+      }
       const soundDuration = playRewardSound({
         rating,
         techniqueTriggered: result.technique.triggered,
@@ -499,13 +620,18 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         realmBreakthrough: result.advance.realmBreakthrough,
         masteryGained: result.problemMastered,
         corrected: result.problemCorrected,
-        bossHit: (!!boss || !!ambushRival) && (rating === 'independent' || rating === 'multiple') && (!isChoice || choiceCorrect),
+        bossHit: (!!boss || !!ambushRival || !!duelOpponentId) && (rating === 'independent' || rating === 'multiple') && (!isChoice || choiceCorrect),
         bossResult: bossResultStatus
       })
       const unlockSoundDuration = rewardUnlockEvents.length
         ? playUnlockSounds(rewardUnlockEvents, soundDuration + 120)
         : 0
-      const voiceCue = ambushBattleResult && ambushRival
+      const voiceCue = duelBattleResult && duelOpponentId && duelPresentation
+        ? getStoryVoiceCue(
+            duelBattleResult.score.passed ? 'he-yaokun' : duelOpponentId,
+            duelBattleResult.score.passed ? duelPresentation.playerVictory : duelPresentation.opponentVictory
+          )
+        : ambushBattleResult && ambushRival
         ? getStoryVoiceCue(
             ambushBattleResult.score.passed ? 'he-yaokun' : ambushRival.id,
             ambushBattleResult.score.passed ? '突发邀战拿下。想用嘲讽压住我，只会让我下一题更强。' : ambushRival.defeat
@@ -544,7 +670,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     stopCharacterVoice()
     playSound('next')
     setReward(undefined)
-    if (ambushResult && queue && queueIndex === queue.length - 1) return
+    if ((ambushResult || duelResult) && queue && queueIndex === queue.length - 1) return
     if (queue && queueIndex < queue.length - 1) {
       if (activeSession) {
         const next = advancePracticeSession(activeSession)
@@ -568,6 +694,13 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     stopCharacterVoice()
     playSound('next')
     setAmbushResult(undefined)
+    onComplete()
+  }
+
+  function closeDuelResult() {
+    stopCharacterVoice()
+    playSound('next')
+    setDuelResult(undefined)
     onComplete()
   }
 
@@ -637,6 +770,15 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           <b><Clock3 size={16} />{formatChallengeTime(effectiveAmbushTime)}</b>
           <div className="ambush-time-track"><span style={{ width: `${Math.min(100, (effectiveAmbushTime / SURPRISE_CHALLENGE_TIME_MS) * 100)}%` }} /></div>
           <small>已完成 {ambushProgress.completed}/{SURPRISE_CHALLENGE_QUESTION_COUNT} · 独立命中 {ambushProgress.strongWins}/4 · 压制 {ambushProgress.score}/100</small>
+        </section>
+      )}
+
+      {duelOpponentId && duelPresentation && duelProgress && selection?.deadlineAt && (
+        <section className={`duel-battle-hud ${effectiveDuelTime <= 60_000 ? 'is-urgent' : ''}`} aria-label={`与${duelPresentation.name}的五题挑战倒计时`}>
+          <div><span><Swords size={15} />{duelPresentation.ruleLabel}</span><strong>{duelPresentation.name}</strong></div>
+          <b><Clock3 size={16} />{formatChallengeTime(effectiveDuelTime)}</b>
+          <div className="duel-time-track"><span style={{ width: `${Math.min(100, (effectiveDuelTime / DUEL_TIME_MS) * 100)}%` }} /></div>
+          <small>已完成 {duelProgress.completed}/{DUEL_QUESTION_COUNT} · 强命中 {duelProgress.strongWins}/{duelPresentation.requiredStrongWins} · 压制 {duelProgress.score}/100</small>
         </section>
       )}
 
@@ -797,11 +939,12 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         <RewardReveal
           {...reward}
           onReplayVoice={() => speakCharacterVoice(reward.voiceCue)}
-          continueLabel={queueIndex < queue.length - 1 ? `继续下一题 · ${queueIndex + 2}/${queue.length}` : ambushResult ? '查看邀战结算' : selection ? '完成本轮，返回讲次' : '完成本题'}
+          continueLabel={queueIndex < queue.length - 1 ? `继续下一题 · ${queueIndex + 2}/${queue.length}` : ambushResult ? '查看邀战结算' : duelResult ? '查看挑战结算' : selection ? '完成本轮，返回讲次' : '完成本题'}
           onClose={closeReward}
         />
       )}
       {ambushResult && !reward && <SurpriseChallengeResultModal {...ambushResult} onClose={closeAmbushResult} />}
+      {duelResult && !reward && <DuelResultModal {...duelResult} onClose={closeDuelResult} />}
     </main>
   )
 }

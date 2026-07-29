@@ -15,14 +15,30 @@ function polishMath(text: string) {
   return text.replace(/(?<!\\\\)\\blim_/g, '\\\\lim_')
 }
 
-export function buildPointSeeds(points: readonly BankPoint[]): SeedInput[] {
+export function buildPointSeeds(
+  points: readonly BankPoint[],
+  options: { idPrefix?: string; sharedTag?: string; varyChoicePosition?: boolean } = {}
+): SeedInput[] {
+  const idPrefix = options.idPrefix || 'zy27'
   const seeds = points.flatMap((point) => {
-    const tags = sharedTags(point)
+    const tags = options.sharedTag ? [...sharedTags(point), options.sharedTag] : sharedTags(point)
     const source = point.source
     const page = point.page
+    const correctChoice = `在“${point.conditions}”成立时，可以推出“${point.conclusion}”。`
+    const distractors = [
+      `无需核对任何条件，总能直接得到“${point.conclusion}”。`,
+      point.misconception,
+      `只要“${point.conclusion}”成立，就必然反推出全部原条件。`
+    ]
+    const correctChoiceIndex = options.varyChoicePosition
+      ? [...point.id].reduce((total, character, index) => total + character.charCodeAt(0) * (index + 1), 0) % 4
+      : 0
+    const choiceOptions = [...distractors]
+    choiceOptions.splice(correctChoiceIndex, 0, correctChoice)
+    const correctOptionId = String.fromCharCode(65 + correctChoiceIndex)
     return [
       {
-        id: `zy27-${point.id}-definition`,
+        id: `${idPrefix}-${point.id}-definition`,
         kind: 'concept',
         title: `${point.title}：条件与结论`,
         statement: `请完整说明“${point.title}”使用的条件、结论，并指出最容易误用的一点。`,
@@ -39,24 +55,19 @@ export function buildPointSeeds(points: readonly BankPoint[]): SeedInput[] {
         methodFingerprint: fingerprint(point, 'definition-condition-conclusion')
       },
       {
-        id: `zy27-${point.id}-choice`,
+        id: `${idPrefix}-${point.id}-choice`,
         kind: 'problem',
         title: `${point.title}：命题辨析`,
         statement: `关于“${point.title}”，下列说法正确的是（ ）。`,
         tags: [...tags, '选择题', '命题辨析'],
         coreMethod: `逐项核对 ${point.principle} 的对象、条件与结论，不凭关键词选答案。`,
         mistakes: point.misconception,
-        answerText: `正确选项为 A。A 完整保留了适用条件和结论；其余选项分别删除条件、落入常见误区或擅自使用逆命题。`,
+        answerText: `正确选项为 ${correctOptionId}。该项完整保留了适用条件和结论；其余选项分别删除条件、落入常见误区或擅自使用逆命题。`,
         questionFormat: 'single-choice',
-        options: [
-          `在“${point.conditions}”成立时，可以推出“${point.conclusion}”。`,
-          `无需核对任何条件，总能直接得到“${point.conclusion}”。`,
-          point.misconception,
-          `只要“${point.conclusion}”成立，就必然反推出全部原条件。`
-        ],
-        correctOptionIds: ['A'],
+        options: choiceOptions,
+        correctOptionIds: [correctOptionId],
         solutionMethods: [
-          { title: '路线一 · 正向定理核对', content: `原理是 ${point.principle}。A 同时保留条件“${point.conditions}”和结论“${point.conclusion}”，因此成立。` },
+          { title: '路线一 · 正向定理核对', content: `原理是 ${point.principle}。${correctOptionId} 同时保留条件“${point.conditions}”和结论“${point.conclusion}”，因此成立。` },
           { title: '路线二 · 反例优先排除', content: `B 删除全部条件，D 把充分关系强行倒置；C 对应典型误区：${point.misconception}。所以只能选 A。` }
         ],
         source,
@@ -64,7 +75,7 @@ export function buildPointSeeds(points: readonly BankPoint[]): SeedInput[] {
         methodFingerprint: fingerprint(point, 'proposition-discrimination')
       },
       {
-        id: `zy27-${point.id}-audit`,
+        id: `${idPrefix}-${point.id}-audit`,
         kind: 'problem',
         title: `${point.title}：错解审判`,
         statement: `某同学在一道相关题中写道：“${point.misconception}”请指出逻辑缺口，并给出可靠的订正流程。`,
@@ -81,7 +92,7 @@ export function buildPointSeeds(points: readonly BankPoint[]): SeedInput[] {
         methodFingerprint: fingerprint(point, 'solution-audit-boundary')
       },
       {
-        id: `zy27-${point.id}-application`,
+        id: `${idPrefix}-${point.id}-application`,
         kind: 'problem',
         title: `${point.title}：经典应用`,
         statement: point.example.statement,

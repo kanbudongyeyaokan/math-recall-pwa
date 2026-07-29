@@ -1,4 +1,4 @@
-import type { Problem } from '../types'
+import type { DuelScope, Problem } from '../types'
 
 export type PracticeRole = 'all' | 'concept' | 'example' | 'choice' | 'exercise'
 
@@ -25,11 +25,14 @@ export interface PracticeSelection {
   sectionId?: string
   role: PracticeRole
   label: string
-  mode?: 'practice' | 'boss' | 'ambush'
+  mode?: 'practice' | 'boss' | 'ambush' | 'duel'
   challengeId?: string
   rivalId?: string
   deadlineAt?: number
   challengeSeed?: number
+  opponentId?: string
+  duelScope?: DuelScope
+  duelLectureId?: string
 }
 
 export const PRACTICE_ROLE_LABELS: Record<PracticeRole, string> = {

@@ -135,7 +135,7 @@ export default function App() {
   }, [toast])
 
   useEffect(() => {
-    const scene = screen === 'review' && (practiceSelection?.mode === 'boss' || practiceSelection?.mode === 'ambush')
+    const scene = screen === 'review' && (practiceSelection?.mode === 'boss' || practiceSelection?.mode === 'ambush' || practiceSelection?.mode === 'duel')
       ? 'battle'
       : screen === 'review'
         ? 'focus'
@@ -214,11 +214,11 @@ export default function App() {
   async function exitReview() {
     const session = getPendingPracticeSession(await getActivePracticeSession().catch(() => undefined))
     setResumableSession(session)
-    navigate(practiceSelection?.mode === 'ambush' ? 'home' : practiceSelection ? 'practice' : 'library')
+    navigate(practiceSelection?.mode === 'ambush' ? 'home' : practiceSelection?.mode === 'duel' ? 'world' : practiceSelection ? 'practice' : 'library')
   }
 
   function completeReview() {
-    const destination = practiceSelection?.mode === 'ambush' ? 'home' : 'practice'
+    const destination = practiceSelection?.mode === 'ambush' ? 'home' : practiceSelection?.mode === 'duel' ? 'world' : 'practice'
     setResumableSession(undefined)
     navigate(destination)
   }
@@ -357,7 +357,7 @@ export default function App() {
       {screen === 'home' && <HomePage online={online} onOpenPractice={() => navigate('practice')} onStartProblem={(id, selection) => openReview(id, selection)} onAdd={() => navigate('form')} onInstall={() => setShowInstallGuide(true)} />}
       {screen === 'practice' && <PracticePage onStart={(selection) => openReview(undefined, selection)} onOpenLibrary={() => navigate('library')} />}
       {screen === 'review' && <ReviewPage requestedId={reviewId} selection={practiceSelection} onBack={() => void exitReview()} onComplete={completeReview} />}
-      {screen === 'world' && <WorldPage notify={setToast} onPractice={() => navigate('practice')} />}
+      {screen === 'world' && <WorldPage notify={setToast} onPractice={() => navigate('practice')} onStartDuel={(selection) => openReview(undefined, selection)} />}
       {screen === 'library' && <LibraryPage onAdd={() => navigate('form')} onEdit={openEdit} onReview={openReview} notify={setToast} />}
       {screen === 'form' && <ProblemFormPage editId={editId} onBack={() => navigate(editId ? 'library' : 'home')} onSaved={(message) => { setToast(message); navigate('library') }} />}
       {screen === 'profile' && <ProfilePage canInstall={!!installPrompt} isStandalone={isStandalone} isWechat={isWechat} onInstall={installApp} onCheckUpdate={checkForAppUpdate} onOpenWorld={() => navigate('world')} appVersion={__APP_VERSION__} notify={setToast} />}

@@ -87,18 +87,23 @@ export interface BossVictory {
   lastDefeatedAt: number
 }
 
-export type PracticeSessionMode = 'practice' | 'boss' | 'ambush' | 'single'
+export type DuelScope = 'all' | 'lecture' | 'weak' | 'choice'
+
+export type PracticeSessionMode = 'practice' | 'boss' | 'ambush' | 'duel' | 'single'
 
 export interface PracticeSessionSelection {
   lectureId: string
   sectionId?: string
   role: 'all' | 'concept' | 'example' | 'choice' | 'exercise'
   label: string
-  mode?: 'practice' | 'boss' | 'ambush'
+  mode?: 'practice' | 'boss' | 'ambush' | 'duel'
   challengeId?: string
   rivalId?: string
   deadlineAt?: number
   challengeSeed?: number
+  opponentId?: string
+  duelScope?: DuelScope
+  duelLectureId?: string
 }
 
 export interface PracticeSessionAnswer {
@@ -172,6 +177,10 @@ export interface PlayerProfile {
   surpriseChallengeBestScore: number
   lastSurpriseChallengeId?: string
   lastSurpriseChallengeAt?: number
+  duelWins: number
+  duelLosses: number
+  duelRecords: Record<string, { wins: number; losses: number; bestScore: number; lastPlayedAt: number }>
+  lastDuelId?: string
   avatarImageId?: string
 }
 

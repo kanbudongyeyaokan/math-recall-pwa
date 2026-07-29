@@ -62,4 +62,24 @@ describe('做题会话持久化', () => {
     expect(sessionMatchesRequest(restored, undefined, ambushSelection)).toBe(true)
     expect(sessionMatchesRequest(restored, undefined, { ...ambushSelection, challengeId: 'ambush-2' })).toBe(false)
   })
+
+  it('主动挑战在刷新后保留对手、题型范围、讲次和截止时间', () => {
+    const duelSelection = {
+      ...selection,
+      mode: 'duel' as const,
+      challengeId: 'duel-1',
+      opponentId: 'chen-yanjun',
+      duelScope: 'lecture' as const,
+      duelLectureId: 'lecture-09',
+      deadlineAt: 720_001,
+      challengeSeed: 29
+    }
+    const session = createPracticeSession({ mode: 'duel', selection: duelSelection, queueIds: ['q8', 'q3', 'q6', 'q1', 'q4'], now: 1 })
+    const restored = sanitizePracticeSession(session, new Set(session.queueIds))
+
+    expect(restored?.selection).toEqual(duelSelection)
+    expect(restored?.queueIds).toEqual(session.queueIds)
+    expect(sessionMatchesRequest(restored, undefined, duelSelection)).toBe(true)
+    expect(sessionMatchesRequest(restored, undefined, { ...duelSelection, challengeId: 'duel-2' })).toBe(false)
+  })
 })

@@ -1,7 +1,8 @@
 import katex from 'katex'
 import { describe, expect, it } from 'vitest'
 import { curatedBankPoints } from './banks/curatedBank'
-import { getProblemRole } from '../domain/curriculum'
+import { wuFoundationPoints } from './banks/wuFoundationRebuiltBank'
+import { getProblemLectureIds, getProblemRole } from '../domain/curriculum'
 import {
   findDuplicateMethodGroups,
   getMathFragments,
@@ -15,12 +16,28 @@ describe('高质量考研数学题库', () => {
   const seeds = makeSeedProblems(1_000_000)
   const curated = seeds.filter((problem) => problem.id.startsWith('zy27-'))
 
-  it('新增 624 道资料考点重构题，总题数为 698 且 ID 稳定唯一', () => {
+  it('保留 624 道资料考点重构题，新增 72 道高数方法强化题且 ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
+    expect(wuFoundationPoints).toHaveLength(18)
     expect(curated).toHaveLength(624)
-    expect(seeds).toHaveLength(698)
+    expect(seeds.filter((problem) => problem.id.startsWith('wzx27-'))).toHaveLength(72)
+    expect(seeds).toHaveLength(770)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(DEPRECATED_SEED_IDS.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
+  it('72 道高数方法强化题均为原创重构、双路线且能归入具体讲次', () => {
+    const rebuilt = seeds.filter((problem) => problem.id.startsWith('wzx27-'))
+    for (const problem of rebuilt) {
+      expect(problem.source).toBe('斗破数学 · 高数基础题型原创重构')
+      expect(problem.tags).toContain('高数基础方法强化')
+      expect(problem.solutionMethods).toHaveLength(2)
+      expect(getProblemLectureIds(problem)).not.toEqual([])
+    }
+    const choiceAnswers = rebuilt
+      .filter((problem) => problem.questionFormat === 'single-choice')
+      .flatMap((problem) => problem.correctOptionIds)
+    expect(new Set(choiceAnswers)).toEqual(new Set(['A', 'B', 'C', 'D']))
   })
 
   it('方法指纹唯一，阻止仅换数字或同解法题再次混入', () => {

@@ -7,6 +7,7 @@ import {
   MathRecallDatabase,
   normalizeProblemRecord,
   normalizeProfileRecord,
+  recordDuelResult,
   recordSurpriseChallengeResult
 } from './db'
 import { LEGACY_PRIVATE_BANK_SOURCE } from './data/questionQuality'
@@ -51,6 +52,9 @@ describe('旧数据迁移归一化', () => {
     expect(migrated.surpriseChallengeWins).toBe(0)
     expect(migrated.surpriseChallengeLosses).toBe(0)
     expect(migrated.surpriseChallengeBestScore).toBe(0)
+    expect(migrated.duelWins).toBe(0)
+    expect(migrated.duelLosses).toBe(0)
+    expect(migrated.duelRecords).toEqual({})
   })
 
   it('把旧人物羁绊归并到新版角色且不丢点数', () => {
@@ -236,6 +240,44 @@ describe('旧数据迁移归一化', () => {
       surpriseChallengeLosses: 1,
       surpriseChallengeBestScore: 88,
       lastSurpriseChallengeId: 'ambush-later-defeat'
+    })
+
+    db.close()
+    await db.delete()
+  })
+
+  it('主动挑战幂等结算胜负、灵石、羁绊与对手战绩', async () => {
+    await db.delete()
+    await db.open()
+    await db.profiles.put({ ...defaultProfile, coins: 20, lifetimeCoins: 20 })
+
+    const first = await recordDuelResult({
+      challengeId: 'duel-idempotent', opponentId: 'zeng-yuxin', score: 92, passed: true, timedOut: false, now: 200
+    })
+    const repeated = await recordDuelResult({
+      challengeId: 'duel-idempotent', opponentId: 'zeng-yuxin', score: 92, passed: true, timedOut: false, now: 201
+    })
+    await recordDuelResult({
+      challengeId: 'duel-later', opponentId: 'chen-yanjun', score: 48, passed: false, timedOut: true, now: 202
+    })
+    const staleRepeat = await recordDuelResult({
+      challengeId: 'duel-idempotent', opponentId: 'zeng-yuxin', score: 92, passed: true, timedOut: false, now: 203
+    })
+
+    expect(first).toMatchObject({ coinBonus: 72, bondBonus: 2, duplicate: false })
+    expect(repeated).toMatchObject({ coinBonus: 0, duplicate: true })
+    expect(staleRepeat).toMatchObject({ coinBonus: 0, duplicate: true })
+    expect(await db.profiles.get('player')).toMatchObject({
+      coins: 92,
+      lifetimeCoins: 92,
+      duelWins: 1,
+      duelLosses: 1,
+      characterBonds: { 'zeng-yuxin': 2, 'chen-yanjun': 1 },
+      duelRecords: {
+        'zeng-yuxin': { wins: 1, losses: 0, bestScore: 92, lastPlayedAt: 200 },
+        'chen-yanjun': { wins: 0, losses: 1, bestScore: 48, lastPlayedAt: 202 }
+      },
+      lastDuelId: 'duel-later'
     })
 
     db.close()

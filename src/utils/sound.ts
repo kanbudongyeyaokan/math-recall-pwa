@@ -243,7 +243,7 @@ export const DEFAULT_AUDIO_PREFERENCES: AudioPreferences = {
   voiceEnabled: true,
   autoVoice: true,
   soundVolume: 0.86,
-  musicVolume: 0.46,
+  musicVolume: 0.56,
   voiceVolume: 0.82,
   voiceRate: 1
 }
@@ -264,12 +264,12 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 export function getSoundOutputGain(volume: number) {
   const normalized = clamp(finiteNumber(volume, 0), 0, 1)
-  return normalized <= 0 ? 0.0001 : 1.65 * Math.pow(normalized, 0.78)
+  return normalized <= 0 ? 0.0001 : 2.15 * Math.pow(normalized, 0.7)
 }
 
 export function getMusicOutputGain(volume: number) {
   const normalized = clamp(finiteNumber(volume, 0), 0, 1)
-  return normalized <= 0 ? 0.0001 : 1.2 * Math.pow(normalized, 0.72)
+  return normalized <= 0 ? 0.0001 : 1.75 * Math.pow(normalized, 0.65)
 }
 
 function finiteNumber(value: unknown, fallback: number) {
@@ -358,9 +358,9 @@ function ensureAudioGraph() {
   if (!audioContext || audioContext.state === 'closed') {
     audioContext = new AudioContextClass({ latencyHint: 'interactive' })
     const compressor = audioContext.createDynamicsCompressor()
-    compressor.threshold.value = -14
-    compressor.knee.value = 12
-    compressor.ratio.value = 4
+    compressor.threshold.value = -16
+    compressor.knee.value = 18
+    compressor.ratio.value = 5
     compressor.attack.value = 0.002
     compressor.release.value = 0.22
     outputNode = audioContext.createGain()
