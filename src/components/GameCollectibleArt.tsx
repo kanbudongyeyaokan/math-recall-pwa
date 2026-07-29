@@ -1,68 +1,26 @@
-import type { CSSProperties } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   Award,
-  Bird,
   CalendarDays,
-  Circle,
-  Compass,
   Crown,
   Flame,
-  Flower2,
   Gem,
-  GraduationCap,
   Grid3X3,
   LampDesk,
   Landmark,
   Layers3,
   Map,
-  MapPin,
   Orbit,
-  Ribbon,
   Route,
-  Ruler,
-  ScrollText,
   ShieldCheck,
   Sigma,
   Sparkles,
   Star,
   Sun,
-  Sword,
   Target,
-  Trophy,
-  WandSparkles
+  Trophy
 } from 'lucide-react'
 import type { ShopItem } from '../types'
-
-const SHOP_ICONS: Partial<Record<string, LucideIcon>> = {
-  'aura-none': Circle,
-  'aura-iron': Orbit,
-  'aura-lotus': Flower2,
-  'aura-crimson': Flame,
-  'aura-emperor': Sun,
-  'weapon-scroll': ScrollText,
-  'weapon-ruler': Ruler,
-  'weapon-compass': Compass,
-  'weapon-blade': Sword,
-  'weapon-emperor': WandSparkles,
-  'accessory-none': Ribbon,
-  'accessory-jade': Gem,
-  'accessory-badge': MapPin,
-  'accessory-crown': Crown,
-  'companion-none': Sparkles,
-  'companion-ember': Flame,
-  'companion-owl': Bird,
-  'companion-star': Star,
-  'companion-memory': LampDesk
-}
-
-const OUTFIT_IMAGES: Partial<Record<string, string>> = {
-  'outfit-apprentice': `${import.meta.env.BASE_URL}characters/hero-apprentice.webp`,
-  'outfit-flame': `${import.meta.env.BASE_URL}characters/hero-standard.webp`,
-  'outfit-starseer': `${import.meta.env.BASE_URL}characters/hero-standard.webp`,
-  'outfit-master': `${import.meta.env.BASE_URL}characters/hero-standard.webp`,
-  'outfit-jiaoda': `${import.meta.env.BASE_URL}characters/hero-jiaoda.webp`
-}
 
 const TITLE_ICONS: readonly LucideIcon[] = [
   Flame,
@@ -85,19 +43,12 @@ const TITLE_ICONS: readonly LucideIcon[] = [
   Landmark
 ]
 
-function artStyle(color: string) {
-  return { '--collectible-accent': color } as CSSProperties
-}
-
 export function ShopItemArt({ item }: { item: ShopItem }) {
-  const image = OUTFIT_IMAGES[item.id]
-  const Icon = SHOP_ICONS[item.id] || GraduationCap
+  const image = `${import.meta.env.BASE_URL}shop-items/${item.id}.webp`
 
   return (
-    <span className={`shop-item-art art-${item.category} art-${item.id}`} style={artStyle(item.swatch)} aria-hidden="true">
-      <span className="collectible-glow" />
-      {image ? <img src={image} alt="" /> : <Icon size={44} strokeWidth={1.55} />}
-      <span className="collectible-rune" />
+    <span className={`shop-item-art art-${item.category} art-${item.id}`} aria-hidden="true">
+      <img src={image} alt="" loading="lazy" decoding="async" />
     </span>
   )
 }
