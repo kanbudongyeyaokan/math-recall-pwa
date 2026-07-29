@@ -2,22 +2,24 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
-  AudioLines,
   Brain,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   CircleX,
   Eye,
   Image as ImageIcon,
   Lightbulb,
   ListChecks,
-  MicOff,
   Route,
   ScrollText,
   ShieldAlert,
   Volume2,
-  VolumeX
+  VolumeX,
+  X
 } from 'lucide-react'
+import { AudioSettingsControls } from '../components/AudioSettingsControls'
 import { CultivatorScene } from '../components/CultivatorScene'
 import { DbImage } from '../components/DbImage'
 import { Lightbox } from '../components/Lightbox'
@@ -45,7 +47,7 @@ import {
   pulseHaptic,
   saveAudioPreferences
 } from '../utils/sound'
-import { getReviewVoiceCue, getStoryVoiceCue, speakCharacterVoice, stopCharacterVoice, type CharacterVoiceCue } from '../utils/voice'
+import { getReviewVoiceCue, getStoryVoiceCue, hasCharacterVoiceSupport, speakCharacterVoice, stopCharacterVoice, type CharacterVoiceCue } from '../utils/voice'
 
 interface ReviewPageProps {
   requestedId?: string
@@ -80,6 +82,8 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   const [choiceSubmitted, setChoiceSubmitted] = useState(false)
   const romanceSetting = useLiveQuery(() => db.settings.get('active-romance-route'))
   const [audioPreferences, setAudioPreferences] = useState(getAudioPreferences)
+  const [audioOpen, setAudioOpen] = useState(false)
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['answer', 'core']))
   const [saving, setSaving] = useState(false)
   const [lightbox, setLightbox] = useState<{ id: string; alt: string }>()
   const [reward, setReward] = useState<{
@@ -103,6 +107,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     ? getLectureById(selection.lectureId)
     : getLectureById(problem ? getProblemLectureIds(problem)[0] : undefined)
   const queueLabel = selection?.label || (lecture ? `第 ${lecture.number} 讲 · ${PRACTICE_ROLE_LABELS[getProblemRole(problem!)]}` : '自选题目')
+  const voiceSupported = hasCharacterVoiceSupport()
 
   useEffect(() => {
     let cancelled = false
@@ -148,9 +153,24 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     setThinking(false)
     setSelectedOptionIds([])
     setChoiceSubmitted(false)
+    setExpandedSections(new Set(['answer', 'core', ...(problem?.solutionMethods[0]?.id ? [`method:${problem.solutionMethods[0].id}`] : [])]))
   }, [problem?.id])
 
   useEffect(() => () => stopCharacterVoice(), [])
+
+  useEffect(() => {
+    if (!audioOpen) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setAudioOpen(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [audioOpen])
 
   function toggleOption(id: string) {
     if (!problem || choiceSubmitted) return
@@ -200,6 +220,35 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       playSound('character-open')
       speakCharacterVoice(getStoryVoiceCue('he-yaokun', '角色语音助阵已开启。下一题，继续。'), { delayMs: 180 })
     }
+  }
+
+  function updateAudioPreferences(patch: Parameters<typeof saveAudioPreferences>[0]) {
+    setAudioPreferences(saveAudioPreferences(patch))
+  }
+
+  function previewVoice() {
+    speakCharacterVoice(getStoryVoiceCue('he-yaokun', '音量已经调好。何耀焜，保持节奏，继续破题。'))
+  }
+
+  function toggleAnalysisSection(id: string) {
+    setExpandedSections((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAllMethods() {
+    if (!problem) return
+    const methodKeys = problem.solutionMethods.map((method) => `method:${method.id}`)
+    const allExpanded = methodKeys.every((key) => expandedSections.has(key))
+    setExpandedSections((current) => {
+      const next = new Set(current)
+      methodKeys.forEach((key) => allExpanded ? next.delete(key) : next.add(key))
+      if (allExpanded && methodKeys[0]) next.add(methodKeys[0])
+      return next
+    })
   }
 
   async function grade(rating: ReviewRating) {
@@ -292,15 +341,25 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           <small>{problem.kind === 'concept' ? '定义与判据' : problem.questionFormat === 'open' ? '主观题' : problem.questionFormat === 'single-choice' ? '单选题' : '多选题'}</small>
         </div>
         <div className="review-header-actions">
-          <button type="button" className="icon-button sound-toggle" onClick={toggleSound} aria-label={audioPreferences.soundEnabled ? '关闭做题音效' : '开启做题音效'} aria-pressed={audioPreferences.soundEnabled} title={audioPreferences.soundEnabled ? '关闭做题音效' : '开启做题音效'}>
-            {audioPreferences.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          </button>
-          <button type="button" className="icon-button sound-toggle voice-toggle" onClick={toggleVoice} aria-label={audioPreferences.voiceEnabled ? '关闭角色语音' : '开启角色语音'} aria-pressed={audioPreferences.voiceEnabled} title={audioPreferences.voiceEnabled ? '关闭角色语音' : '开启角色语音'}>
-            {audioPreferences.voiceEnabled ? <AudioLines size={18} /> : <MicOff size={18} />}
+          <button type="button" className="icon-button sound-toggle" onClick={() => setAudioOpen(true)} aria-label="打开音效和语音设置" aria-expanded={audioOpen} title="音效和语音设置">
+            {audioPreferences.soundEnabled || audioPreferences.voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
           <span className="review-count">{queueIndex + 1}/{queue.length}</span>
         </div>
       </header>
+
+      {audioOpen && (
+        <div className="audio-quick-backdrop" role="dialog" aria-modal="true" aria-labelledby="audio-quick-title" onMouseDown={(event) => event.target === event.currentTarget && setAudioOpen(false)}>
+          <section className="audio-quick-panel">
+            <header><div><span>本次做题</span><h2 id="audio-quick-title">音效与角色语音</h2></div><button type="button" className="icon-button" onClick={() => setAudioOpen(false)} autoFocus aria-label="关闭音频设置"><X size={20} /></button></header>
+            <div className="audio-quick-toggles">
+              <label><span><strong>做题音效</strong><small>答题、灵石与突破反馈</small></span><input type="checkbox" role="switch" checked={audioPreferences.soundEnabled} onChange={toggleSound} /></label>
+              <label><span><strong>角色语音</strong><small>{voiceSupported ? '结算鼓励与剧情台词' : '当前浏览器不支持语音'}</small></span><input type="checkbox" role="switch" checked={audioPreferences.voiceEnabled && voiceSupported} onChange={toggleVoice} disabled={!voiceSupported} /></label>
+            </div>
+            <AudioSettingsControls preferences={audioPreferences} voiceSupported={voiceSupported} onChange={updateAudioPreferences} onPreviewSound={() => playSound('coin')} onPreviewVoice={previewVoice} idPrefix="review-audio" compact />
+          </section>
+        </div>
+      )}
 
       <div className="session-progress" role="progressbar" aria-label="本次做题进度" aria-valuemin={0} aria-valuemax={queue.length} aria-valuenow={queueIndex + 1}>
         <span style={{ width: `${((queueIndex + 1) / queue.length) * 100}%` }} />
@@ -394,7 +453,13 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         </section>
       ) : (
         <section className="answer-panel">
-          <div className="answer-heading"><Eye size={19} /><h2>解析与多解</h2></div>
+          <div className="answer-heading"><Eye size={19} /><div><h2>解析与多解</h2><p>先读结论，再逐条展开解法</p></div></div>
+          <nav className="analysis-index" aria-label="解析内容索引">
+            {problem.answerText && <span>答案结论</span>}
+            {!!problem.solutionMethods.length && <span>{problem.solutionMethods.length} 种解法</span>}
+            {problem.coreMethod && <span>核心方法</span>}
+            {problem.mistakes && <span>易错点</span>}
+          </nav>
           {problem.answerImageId && (
             <DbImage
               imageId={problem.answerImageId}
@@ -403,22 +468,39 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
               onClick={() => setLightbox({ id: problem.answerImageId!, alt: `${problem.title}答案图片` })}
             />
           )}
-          {problem.answerText && <MathText className="answer-text" text={problem.answerText} />}
+          {problem.answerText && (
+            <section className={`analysis-section answer-summary ${expandedSections.has('answer') ? 'expanded' : ''}`}>
+              <button type="button" className="analysis-section-toggle" onClick={() => toggleAnalysisSection('answer')} aria-expanded={expandedSections.has('answer')}>
+                <span><CheckCircle2 size={18} /><strong>答案与结论</strong></span>{expandedSections.has('answer') ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+              {expandedSections.has('answer') && <MathText className="answer-text" text={problem.answerText} />}
+            </section>
+          )}
           {!!problem.solutionMethods.length && (
             <div className="solution-methods">
+              <div className="solution-methods-heading"><div><Route size={18} /><span><strong>分步解法</strong><small>默认展开第一种，按需比较</small></span></div>{problem.solutionMethods.length > 1 && <button type="button" onClick={toggleAllMethods}>{problem.solutionMethods.every((method) => expandedSections.has(`method:${method.id}`)) ? '收起其余' : '全部展开'}</button>}</div>
               {problem.solutionMethods.map((method, index) => (
-                <article className="solution-method" key={method.id}>
-                  <div><span>{index + 1}</span><strong>{method.title}</strong></div>
-                  <MathText text={method.content} />
+                <article className={`solution-method ${expandedSections.has(`method:${method.id}`) ? 'expanded' : ''}`} key={method.id}>
+                  <button type="button" className="solution-method-toggle" onClick={() => toggleAnalysisSection(`method:${method.id}`)} aria-expanded={expandedSections.has(`method:${method.id}`)}>
+                    <span><i>{index + 1}</i><strong>{method.title}</strong></span>
+                    {expandedSections.has(`method:${method.id}`) ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </button>
+                  {expandedSections.has(`method:${method.id}`) && <MathText text={method.content} />}
                 </article>
               ))}
             </div>
           )}
           {problem.coreMethod && (
-            <div className="insight-block method-block"><div><Lightbulb size={18} /><strong>核心方法</strong></div><MathText text={problem.coreMethod} /></div>
+            <section className={`insight-block method-block ${expandedSections.has('core') ? 'expanded' : ''}`}>
+              <button type="button" onClick={() => toggleAnalysisSection('core')} aria-expanded={expandedSections.has('core')}><span><Lightbulb size={18} /><strong>核心方法</strong></span>{expandedSections.has('core') ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</button>
+              {expandedSections.has('core') && <MathText text={problem.coreMethod} />}
+            </section>
           )}
           {problem.mistakes && (
-            <div className="insight-block mistake-block"><div><ShieldAlert size={18} /><strong>易错点</strong></div><MathText text={problem.mistakes} /></div>
+            <section className={`insight-block mistake-block ${expandedSections.has('mistakes') ? 'expanded' : ''}`}>
+              <button type="button" onClick={() => toggleAnalysisSection('mistakes')} aria-expanded={expandedSections.has('mistakes')}><span><ShieldAlert size={18} /><strong>易错点</strong></span>{expandedSections.has('mistakes') ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</button>
+              {expandedSections.has('mistakes') && <MathText text={problem.mistakes} />}
+            </section>
           )}
 
           <div className="rating-section">

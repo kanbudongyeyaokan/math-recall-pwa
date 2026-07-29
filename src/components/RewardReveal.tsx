@@ -1,10 +1,11 @@
-import { AudioLines, Coins, Crown, Layers3, ScrollText, Sparkles, Volume2, X, Zap } from 'lucide-react'
+import { AudioLines, Crown, Layers3, ScrollText, Sparkles, Volume2, X, Zap } from 'lucide-react'
 import type { PlayerProfile, RewardCard } from '../types'
 import type { RealmProgress } from '../domain/gamification'
 import type { TechniqueResolution } from '../domain/cultivation'
 import { getCharacter } from '../domain/story'
 import type { CharacterVoiceCue } from '../utils/voice'
 import { CultivatorScene } from './CultivatorScene'
+import { SpiritStoneIcon } from './GameCollectibleArt'
 
 interface RewardRevealProps {
   card: RewardCard
@@ -70,13 +71,13 @@ export function RewardReveal({ card, xp, intervalDays, advanced, realmBreakthrou
         {technique.triggered && (
           <div className="technique-bonuses">
             <span>额外经验 +{technique.xpBonus}</span>
-            <span>额外灵石 +{technique.coinBonus}</span>
+            <span><SpiritStoneIcon size="sm" />额外灵石 +{technique.coinBonus}</span>
             {technique.nextLevel > technique.previousLevel && <strong>功法升至 {technique.nextLevel} 重</strong>}
           </div>
         )}
         <div className="reward-stats">
           <span><strong>+{xp}</strong> 斗气经验</span>
-          <span><strong><Coins size={15} />+{coinsEarned}</strong> 灵石</span>
+          <span><strong><SpiritStoneIcon size="sm" />+{coinsEarned}</strong> 灵石</span>
           <span><strong>+{intervalDays}</strong> 天复做间隔</span>
         </div>
         <button type="button" className="button button-primary button-full" onClick={onClose}>{continueLabel}</button>

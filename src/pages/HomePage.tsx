@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, Coins, Flame, Plus, Shuffle, Smartphone, Sparkles, Target, WifiOff } from 'lucide-react'
+import { ArrowRight, Flame, Plus, Shuffle, Smartphone, Sparkles, Target, WifiOff } from 'lucide-react'
 import { CultivatorScene } from '../components/CultivatorScene'
+import { SpiritStoneIcon } from '../components/GameCollectibleArt'
 import { StoryPanel } from '../components/StoryPanel'
 import { db, defaultProfile, getOrStartPracticeCycle } from '../db'
 import { CALCULUS_LECTURES, getProblemLectureIds, type PracticeSelection } from '../domain/curriculum'
@@ -82,7 +83,7 @@ export function HomePage({ online, onOpenPractice, onStartProblem, onAdd, onInst
       <section className="mission-strip" aria-label="交大主线进度">
         <div><Target size={19} /><span><strong>{completedLectures}/18</strong><small>高数讲次已踏足</small></span></div>
         <div><Flame size={19} /><span><strong>{profile.totalReviews}</strong><small>累计完成题目</small></span></div>
-        <div><Coins size={19} /><span><strong>{profile.coins}</strong><small>可用灵石</small></span></div>
+        <div><SpiritStoneIcon size="md" /><span><strong>{profile.coins}</strong><small>可用灵石</small></span></div>
       </section>
 
       <StoryPanel profile={profile} />

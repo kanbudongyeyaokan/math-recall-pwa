@@ -157,14 +157,23 @@ let outputNode: GainNode | undefined
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
+function finiteNumber(value: unknown, fallback: number) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function booleanValue(value: unknown, fallback: boolean) {
+  return typeof value === 'boolean' ? value : fallback
+}
+
 function normalizePreferences(value?: Partial<AudioPreferences>): AudioPreferences {
   return {
-    soundEnabled: value?.soundEnabled ?? DEFAULT_AUDIO_PREFERENCES.soundEnabled,
-    voiceEnabled: value?.voiceEnabled ?? DEFAULT_AUDIO_PREFERENCES.voiceEnabled,
-    autoVoice: value?.autoVoice ?? DEFAULT_AUDIO_PREFERENCES.autoVoice,
-    soundVolume: clamp(Number(value?.soundVolume ?? DEFAULT_AUDIO_PREFERENCES.soundVolume), 0, 1),
-    voiceVolume: clamp(Number(value?.voiceVolume ?? DEFAULT_AUDIO_PREFERENCES.voiceVolume), 0, 1),
-    voiceRate: clamp(Number(value?.voiceRate ?? DEFAULT_AUDIO_PREFERENCES.voiceRate), 0.8, 1.2)
+    soundEnabled: booleanValue(value?.soundEnabled, DEFAULT_AUDIO_PREFERENCES.soundEnabled),
+    voiceEnabled: booleanValue(value?.voiceEnabled, DEFAULT_AUDIO_PREFERENCES.voiceEnabled),
+    autoVoice: booleanValue(value?.autoVoice, DEFAULT_AUDIO_PREFERENCES.autoVoice),
+    soundVolume: clamp(finiteNumber(value?.soundVolume, DEFAULT_AUDIO_PREFERENCES.soundVolume), 0, 1),
+    voiceVolume: clamp(finiteNumber(value?.voiceVolume, DEFAULT_AUDIO_PREFERENCES.voiceVolume), 0, 1),
+    voiceRate: clamp(finiteNumber(value?.voiceRate, DEFAULT_AUDIO_PREFERENCES.voiceRate), 0.8, 1.2)
   }
 }
 

@@ -1,5 +1,31 @@
-import { describe, expect, it } from 'vitest'
-import { getSoundPatternDuration, getSoundSequenceDuration, RATING_SOUND, SOUND_PATTERNS, SOUND_TEXTURES } from './sound'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  DEFAULT_AUDIO_PREFERENCES,
+  getAudioPreferences,
+  getSoundPatternDuration,
+  getSoundSequenceDuration,
+  RATING_SOUND,
+  saveAudioPreferences,
+  SOUND_PATTERNS,
+  SOUND_TEXTURES
+} from './sound'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+function mockBrowserStorage() {
+  const values = new Map<string, string>()
+  const localStorage = {
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => values.set(key, value))
+  }
+  vi.stubGlobal('window', { localStorage, dispatchEvent: vi.fn() })
+  vi.stubGlobal('CustomEvent', class {
+    constructor(public type: string, public init?: CustomEventInit) {}
+  })
+  return { values, localStorage }
+}
 
 describe('做题分层音效', () => {
   it('每个交互事件都有可播放的音符层', () => {
@@ -29,5 +55,34 @@ describe('做题分层音效', () => {
       { effect: 'card-drop', delayMs: 360 },
       { effect: 'coin', delayMs: 610 }
     ])).toBeGreaterThan(getSoundPatternDuration('rating-independent'))
+  })
+
+  it('按百分比保存音效与语音音量，并能在重新读取时恢复', () => {
+    const { localStorage } = mockBrowserStorage()
+
+    saveAudioPreferences({ soundVolume: 0.37, voiceVolume: 0.64, voiceRate: 1.1 })
+
+    expect(getAudioPreferences()).toMatchObject({ soundVolume: 0.37, voiceVolume: 0.64, voiceRate: 1.1 })
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      'doupo-math-audio-preferences-v2',
+      expect.stringContaining('"soundVolume":0.37')
+    )
+  })
+
+  it('旧设置中的越界和无效音量会被安全归一化', () => {
+    const { values } = mockBrowserStorage()
+    values.set('doupo-math-audio-preferences-v2', JSON.stringify({
+      soundVolume: 2,
+      voiceVolume: 'invalid',
+      voiceRate: 0.2,
+      soundEnabled: 'false'
+    }))
+
+    expect(getAudioPreferences()).toMatchObject({
+      soundVolume: 1,
+      voiceVolume: DEFAULT_AUDIO_PREFERENCES.voiceVolume,
+      voiceRate: 0.8,
+      soundEnabled: DEFAULT_AUDIO_PREFERENCES.soundEnabled
+    })
   })
 })

@@ -3,12 +3,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   AudioLines,
   ArchiveRestore,
-  Award,
   Camera,
   Check,
   CheckCircle2,
   CloudOff,
-  Coins,
   Database,
   Download,
   HardDrive,
@@ -16,7 +14,6 @@ import {
   LockKeyhole,
   RefreshCcw,
   RefreshCw,
-  Speech,
   ScrollText,
   ShieldCheck,
   ShoppingBag,
@@ -30,6 +27,8 @@ import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamifi
 import type { ShopItem, ShopItemCategory, StoragePersistenceState } from '../types'
 import { downloadBackup, restoreBackup } from '../utils/backup'
 import { PlayerAvatar } from '../components/PlayerAvatar'
+import { AudioSettingsControls } from '../components/AudioSettingsControls'
+import { ShopItemArt, SpiritStoneIcon, TitleBadgeArt } from '../components/GameCollectibleArt'
 import { getAudioPreferences, playSound, saveAudioPreferences, type AudioPreferences } from '../utils/sound'
 import { getStoryVoiceCue, hasCharacterVoiceSupport, speakCharacterVoice, stopCharacterVoice } from '../utils/voice'
 
@@ -262,7 +261,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
       <section className="section-block avatar-section">
         <div className="section-heading">
           <div><p className="eyebrow"><ShoppingBag size={14} /> 个人形象与坊市</p><h2>做题赚灵石，装扮何耀焜</h2></div>
-          <strong className="coin-balance"><Coins size={16} /> {profile.coins}</strong>
+          <strong className="coin-balance"><SpiritStoneIcon size="sm" /> {profile.coins}</strong>
         </div>
         <div className="avatar-actions">
           <label className={`button button-secondary ${busy ? 'disabled' : ''}`}><Camera size={17} />上传本人头像<input type="file" accept="image/*" onChange={uploadAvatar} disabled={busy} /></label>
@@ -281,9 +280,9 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
             const equipped = isEquipped(item)
             return (
               <button type="button" className={`shop-item ${equipped ? 'equipped' : ''}`} key={item.id} onClick={() => handleShopItem(item)}>
-                <span className="shop-swatch" style={{ background: item.swatch }} />
-                <span><strong>{item.name}</strong><small>{item.description}</small></span>
-                <b>{equipped ? '装备中' : owned ? '装备' : `${item.price} 灵石`}</b>
+                <ShopItemArt item={item} />
+                <span className="shop-item-copy"><strong>{item.name}</strong><small>{item.description}</small></span>
+                <b>{equipped ? '装备中' : owned ? '装备' : <><SpiritStoneIcon size="sm" />{item.price} 灵石</>}</b>
               </button>
             )
           })}
@@ -294,7 +293,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
       <section className="section-block title-section">
         <div className="section-heading"><div><p className="eyebrow"><Sparkles size={14} /> 称号库</p><h2>用真实做题解锁</h2></div></div>
         <div className="title-list">
-          {titleStatuses.map((title) => (
+          {titleStatuses.map((title, index) => (
             <button
               type="button"
               key={title.name}
@@ -302,9 +301,9 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
               onClick={() => title.isUnlocked && chooseTitle(title.name)}
               disabled={!title.isUnlocked}
             >
-              {title.isUnlocked ? <Award size={17} /> : <LockKeyhole size={17} />}
+              <TitleBadgeArt title={title.name} index={index} locked={!title.isUnlocked} />
               <span><strong>{title.name}</strong><small>{title.isUnlocked ? '已解锁' : title.requirement}</small></span>
-              {profile.selectedTitle === title.name && <Check size={16} />}
+              {profile.selectedTitle === title.name ? <Check size={16} /> : !title.isUnlocked ? <LockKeyhole size={15} /> : null}
             </button>
           ))}
         </div>
@@ -342,12 +341,14 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
             <input type="checkbox" role="switch" checked={audioPreferences.autoVoice} onChange={(event) => updateAudioPreferences({ autoVoice: event.target.checked })} disabled={!audioPreferences.voiceEnabled || !voiceSupported} />
           </label>
         </div>
-        <div className="audio-range-grid">
-          <label><span>音效音量 <b>{Math.round(audioPreferences.soundVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={audioPreferences.soundVolume} onChange={(event) => updateAudioPreferences({ soundVolume: Number(event.target.value) })} onPointerUp={() => playSound('coin')} disabled={!audioPreferences.soundEnabled} /></label>
-          <label><span>语音音量 <b>{Math.round(audioPreferences.voiceVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={audioPreferences.voiceVolume} onChange={(event) => updateAudioPreferences({ voiceVolume: Number(event.target.value) })} disabled={!audioPreferences.voiceEnabled || !voiceSupported} /></label>
-          <label><span>角色语速 <b>{audioPreferences.voiceRate.toFixed(2)}×</b></span><input type="range" min="0.8" max="1.2" step="0.05" value={audioPreferences.voiceRate} onChange={(event) => updateAudioPreferences({ voiceRate: Number(event.target.value) })} disabled={!audioPreferences.voiceEnabled || !voiceSupported} /></label>
-        </div>
-        <button type="button" className="button button-secondary button-full audio-preview-button" onClick={previewCharacterVoice} disabled={!audioPreferences.voiceEnabled || !voiceSupported}><Speech size={18} />试听当前角色语音</button>
+        <AudioSettingsControls
+          preferences={audioPreferences}
+          voiceSupported={voiceSupported}
+          onChange={updateAudioPreferences}
+          onPreviewSound={() => playSound('coin')}
+          onPreviewVoice={previewCharacterVoice}
+          idPrefix="profile-audio"
+        />
         <p className="section-note">语音只播报短鼓励和剧情台词，不会朗读题目或提前透露答案。完全离线朗读需要手机已安装普通话语音包。</p>
       </section>
 
