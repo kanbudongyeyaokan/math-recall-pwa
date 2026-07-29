@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import Dexie from 'dexie'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MathRecallDatabase, normalizeProblemRecord, normalizeProfileRecord } from './db'
+import { LEGACY_PRIVATE_BANK_SOURCE } from './data/questionQuality'
 import type { PlayerProfile, Problem } from './types'
 
 describe('旧数据迁移归一化', () => {
@@ -123,6 +124,57 @@ describe('旧数据迁移归一化', () => {
     expect(player?.totalReviews).toBe(180)
     expect(player?.characterBonds).toEqual({ 'chen-yanjun': 24, medusa: 8, 'chen-ruibin': 16 })
     expect(route?.value).toBe('chen-yanjun')
+    upgraded.close()
+  })
+
+  it('升级到 v7 时归档重复内置题但保留历史做题记录', async () => {
+    const name = `dedupe-migration-${crypto.randomUUID()}`
+    databases.push(name)
+    const legacyDb = new Dexie(name)
+    legacyDb.version(6).stores({
+      problems: 'id, kind, questionFormat, nextReviewAt, updatedAt, source, *tags',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    })
+    await legacyDb.open()
+    await legacyDb.table('problems').put({
+      id: 'seed-56', kind: 'concept', title: '重复题', statement: '旧题面', source: '旧内置题', page: '', tags: [],
+      coreMethod: '旧方法', mistakes: '', answerText: '旧答案', questionFormat: 'open', options: [], correctOptionIds: [],
+      solutionMethods: [], createdAt: 1, updatedAt: 1, nextReviewAt: 1, intervalIndex: 0, reviewCount: 1, isSeed: true
+    })
+    await legacyDb.table('problems').bulkPut([
+      {
+        id: 'zy30-heyaokun-001', kind: 'problem', title: '旧模板题', statement: '只换数字的旧题', source: LEGACY_PRIVATE_BANK_SOURCE,
+        page: '1-75', tags: [], coreMethod: '旧方法', mistakes: '', answerText: '旧答案', questionFormat: 'open', options: [],
+        correctOptionIds: [], solutionMethods: [], createdAt: 1, updatedAt: 1, nextReviewAt: 1, intervalIndex: 2, reviewCount: 6, isSeed: false
+      },
+      {
+        id: 'zy30-heyaokun-002', kind: 'problem', title: '何耀焜自建题', statement: '不能误归档', source: '何耀焜手工新增',
+        page: '', tags: [], coreMethod: '自建方法', mistakes: '', answerText: '答案', questionFormat: 'open', options: [],
+        correctOptionIds: [], solutionMethods: [], createdAt: 1, updatedAt: 1, nextReviewAt: 1, intervalIndex: -1, reviewCount: 0, isSeed: false
+      },
+      {
+        id: 'zy30-heyaokun-1001', kind: 'problem', title: '范围外题目', statement: '不能误归档', source: LEGACY_PRIVATE_BANK_SOURCE,
+        page: '', tags: [], coreMethod: '新方法', mistakes: '', answerText: '答案', questionFormat: 'open', options: [],
+        correctOptionIds: [], solutionMethods: [], createdAt: 1, updatedAt: 1, nextReviewAt: 1, intervalIndex: -1, reviewCount: 0, isSeed: false
+      }
+    ])
+    await legacyDb.table('reviews').add({ problemId: 'seed-56', rating: 'independent', reviewedAt: 1, nextReviewAt: 2, intervalIndex: 1, xpEarned: 10 })
+    await legacyDb.table('reviews').add({ problemId: 'zy30-heyaokun-001', rating: 'independent', reviewedAt: 1, nextReviewAt: 2, intervalIndex: 2, xpEarned: 18 })
+    legacyDb.close()
+
+    const upgraded = new MathRecallDatabase(name)
+    await upgraded.open()
+    expect((await upgraded.problems.get('seed-56'))?.archived).toBe(true)
+    expect((await upgraded.problems.get('zy30-heyaokun-001'))?.archived).toBe(true)
+    expect((await upgraded.problems.get('zy30-heyaokun-002'))?.archived).not.toBe(true)
+    expect((await upgraded.problems.get('zy30-heyaokun-1001'))?.archived).not.toBe(true)
+    expect(await upgraded.reviews.where('problemId').equals('seed-56').count()).toBe(1)
+    expect(await upgraded.reviews.where('problemId').equals('zy30-heyaokun-001').count()).toBe(1)
     upgraded.close()
   })
 })

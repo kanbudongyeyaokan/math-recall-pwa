@@ -46,6 +46,12 @@ describe('做题分层音效', () => {
     expect(getSoundPatternDuration('realm-up')).toBeGreaterThan(getSoundPatternDuration('star-up'))
   })
 
+  it('四类首次解锁都有独立且可辨认的提示音', () => {
+    const effects = ['achievement-unlock', 'character-unlock', 'challenge-unlock', 'quest-unlock'] as const
+    expect(new Set(effects.map((effect) => SOUND_PATTERNS[effect][0].frequency)).size).toBe(effects.length)
+    expect(effects.every((effect) => getSoundPatternDuration(effect) >= 600)).toBe(true)
+  })
+
   it('关键反馈含低频或气流纹理，结算序列按阶段展开', () => {
     expect(SOUND_TEXTURES.correct?.length).toBeGreaterThan(0)
     expect(SOUND_TEXTURES['card-drop']?.length).toBeGreaterThan(0)

@@ -1,4 +1,5 @@
 import type { ReviewRating } from '../types'
+import type { UnlockEvent, UnlockEventKind } from '../types'
 
 export type SoundEffect =
   | 'option'
@@ -16,6 +17,10 @@ export type SoundEffect =
   | 'coin'
   | 'star-up'
   | 'realm-up'
+  | 'achievement-unlock'
+  | 'character-unlock'
+  | 'challenge-unlock'
+  | 'quest-unlock'
   | 'next'
   | 'story-next'
   | 'story-choice'
@@ -113,6 +118,22 @@ export const SOUND_PATTERNS: Readonly<Record<SoundEffect, readonly ToneSpec[]>> 
     tone(659, 610, 380, 0.052), tone(784, 735, 520, 0.052), tone(1047, 850, 560, 0.045),
     tone(523, 880, 600, 0.03, 'triangle'), tone(1319, 1010, 460, 0.025)
   ],
+  'achievement-unlock': [
+    tone(523, 0, 170, 0.04, 'triangle', undefined, -0.2), tone(659, 85, 190, 0.043, 'sine', undefined, 0.18),
+    tone(784, 175, 220, 0.047), tone(1047, 275, 360, 0.038), tone(1568, 360, 300, 0.021)
+  ],
+  'character-unlock': [
+    tone(220, 0, 330, 0.03, 'sine', 330), tone(440, 80, 260, 0.032, 'triangle', undefined, -0.22),
+    tone(554, 190, 280, 0.035, 'sine', undefined, 0.2), tone(880, 330, 390, 0.033)
+  ],
+  'challenge-unlock': [
+    tone(82, 0, 520, 0.052, 'sine', 110), tone(165, 70, 330, 0.042, 'sawtooth', 220),
+    tone(330, 250, 220, 0.037, 'triangle'), tone(247, 460, 390, 0.041, 'triangle', 370)
+  ],
+  'quest-unlock': [
+    tone(294, 0, 210, 0.03, 'sine', 392, -0.18), tone(587, 100, 230, 0.034, 'triangle', 698, 0.18),
+    tone(880, 235, 330, 0.035), tone(1175, 360, 310, 0.023)
+  ],
   next: [tone(494, 0, 90, 0.027, 'triangle', 587, -0.1), tone(784, 70, 130, 0.025, 'sine', 988, 0.12)],
   'story-next': [tone(260, 0, 85, 0.019, 'triangle', 330, -0.22), tone(520, 55, 120, 0.021, 'sine', 620, 0.18)],
   'story-choice': [tone(196, 0, 210, 0.032, 'triangle', 294), tone(392, 90, 180, 0.034, 'sine', undefined, -0.16), tone(587, 180, 240, 0.038, 'sine', undefined, 0.16)],
@@ -129,6 +150,10 @@ export const SOUND_TEXTURES: Readonly<Partial<Record<SoundEffect, readonly Noise
   technique: [noise(0, 420, 0.014, 620, 'bandpass')],
   'star-up': [noise(30, 650, 0.018, 1900, 'bandpass')],
   'realm-up': [noise(0, 950, 0.033, 420, 'lowpass'), noise(280, 850, 0.021, 2400, 'bandpass')],
+  'achievement-unlock': [noise(80, 480, 0.014, 3200, 'highpass')],
+  'character-unlock': [noise(40, 560, 0.012, 1800, 'bandpass')],
+  'challenge-unlock': [noise(0, 620, 0.03, 240, 'lowpass'), noise(280, 440, 0.014, 1300, 'bandpass')],
+  'quest-unlock': [noise(20, 500, 0.013, 2300, 'bandpass')],
   'story-next': [noise(0, 125, 0.012, 1500, 'bandpass', -0.18)],
   'story-choice': [noise(0, 230, 0.015, 760, 'bandpass')]
 }
@@ -340,6 +365,21 @@ export function playRewardSound(options: RewardSoundOptions) {
   sequence.push({ effect: 'card-drop', delayMs: cardDelay })
   if (options.coinsEarned > 0) sequence.push({ effect: 'coin', delayMs: cardDelay + 250 })
   return playSoundSequence(sequence)
+}
+
+const UNLOCK_SOUND: Readonly<Record<UnlockEventKind, SoundEffect>> = {
+  achievement: 'achievement-unlock',
+  character: 'character-unlock',
+  challenge: 'challenge-unlock',
+  quest: 'quest-unlock'
+}
+
+export function playUnlockSounds(events: readonly UnlockEvent[], delayMs = 0) {
+  const uniqueKinds = [...new Set(events.map((event) => event.kind))]
+  return playSoundSequence(uniqueKinds.map((kind, index) => ({
+    effect: UNLOCK_SOUND[kind],
+    delayMs: delayMs + index * 760
+  })))
 }
 
 export function pulseHaptic(pattern: number | number[]) {

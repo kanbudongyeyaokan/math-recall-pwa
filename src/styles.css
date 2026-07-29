@@ -993,8 +993,6 @@ h1, h2, h3, p { margin-top: 0; }
 .practice-map-header > div > p:last-child { margin: 0; color: #6e7773; font-size: .75rem; line-height: 1.55; }
 .practice-map-header > span { min-width: 64px; display: grid; place-items: center; gap: 3px; padding: 10px 8px; color: #55c8b8; background: #18201e; border-radius: 8px; }
 .practice-map-header > span strong { color: #f1c462; font-size: 1.05rem; }
-.private-bank-callout { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; margin-bottom: 14px; padding: 14px; color: #6d4e0c; background: #fff4cf; border: 1px solid #e2cb7e; border-radius: 8px; }
-.private-bank-callout div { min-width: 0; }.private-bank-callout strong { font-size: .76rem; }.private-bank-callout p { margin: 4px 0 0; font-size: .64rem; line-height: 1.48; }.private-bank-callout button { grid-column: 2; justify-self: start; padding: 6px 8px; color: #fff; background: #674d14; border: 0; border-radius: 6px; font-size: .63rem; font-weight: 800; }
 .lecture-map { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .lecture-node { position: relative; min-width: 0; min-height: 88px; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 8px; padding: 10px 34px 10px 10px; text-align: left; touch-action: manipulation; color: #252b29; background: #fff; border: 1px solid #d9dcd7; border-radius: 8px; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease; }
 .lecture-node:active { transform: scale(.975); }
@@ -1208,4 +1206,36 @@ h1, h2, h3, p { margin-top: 0; }
 @media (min-width: 600px) {
   .character-archive-backdrop { place-items: center; padding: 20px; }
   .character-archive { border-bottom: 1px solid #44504b; border-radius: 8px; }
+}
+.reward-unlocks {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  text-align: left;
+}
+
+.reward-unlock {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%);
+  animation: reward-unlock-enter 520ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.reward-unlock > svg { color: var(--accent); }
+.reward-unlock span { display: grid; min-width: 0; }
+.reward-unlock small { color: var(--muted); font-size: .68rem; }
+.reward-unlock strong { font-size: .9rem; }
+.reward-unlock em { color: var(--muted); font-size: .72rem; font-style: normal; }
+.reward-unlock.unlock-character { border-color: color-mix(in srgb, #2d8f79 45%, var(--line)); }
+.reward-unlock.unlock-challenge { border-color: color-mix(in srgb, #c84d3b 45%, var(--line)); }
+.reward-unlock.unlock-quest { border-color: color-mix(in srgb, #3978a8 45%, var(--line)); }
+
+@keyframes reward-unlock-enter {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }

@@ -1,5 +1,5 @@
 import type { QuestionFormat } from '../types'
-import type { SeedInput } from './seed'
+import type { SeedInput } from './banks/types'
 
 interface ConclusionInput {
   lecture: number

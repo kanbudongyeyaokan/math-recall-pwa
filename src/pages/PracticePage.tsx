@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, BookOpenCheck, Check, FileUp, Filter, Library, Route, Sigma, Zap } from 'lucide-react'
+import { ArrowRight, BookOpenCheck, Check, Filter, Library, Route, Sigma, Zap } from 'lucide-react'
 import { db } from '../db'
 import {
   CALCULUS_LECTURES,
@@ -17,19 +17,13 @@ import { playSound } from '../utils/sound'
 
 interface PracticePageProps {
   onStart: (selection: PracticeSelection) => void
-  onOpenProfile: () => void
   onOpenLibrary: () => void
 }
 
 const roles: PracticeRole[] = ['all', 'concept', 'example', 'choice', 'exercise']
 
-export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: PracticePageProps) {
+export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
   const problems = useLiveQuery(() => db.problems.filter((problem) => !problem.archived).toArray(), [], [])
-  const privateCount = useLiveQuery(
-    () => db.problems.filter((problem) => problem.source.includes('张宇基础30讲')).count(),
-    [],
-    0
-  )
   const [lectureId, setLectureId] = useState('lecture-01')
   const [role, setRole] = useState<PracticeRole>('all')
   const [sectionId, setSectionId] = useState<string>()
@@ -118,17 +112,6 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
         </div>
         <span><Sigma size={22} /><strong>18</strong> 讲</span>
       </header>
-
-      {privateCount < 1000 && (
-        <section className="private-bank-callout">
-          <FileUp size={21} />
-          <div>
-            <strong>{privateCount === 0 ? '私人《基础30讲》千题包尚未导入' : `千题包可增量升级 · 当前 ${privateCount}/1000`}</strong>
-            <p>{privateCount === 0 ? '1000 张双解题卡只保存在你的私人文件中，导入后会自动归入下面 18 讲。' : '导入时保持“导入前清空本机数据”关闭，只补齐缺失题目，已有做题记录、金币与人物羁绊不会被覆盖。'}</p>
-          </div>
-          <button type="button" onClick={onOpenProfile}>{privateCount === 0 ? '去导入' : '升级题库'}</button>
-        </section>
-      )}
 
       <section className="lecture-map" aria-label="高数18讲">
         {CALCULUS_LECTURES.map((lecture) => {

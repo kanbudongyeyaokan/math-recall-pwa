@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { File } from 'node:buffer'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { db, defaultProfile } from '../db'
+import { LEGACY_PRIVATE_BANK_SOURCE } from '../data/questionQuality'
 import type { Problem } from '../types'
 import { BACKUP_FORMAT, isBackupPayload, restoreBackup } from './backup'
 
@@ -84,6 +85,37 @@ describe('备份格式校验', () => {
     expect(await db.problems.count()).toBe(2)
     expect(await db.problems.get('same-id')).toMatchObject({ reviewCount: 7, intervalIndex: 2, nextReviewAt: 99 })
     expect(await db.profiles.get('player')).toMatchObject({ xp: 320, coins: 45 })
+  })
+
+  it('再次导入旧千题包时保持模板卡归档且不误伤个人新增题', async () => {
+    const oldTemplate = {
+      ...problem('zy30-heyaokun-001', 0),
+      source: LEGACY_PRIVATE_BANK_SOURCE
+    }
+    const personalProblem = {
+      ...problem('zy30-heyaokun-002', 0),
+      source: '何耀焜手工新增'
+    }
+    const payload = {
+      format: BACKUP_FORMAT,
+      exportedAt: new Date().toISOString(),
+      appVersion: '0.8.0',
+      data: {
+        problems: [oldTemplate, personalProblem],
+        images: [],
+        reviews: [],
+        rewards: [],
+        profiles: []
+      }
+    }
+
+    await restoreBackup(
+      new File([JSON.stringify(payload)], 'legacy-private-bank.json', { type: 'application/json' }) as unknown as globalThis.File,
+      false
+    )
+
+    expect((await db.problems.get(oldTemplate.id))?.archived).toBe(true)
+    expect((await db.problems.get(personalProblem.id))?.archived).not.toBe(true)
   })
 
   it('从300题增量升级到1000题可重复导入且不覆盖个人战绩', async () => {

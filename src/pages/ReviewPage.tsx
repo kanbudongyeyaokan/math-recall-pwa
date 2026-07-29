@@ -36,14 +36,15 @@ import {
 } from '../domain/curriculum'
 import type { RealmProgress } from '../domain/gamification'
 import { getTechnique, type TechniqueResolution } from '../domain/cultivation'
-import { isChoiceAnswerCorrect } from '../domain/questions'
+import { formatProblemPageLabel, isChoiceAnswerCorrect } from '../domain/questions'
 import { getUnseenPracticeIds } from '../domain/practiceCycle'
 import type { RomanceRouteId } from '../domain/story'
-import type { PlayerProfile, Problem, ReviewRating, RewardCard } from '../types'
+import type { PlayerProfile, Problem, ReviewRating, RewardCard, UnlockEvent } from '../types'
 import {
   getAudioPreferences,
   playRewardSound,
   playSound,
+  playUnlockSounds,
   pulseHaptic,
   saveAudioPreferences
 } from '../utils/sound'
@@ -97,6 +98,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     encouragement: string
     profile: PlayerProfile
     technique: TechniqueResolution
+    unlockEvents: UnlockEvent[]
     voiceCue: CharacterVoiceCue
   }>()
 
@@ -273,6 +275,9 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         advanced: result.advance.advanced,
         realmBreakthrough: result.advance.realmBreakthrough
       })
+      const unlockSoundDuration = result.unlockEvents.length
+        ? playUnlockSounds(result.unlockEvents, soundDuration + 120)
+        : 0
       const voiceCue = getReviewVoiceCue({
         profile: result.profile,
         rating,
@@ -294,9 +299,10 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         encouragement: result.encouragement,
         profile: result.profile,
         technique: result.technique,
+        unlockEvents: result.unlockEvents,
         voiceCue
       })
-      if (getAudioPreferences().autoVoice) speakCharacterVoice(voiceCue, { delayMs: soundDuration + 160 })
+      if (getAudioPreferences().autoVoice) speakCharacterVoice(voiceCue, { delayMs: Math.max(soundDuration, unlockSoundDuration) + 160 })
     } finally {
       setSaving(false)
     }
@@ -369,7 +375,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
 
       <article className="review-card">
         <div className="review-meta">
-          <span>{problem.source || '个人题库'}{problem.page ? ` · P${problem.page}` : ''}</span>
+          <span>{problem.source || '个人题库'}{problem.page ? ` · ${formatProblemPageLabel(problem.page)}` : ''}</span>
           {isChoice && <span><ListChecks size={14} /> {problem.questionFormat === 'single-choice' ? '单选' : '多选'}</span>}
         </div>
         <h1>{problem.title}</h1>

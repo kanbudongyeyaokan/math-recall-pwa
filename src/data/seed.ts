@@ -1,20 +1,9 @@
-import type { Problem, ProblemKind, QuestionFormat } from '../types'
+import type { Problem } from '../types'
 import { foundationConclusionSeeds } from './foundationConclusionSeeds'
+import type { SeedInput } from './banks/types'
+import { curatedQuestionSeeds } from './banks/curatedBank'
 
-export interface SeedInput {
-  kind: ProblemKind
-  title: string
-  statement: string
-  tags: string[]
-  coreMethod: string
-  mistakes: string
-  answerText: string
-  questionFormat?: QuestionFormat
-  options?: string[]
-  correctOptionIds?: string[]
-  solutionMethods?: { title: string; content: string }[]
-  source?: string
-}
+export type { SeedInput } from './banks/types'
 
 const legacyAlternateMethods: Record<string, { title: string; content: string }> = {
   '三阶小量的极限': {
@@ -558,8 +547,17 @@ const originalSeeds: SeedInput[] = [
 
 originalSeeds.push(...foundationConclusionSeeds)
 
+export const DEPRECATED_SEED_IDS = ['seed-56', 'seed-65'] as const
+
+const allSeeds = [...originalSeeds, ...curatedQuestionSeeds]
+
+function legacyFingerprint(seed: SeedInput, id: string) {
+  const topic = seed.tags.filter((tag) => !/^第\\d+讲$/.test(tag)).slice(0, 3).join('.')
+  return `legacy:${topic}:${seed.title}:${id}`
+}
+
 export function makeSeedProblems(now = Date.now()): Problem[] {
-  return originalSeeds.map((seed, index) => {
+  return allSeeds.map((seed, index) => {
     const optionIds = ['A', 'B', 'C', 'D', 'E', 'F']
     const alternate = legacyAlternateMethods[seed.title]
     const methods = seed.solutionMethods
@@ -570,8 +568,9 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
           ]
         : [])
 
+    const id = seed.id || `seed-${String(index + 1).padStart(2, '0')}`
     return {
-      id: `seed-${String(index + 1).padStart(2, '0')}`,
+      id,
       kind: seed.kind,
       title: seed.title,
       statement: seed.statement,
@@ -583,15 +582,16 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
       options: (seed.options || []).map((text, optionIndex) => ({ id: optionIds[optionIndex], text })),
       correctOptionIds: seed.correctOptionIds || [],
       solutionMethods: methods.map((method, methodIndex) => ({ id: `method-${methodIndex + 1}`, ...method })),
+      methodFingerprint: seed.methodFingerprint || legacyFingerprint(seed, id),
       source: seed.source || '斗破数学 · 考纲原创同型',
-      page: '',
-      createdAt: now - (originalSeeds.length - index) * 1000,
-      updatedAt: now - (originalSeeds.length - index) * 1000,
-      nextReviewAt: now - (originalSeeds.length - index) * 1000,
+      page: seed.page || '',
+      createdAt: now - (allSeeds.length - index) * 1000,
+      updatedAt: now - (allSeeds.length - index) * 1000,
+      nextReviewAt: now - (allSeeds.length - index) * 1000,
       intervalIndex: -1,
       reviewCount: 0,
       isSeed: true,
-      seedVersion: 3
+      seedVersion: 4
     }
-  })
+  }).filter((problem) => !DEPRECATED_SEED_IDS.includes(problem.id as typeof DEPRECATED_SEED_IDS[number]))
 }

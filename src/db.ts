@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
-import { makeSeedProblems } from './data/seed'
+import { DEPRECATED_SEED_IDS, makeSeedProblems } from './data/seed'
+import { isLegacyPrivateBankProblem, LEGACY_PRIVATE_BANK_SOURCE } from './data/questionQuality'
 import {
   applyStudyToProfile,
   calculateCoinReward,
@@ -12,6 +13,7 @@ import {
 import { getReviewOutcome } from './domain/scheduler'
 import { CULTIVATION_TECHNIQUES, resolveTechnique } from './domain/cultivation'
 import { STORY_ENCOUNTERS } from './domain/encounters'
+import { getNewUnlockEvents } from './domain/unlocks'
 import {
   getPracticeCycleSettingKey,
   markPracticeProblemSeen as markCycleProblemSeen,
@@ -84,6 +86,7 @@ export function normalizeProblemRecord(problem: Problem): Problem {
   const fallbackMethod = problem.answerText || problem.coreMethod
   return {
     ...problem,
+    archived: isLegacyPrivateBankProblem(problem) ? true : problem.archived,
     questionFormat: problem.questionFormat || 'open',
     options: Array.isArray(problem.options) ? problem.options : [],
     correctOptionIds: Array.isArray(problem.correctOptionIds) ? problem.correctOptionIds : [],
@@ -237,6 +240,26 @@ export class MathRecallDatabase extends Dexie {
         })
       }
     })
+    this.version(7).stores({
+      problems: 'id, kind, questionFormat, nextReviewAt, updatedAt, source, *tags',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    }).upgrade(async (transaction) => {
+      const problems = transaction.table<Problem>('problems')
+      for (const id of DEPRECATED_SEED_IDS) {
+        const duplicate = await problems.get(id)
+        if (duplicate?.isSeed) await problems.update(id, { archived: true, seedVersion: 4 })
+      }
+      await problems
+        .where('source')
+        .equals(LEGACY_PRIVATE_BANK_SOURCE)
+        .filter(isLegacyPrivateBankProblem)
+        .modify({ archived: true })
+    })
   }
 }
 
@@ -248,6 +271,17 @@ export async function initializeDatabase() {
     const existingIds = new Set(await db.problems.toCollection().primaryKeys())
     const missingSeeds = makeSeedProblems().filter((problem) => !existingIds.has(problem.id) && !dismissed.has(problem.id))
     if (missingSeeds.length) await db.problems.bulkAdd(missingSeeds)
+
+    for (const id of DEPRECATED_SEED_IDS) {
+      const duplicate = await db.problems.get(id)
+      if (duplicate?.isSeed && !duplicate.archived) await db.problems.update(id, { archived: true, seedVersion: 4 })
+    }
+
+    await db.problems
+      .where('source')
+      .equals(LEGACY_PRIVATE_BANK_SOURCE)
+      .filter(isLegacyPrivateBankProblem)
+      .modify({ archived: true })
 
     const currentProfile = await db.profiles.get('player')
     if (!currentProfile) await db.profiles.add(defaultProfile)
@@ -386,6 +420,7 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
         [technique.technique.id]: technique.nextMastery
       }
     }
+    const unlockEvents = getNewUnlockEvents(currentProfile, nextProfile)
 
     await db.problems.update(problemId, {
       nextReviewAt: outcome.nextReviewAt,
@@ -411,7 +446,7 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
     await db.rewards.add(reward)
     await db.profiles.put(nextProfile)
 
-    return { outcome, reward, profile: nextProfile, advance, coinsEarned, encouragement, technique }
+    return { outcome, reward, profile: nextProfile, advance, coinsEarned, encouragement, technique, unlockEvents }
   })
   await createRecoverySnapshot('完成做题')
   return result

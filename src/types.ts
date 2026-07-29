@@ -32,6 +32,7 @@ export interface Problem {
   options: ProblemOption[]
   correctOptionIds: string[]
   solutionMethods: SolutionMethod[]
+  methodFingerprint?: string
   questionImageId?: string
   answerImageId?: string
   createdAt: number
@@ -42,6 +43,15 @@ export interface Problem {
   archived?: boolean
   isSeed?: boolean
   seedVersion?: number
+}
+
+export type UnlockEventKind = 'achievement' | 'character' | 'challenge' | 'quest'
+
+export interface UnlockEvent {
+  id: string
+  kind: UnlockEventKind
+  title: string
+  description: string
 }
 
 export interface ImageAsset {

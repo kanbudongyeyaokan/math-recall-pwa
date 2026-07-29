@@ -1,37 +1,97 @@
+import katex from 'katex'
 import { describe, expect, it } from 'vitest'
-import { makeSeedProblems } from './seed'
+import { curatedBankPoints } from './banks/curatedBank'
+import { getProblemRole } from '../domain/curriculum'
+import { findDuplicateMethodGroups, getMathFragments, getProblemTextFields, hasBalancedMathDelimiters } from './questionQuality'
+import { DEPRECATED_SEED_IDS, makeSeedProblems } from './seed'
 
-describe('原创考研题库', () => {
+describe('高质量考研数学题库', () => {
   const seeds = makeSeedProblems(1_000_000)
+  const curated = seeds.filter((problem) => problem.id.startsWith('zy27-'))
 
-  it('包含 76 张稳定 ID 的题卡', () => {
-    expect(seeds).toHaveLength(76)
-    expect(new Set(seeds.map((problem) => problem.id)).size).toBe(76)
+  it('新增 624 道资料考点重构题，总题数为 698 且 ID 稳定唯一', () => {
+    expect(curatedBankPoints).toHaveLength(156)
+    expect(curated).toHaveLength(624)
+    expect(seeds).toHaveLength(698)
+    expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
+    expect(DEPRECATED_SEED_IDS.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
   })
 
-  it('计算题至少提供两种解析路线', () => {
-    const problemCards = seeds.filter((problem) => problem.kind === 'problem')
-    expect(problemCards.length).toBeGreaterThanOrEqual(25)
-    expect(problemCards.every((problem) => problem.solutionMethods.length >= 2)).toBe(true)
+  it('方法指纹唯一，阻止仅换数字或同解法题再次混入', () => {
+    expect(seeds.every((problem) => problem.methodFingerprint)).toBe(true)
+    expect(findDuplicateMethodGroups(seeds)).toEqual([])
+    expect(new Set(curated.map((problem) => problem.methodFingerprint)).size).toBe(624)
   })
 
-  it('选择题都有选项和有效答案键', () => {
+  it('每个资料考点恰好包含四种不同认知任务', () => {
+    for (const point of curatedBankPoints) {
+      const cards = curated.filter((problem) => problem.id.startsWith(`zy27-${point.id}-`))
+      expect(cards.map((problem) => problem.id.split('-').at(-1)).sort()).toEqual(['application', 'audit', 'choice', 'definition'])
+    }
+  })
+
+  it('624 道新增题按结构化标签进入正确做题类型', () => {
+    const expectedRoles = {
+      definition: 'concept',
+      choice: 'choice',
+      audit: 'exercise',
+      application: 'example'
+    } as const
+    for (const problem of curated) {
+      const task = problem.id.split('-').at(-1) as keyof typeof expectedRoles
+      expect(getProblemRole(problem)).toBe(expectedRoles[task])
+    }
+  })
+
+  it('新增题均有来源页码、错因、答案和双路线解析', () => {
+    const weak: string[] = []
+    for (const problem of curated) {
+      expect(problem.source).toContain('张宇')
+      expect(problem.page).toMatch(/PDF\s*\d+/)
+      if (problem.statement.length <= 12) weak.push(`${problem.id}:statement`)
+      if (problem.coreMethod.length <= 12) weak.push(`${problem.id}:coreMethod`)
+      if (problem.mistakes.length <= 12) weak.push(`${problem.id}:mistakes`)
+      if (problem.answerText.length <= 18) weak.push(`${problem.id}:answerText`)
+      expect(problem.solutionMethods).toHaveLength(2)
+      expect(problem.solutionMethods.every((method) => method.content.length > 20)).toBe(true)
+    }
+    expect(weak).toEqual([])
+  })
+
+  it('所有选择题答案键有效且只有一个正确答案', () => {
     const choices = seeds.filter((problem) => problem.questionFormat !== 'open')
-    expect(choices.length).toBeGreaterThanOrEqual(15)
+    expect(choices.length).toBeGreaterThan(170)
     for (const problem of choices) {
       const optionIds = new Set(problem.options.map((option) => option.id))
       expect(problem.options.length).toBeGreaterThanOrEqual(2)
-      expect(problem.correctOptionIds.length).toBeGreaterThanOrEqual(1)
+      expect(problem.correctOptionIds).toHaveLength(problem.questionFormat === 'single-choice' ? 1 : problem.correctOptionIds.length)
+      expect(problem.correctOptionIds.length).toBeGreaterThan(0)
       expect(problem.correctOptionIds.every((id) => optionIds.has(id))).toBe(true)
     }
   })
 
-  it('基础结论训练覆盖高数 18 讲且每题都有双解析', () => {
-    const conclusions = seeds.filter((problem) => problem.source === '斗破数学 · 基础结论原创训练')
-    expect(conclusions).toHaveLength(36)
-    for (let lecture = 1; lecture <= 18; lecture += 1) {
-      expect(conclusions.filter((problem) => problem.tags.includes(`第${lecture}讲`))).toHaveLength(2)
+  it('新增题数学分隔符配对且每段公式均能被 KaTeX 严格解析', () => {
+    const failures: string[] = []
+    for (const problem of curated) {
+      for (const text of getProblemTextFields(problem)) {
+        if (!hasBalancedMathDelimiters(text)) failures.push(`${problem.id}:unbalanced`)
+        for (const formula of getMathFragments(text)) {
+          try {
+            katex.renderToString(formula, { throwOnError: true, strict: 'error' })
+          } catch (error) {
+            failures.push(`${problem.id}:${formula}:${String(error)}`)
+          }
+        }
+      }
     }
-    expect(conclusions.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(failures).toEqual([])
+  })
+
+  it('新增题文本不含 OCR 乱码或空白占位内容', () => {
+    const forbidden = /�|锟|待补充|TODO|BUSY|解析略|同上/
+    const failures = curated.flatMap((problem) => getProblemTextFields(problem)
+      .filter((text) => forbidden.test(text))
+      .map((text) => `${problem.id}:${text}`))
+    expect(failures).toEqual([])
   })
 })

@@ -1,5 +1,5 @@
 import { AudioLines, Crown, Layers3, ScrollText, Sparkles, Volume2, X, Zap } from 'lucide-react'
-import type { PlayerProfile, RewardCard } from '../types'
+import type { PlayerProfile, RewardCard, UnlockEvent } from '../types'
 import type { RealmProgress } from '../domain/gamification'
 import type { TechniqueResolution } from '../domain/cultivation'
 import { getCharacter } from '../domain/story'
@@ -19,6 +19,7 @@ interface RewardRevealProps {
   encouragement: string
   profile: PlayerProfile
   technique: TechniqueResolution
+  unlockEvents?: UnlockEvent[]
   voiceCue?: CharacterVoiceCue
   continueLabel?: string
   onReplayVoice?: () => void
@@ -32,7 +33,9 @@ const rarityLabel = {
   legendary: '传奇'
 }
 
-export function RewardReveal({ card, xp, intervalDays, advanced, realmBreakthrough, nextRealm, coinsEarned, encouragement, profile, technique, voiceCue, continueLabel = '收下卡片，继续', onReplayVoice, onClose }: RewardRevealProps) {
+const unlockKindLabel = { achievement: '新成就', character: '新人物', challenge: '新挑战', quest: '新任务' }
+
+export function RewardReveal({ card, xp, intervalDays, advanced, realmBreakthrough, nextRealm, coinsEarned, encouragement, profile, technique, unlockEvents = [], voiceCue, continueLabel = '收下卡片，继续', onReplayVoice, onClose }: RewardRevealProps) {
   const voiceCharacter = voiceCue ? getCharacter(voiceCue.characterId) : undefined
   return (
     <div className={`reward-backdrop ${realmBreakthrough ? 'is-breakthrough' : advanced ? 'is-advanced' : ''}`} role="dialog" aria-modal="true" aria-label="做题奖励">
@@ -57,6 +60,16 @@ export function RewardReveal({ card, xp, intervalDays, advanced, realmBreakthrou
         <h2>{card.name}</h2>
         <p>{card.description}</p>
         <p className="personal-encouragement">{encouragement}</p>
+        {unlockEvents.length > 0 && (
+          <div className="reward-unlocks" aria-label="本次解锁内容">
+            {unlockEvents.map((event) => (
+              <div className={`reward-unlock unlock-${event.kind}`} key={event.id}>
+                <Sparkles size={17} />
+                <span><small>{unlockKindLabel[event.kind]}</small><strong>{event.title}</strong><em>{event.description}</em></span>
+              </div>
+            ))}
+          </div>
+        )}
         {voiceCue && voiceCharacter && (
           <div className={`reward-voice voice-${voiceCue.tone}`}>
             <CharacterPortrait character={voiceCharacter} pose={voiceCue.tone === 'challenge' ? 'challenge' : 'victory'} />
