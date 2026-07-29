@@ -180,7 +180,7 @@ export default function App() {
           </div>
         )}
       </div>}
-      {screen === 'home' && <HomePage online={online} onOpenPractice={() => navigate('practice')} onStartProblem={(id) => openReview(id)} onAdd={() => navigate('form')} onInstall={() => setShowInstallGuide(true)} />}
+      {screen === 'home' && <HomePage online={online} onOpenPractice={() => navigate('practice')} onStartProblem={(id, selection) => openReview(id, selection)} onAdd={() => navigate('form')} onInstall={() => setShowInstallGuide(true)} />}
       {screen === 'practice' && <PracticePage onStart={(selection) => openReview(undefined, selection)} onOpenProfile={() => navigate('profile')} onOpenLibrary={() => navigate('library')} />}
       {screen === 'review' && <ReviewPage requestedId={reviewId} selection={practiceSelection} onBack={() => navigate(practiceSelection ? 'practice' : 'library')} onComplete={() => navigate('practice')} />}
       {screen === 'library' && <LibraryPage onAdd={() => navigate('form')} onEdit={openEdit} onReview={openReview} notify={setToast} />}

@@ -1,6 +1,7 @@
 import { ChangeEvent, useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
+  AudioLines,
   ArchiveRestore,
   Award,
   Camera,
@@ -15,6 +16,7 @@ import {
   LockKeyhole,
   RefreshCcw,
   RefreshCw,
+  Speech,
   ScrollText,
   ShieldCheck,
   ShoppingBag,
@@ -28,6 +30,8 @@ import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamifi
 import type { ShopItem, ShopItemCategory, StoragePersistenceState } from '../types'
 import { downloadBackup, restoreBackup } from '../utils/backup'
 import { PlayerAvatar } from '../components/PlayerAvatar'
+import { getAudioPreferences, playSound, saveAudioPreferences, type AudioPreferences } from '../utils/sound'
+import { getStoryVoiceCue, hasCharacterVoiceSupport, speakCharacterVoice, stopCharacterVoice } from '../utils/voice'
 
 interface ProfilePageProps {
   canInstall: boolean
@@ -61,10 +65,39 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
   const [busy, setBusy] = useState(false)
   const [shopCategory, setShopCategory] = useState<ShopItemCategory>('outfit')
   const [storage, setStorage] = useState<{ usage: number; quota: number }>()
+  const [audioPreferences, setAudioPreferences] = useState(getAudioPreferences)
   const realm = getRealmProgress(profile.xp)
   const titleStatuses = getTitleStatuses(profile)
   const persistence = persistenceRecord?.value as StoragePersistenceState | undefined
   const lastBackup = lastBackupRecord?.value as string | undefined
+  const voiceSupported = hasCharacterVoiceSupport()
+
+  function updateAudioPreferences(patch: Partial<AudioPreferences>) {
+    setAudioPreferences(saveAudioPreferences(patch))
+  }
+
+  function toggleProfileSound() {
+    const enabled = !audioPreferences.soundEnabled
+    if (!enabled) playSound('sound-off')
+    updateAudioPreferences({ soundEnabled: enabled })
+    if (enabled) playSound('sound-on')
+  }
+
+  function toggleProfileVoice() {
+    const enabled = !audioPreferences.voiceEnabled
+    if (!enabled) stopCharacterVoice()
+    updateAudioPreferences({ voiceEnabled: enabled })
+    if (enabled) previewCharacterVoice()
+  }
+
+  function previewCharacterVoice() {
+    const characterId = profile.totalReviews >= 22 ? 'chen-yanjun' : 'he-xinping'
+    const text = characterId === 'chen-yanjun'
+      ? '何耀焜，条件和推导都守住了。这一题，很漂亮。'
+      : '先把自己的路走稳，家里永远是你的后方。'
+    playSound('correct')
+    speakCharacterVoice(getStoryVoiceCue(characterId, text), { delayMs: 430 })
+  }
 
   function isEquipped(item: ShopItem) {
     return item.id === profile.equippedOutfitId
@@ -291,6 +324,31 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
             ))}
           </div>
         ) : <p className="section-note">完成第一道题，就会掉落第一张知识卡。</p>}
+      </section>
+
+      <section className="section-block audio-settings-section">
+        <div className="section-title"><AudioLines size={20} /><div><h2>战斗音效与角色语音</h2><p>分别控制反馈强度、自动播报和角色声线</p></div></div>
+        <div className="audio-toggle-list">
+          <label className="audio-toggle-row">
+            <span><strong>做题音效</strong><small>选项、答题、掉卡、灵石、功法与破境</small></span>
+            <input type="checkbox" role="switch" checked={audioPreferences.soundEnabled} onChange={toggleProfileSound} />
+          </label>
+          <label className="audio-toggle-row">
+            <span><strong>角色语音</strong><small>{voiceSupported ? '使用手机内置普通话语音引擎' : '当前浏览器没有可用语音引擎'}</small></span>
+            <input type="checkbox" role="switch" checked={audioPreferences.voiceEnabled && voiceSupported} onChange={toggleProfileVoice} disabled={!voiceSupported} />
+          </label>
+          <label className="audio-toggle-row">
+            <span><strong>结算自动播报</strong><small>奖励音结束后，由当前同行者说一句</small></span>
+            <input type="checkbox" role="switch" checked={audioPreferences.autoVoice} onChange={(event) => updateAudioPreferences({ autoVoice: event.target.checked })} disabled={!audioPreferences.voiceEnabled || !voiceSupported} />
+          </label>
+        </div>
+        <div className="audio-range-grid">
+          <label><span>音效音量 <b>{Math.round(audioPreferences.soundVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={audioPreferences.soundVolume} onChange={(event) => updateAudioPreferences({ soundVolume: Number(event.target.value) })} onPointerUp={() => playSound('coin')} disabled={!audioPreferences.soundEnabled} /></label>
+          <label><span>语音音量 <b>{Math.round(audioPreferences.voiceVolume * 100)}%</b></span><input type="range" min="0" max="1" step="0.05" value={audioPreferences.voiceVolume} onChange={(event) => updateAudioPreferences({ voiceVolume: Number(event.target.value) })} disabled={!audioPreferences.voiceEnabled || !voiceSupported} /></label>
+          <label><span>角色语速 <b>{audioPreferences.voiceRate.toFixed(2)}×</b></span><input type="range" min="0.8" max="1.2" step="0.05" value={audioPreferences.voiceRate} onChange={(event) => updateAudioPreferences({ voiceRate: Number(event.target.value) })} disabled={!audioPreferences.voiceEnabled || !voiceSupported} /></label>
+        </div>
+        <button type="button" className="button button-secondary button-full audio-preview-button" onClick={previewCharacterVoice} disabled={!audioPreferences.voiceEnabled || !voiceSupported}><Speech size={18} />试听当前角色语音</button>
+        <p className="section-note">语音只播报短鼓励和剧情台词，不会朗读题目或提前透露答案。完全离线朗读需要手机已安装普通话语音包。</p>
       </section>
 
       <section className="section-block persistence-section">

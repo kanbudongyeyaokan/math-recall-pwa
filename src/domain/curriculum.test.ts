@@ -54,4 +54,24 @@ describe('高数18讲做题分类', () => {
   it('选择题优先归入选择题训练', () => {
     expect(getProblemRole(problem({ questionFormat: 'single-choice' }))).toBe('choice')
   })
+
+  it('不因共享关键词把概率论题误归入高数讲次', () => {
+    expect(getProblemLectureIds(problem({
+      title: '分布函数的四条硬条件',
+      statement: '分布函数为什么必须右连续？',
+      source: '斗破数学 · 考纲原创同型',
+      page: '',
+      tags: ['概率论', '定义', '分布函数']
+    }))).toEqual([])
+  })
+
+  it('不因函数与极值等共享词把线代题误归入高数讲次', () => {
+    expect(getProblemLectureIds(problem({
+      title: '二次型与特征值',
+      statement: '求矩阵对应二次型的极值。',
+      source: '斗破数学 · 考纲原创同型',
+      page: '',
+      tags: ['线性代数', '二次型', '特征值']
+    }))).toEqual([])
+  })
 })

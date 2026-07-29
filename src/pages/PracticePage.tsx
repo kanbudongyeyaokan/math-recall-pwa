@@ -12,6 +12,7 @@ import {
   type PracticeRole,
   type PracticeSelection
 } from '../domain/curriculum'
+import { getPracticeCycleProgress, getPracticeCycleSettingKey, type PracticeCycleState } from '../domain/practiceCycle'
 
 interface PracticePageProps {
   onStart: (selection: PracticeSelection) => void
@@ -31,6 +32,7 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
   const [lectureId, setLectureId] = useState('lecture-01')
   const [role, setRole] = useState<PracticeRole>('all')
   const [sectionId, setSectionId] = useState<string>()
+  const cycleRecord = useLiveQuery(() => db.settings.get(getPracticeCycleSettingKey(lectureId)), [lectureId])
 
   const selectedLecture = CALCULUS_LECTURES.find((lecture) => lecture.id === lectureId) || CALCULUS_LECTURES[0]
   const classified = useMemo(() => problems.map((problem) => ({
@@ -49,7 +51,12 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
     label: selectedLecture.title
   }))
   const lectureProblems = problems.filter((problem) => getProblemLectureIds(problem).includes(lectureId))
-  const completedCount = lectureProblems.filter((problem) => problem.reviewCount > 0).length
+  const cycleState = cycleRecord?.value as PracticeCycleState | undefined
+  const cycleProgress = getPracticeCycleProgress(cycleState, lectureProblems.map((problem) => problem.id))
+  const cycleSeenIds = new Set(cycleState?.seenIds || [])
+  const selectedRemainingCount = cycleProgress.complete
+    ? selectedProblems.length
+    : selectedProblems.filter((problem) => !cycleSeenIds.has(problem.id)).length
   const unclassifiedCount = classified.filter((item) => item.lectureIds.length === 0).length
 
   function chooseLecture(nextLectureId: string) {
@@ -110,13 +117,14 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
       <section id="lecture-builder" className="lecture-builder" aria-labelledby="lecture-builder-title">
         <div className="lecture-builder-heading">
           <div><span>第 {selectedLecture.number} 讲 · P{selectedLecture.printPages[0]}–{selectedLecture.printPages[1]}</span><h2 id="lecture-builder-title">{selectedLecture.title}</h2></div>
-          <strong>{completedCount}/{lectureProblems.length} 已做</strong>
+          <strong>第 {cycleState?.cycle || 1} 轮 · {cycleProgress.seen}/{cycleProgress.total} 已刷</strong>
         </div>
 
         <div className="practice-role-tabs" role="group" aria-label="题目类型">
           {roles.map((item) => {
-            const count = lectureProblems.filter((problem) => item === 'all' || getProblemRole(problem) === item).length
-            return <button type="button" className={role === item ? 'active' : ''} onClick={() => { setRole(item); setSectionId(undefined) }} key={item}>{PRACTICE_ROLE_LABELS[item]}<small>{count}</small></button>
+            const roleProblems = lectureProblems.filter((problem) => item === 'all' || getProblemRole(problem) === item)
+            const remaining = cycleProgress.complete ? roleProblems.length : roleProblems.filter((problem) => !cycleSeenIds.has(problem.id)).length
+            return <button type="button" className={role === item ? 'active' : ''} onClick={() => { setRole(item); setSectionId(undefined) }} key={item}>{PRACTICE_ROLE_LABELS[item]}<small>{remaining}/{roleProblems.length}</small></button>
           })}
         </div>
 
@@ -125,17 +133,25 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
             <Filter size={17} /><span><strong>整讲混合</strong><small>定义、例题与训练交替</small></span>
           </button>
           {selectedLecture.sections.map((section) => {
-            const count = lectureProblems.filter((problem) => getProblemSectionIds(problem, selectedLecture).includes(section.id)).length
+            const sectionProblems = lectureProblems.filter((problem) => getProblemSectionIds(problem, selectedLecture).includes(section.id))
+            const count = sectionProblems.length
+            const remaining = cycleProgress.complete ? count : sectionProblems.filter((problem) => !cycleSeenIds.has(problem.id)).length
             return (
               <button type="button" className={sectionId === section.id ? 'active' : ''} onClick={() => setSectionId(section.id)} disabled={!count} key={section.id}>
-                <BookOpenCheck size={17} /><span><strong>{section.title}</strong><small>{count ? `${count} 道可做` : '等待补充题目'}</small></span>
+                <BookOpenCheck size={17} /><span><strong>{section.title}</strong><small>{count ? `${remaining}/${count} 道本轮未刷` : '等待补充题目'}</small></span>
               </button>
             )
           })}
         </div>
 
-        <button type="button" className="button button-accent button-full start-lecture-button" disabled={!selectedProblems.length} onClick={startSelection}>
-          {selectedProblems.length ? <>开始做题 · {selectedProblems.length} 道<ArrowRight size={19} /></> : <>这一部分还没有题目</>}
+        <button type="button" className="button button-accent button-full start-lecture-button" disabled={!selectedProblems.length || (!cycleProgress.complete && selectedRemainingCount === 0)} onClick={startSelection}>
+          {!selectedProblems.length
+            ? <>这一部分还没有题目</>
+            : cycleProgress.complete
+              ? <>本讲已通关 · 开启第 {(cycleState?.cycle || 1) + 1} 轮<ArrowRight size={19} /></>
+              : selectedRemainingCount > 0
+                ? <>随机开始 · 本轮剩余 {selectedRemainingCount} 道<ArrowRight size={19} /></>
+                : <>本轮此部分已刷完</>}
         </button>
       </section>
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   ArrowLeft,
+  AudioLines,
   Brain,
   Check,
   CheckCircle2,
@@ -10,6 +11,7 @@ import {
   Image as ImageIcon,
   Lightbulb,
   ListChecks,
+  MicOff,
   Route,
   ScrollText,
   ShieldAlert,
@@ -21,7 +23,7 @@ import { DbImage } from '../components/DbImage'
 import { Lightbox } from '../components/Lightbox'
 import { MathText } from '../components/MathText'
 import { RewardReveal } from '../components/RewardReveal'
-import { db, defaultProfile, recordReview } from '../db'
+import { db, defaultProfile, getOrStartPracticeCycle, recordPracticeCycleCompletion, recordReview } from '../db'
 import {
   getLectureById,
   getProblemLectureIds,
@@ -33,8 +35,17 @@ import {
 import type { RealmProgress } from '../domain/gamification'
 import { getTechnique, type TechniqueResolution } from '../domain/cultivation'
 import { isChoiceAnswerCorrect } from '../domain/questions'
-import type { PlayerProfile, ReviewRating, RewardCard } from '../types'
-import { getSoundEnabled, playSound, pulseHaptic, RATING_SOUND, saveSoundEnabled } from '../utils/sound'
+import { getUnseenPracticeIds } from '../domain/practiceCycle'
+import type { RomanceRouteId } from '../domain/story'
+import type { PlayerProfile, Problem, ReviewRating, RewardCard } from '../types'
+import {
+  getAudioPreferences,
+  playRewardSound,
+  playSound,
+  pulseHaptic,
+  saveAudioPreferences
+} from '../utils/sound'
+import { getReviewVoiceCue, getStoryVoiceCue, speakCharacterVoice, stopCharacterVoice, type CharacterVoiceCue } from '../utils/voice'
 
 interface ReviewPageProps {
   requestedId?: string
@@ -57,21 +68,18 @@ function problemOrder(a: { page: string; id: string }, b: { page: string; id: st
 }
 
 export function ReviewPage({ requestedId, selection, onBack, onComplete }: ReviewPageProps) {
-  const queue = useLiveQuery(async () => {
-    if (requestedId) {
-      const requested = await db.problems.get(requestedId)
-      return requested && !requested.archived ? [requested] : []
-    }
-    const all = await db.problems.filter((item) => !item.archived).toArray()
-    return (selection ? all.filter((problem) => matchesPracticeSelection(problem, selection)) : all).sort(problemOrder)
-  }, [requestedId, selection?.lectureId, selection?.sectionId, selection?.role])
+  const allProblems = useLiveQuery(() => db.problems.filter((item) => !item.archived).toArray(), [])
+  const problemIdKey = allProblems?.map((problem) => problem.id).sort().join('|')
+  const [queue, setQueue] = useState<Problem[]>()
+  const [cycleStatus, setCycleStatus] = useState<{ cycle: number; lectureRemaining: number; selectedTotal: number }>()
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
   const [queueIndex, setQueueIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [thinking, setThinking] = useState(false)
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
   const [choiceSubmitted, setChoiceSubmitted] = useState(false)
-  const [soundEnabled, setSoundEnabled] = useState(getSoundEnabled)
+  const romanceSetting = useLiveQuery(() => db.settings.get('active-romance-route'))
+  const [audioPreferences, setAudioPreferences] = useState(getAudioPreferences)
   const [saving, setSaving] = useState(false)
   const [lightbox, setLightbox] = useState<{ id: string; alt: string }>()
   const [reward, setReward] = useState<{
@@ -85,6 +93,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     encouragement: string
     profile: PlayerProfile
     technique: TechniqueResolution
+    voiceCue: CharacterVoiceCue
   }>()
 
   const problem = queue?.[queueIndex]
@@ -95,18 +104,57 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     : getLectureById(problem ? getProblemLectureIds(problem)[0] : undefined)
   const queueLabel = selection?.label || (lecture ? `第 ${lecture.number} 讲 · ${PRACTICE_ROLE_LABELS[getProblemRole(problem!)]}` : '自选题目')
 
-  useEffect(() => setQueueIndex(0), [requestedId, selection?.lectureId, selection?.sectionId, selection?.role])
+  useEffect(() => {
+    let cancelled = false
+    setQueue(undefined)
+    setQueueIndex(0)
+    setCycleStatus(undefined)
+    if (!allProblems) return () => { cancelled = true }
+
+    async function buildQueue() {
+      if (requestedId) {
+        const requested = allProblems!.find((problem) => problem.id === requestedId)
+        if (!cancelled) setQueue(requested ? [requested] : [])
+        return
+      }
+      if (!selection) {
+        if (!cancelled) setQueue([...allProblems!].sort(problemOrder))
+        return
+      }
+
+      const lectureProblems = allProblems!.filter((problem) => getProblemLectureIds(problem).includes(selection.lectureId))
+      const selectedProblems = lectureProblems.filter((problem) => matchesPracticeSelection(problem, selection))
+      const prepared = await getOrStartPracticeCycle(selection.lectureId, lectureProblems.map((problem) => problem.id))
+      const selectedIds = new Set(selectedProblems.map((problem) => problem.id))
+      const unseenIds = getUnseenPracticeIds(prepared.state, [...selectedIds])
+      const byId = new Map(selectedProblems.map((problem) => [problem.id, problem]))
+      if (!cancelled) {
+        setCycleStatus({
+          cycle: prepared.state.cycle,
+          lectureRemaining: getUnseenPracticeIds(prepared.state).length,
+          selectedTotal: selectedProblems.length
+        })
+        setQueue(unseenIds.flatMap((id) => byId.get(id) || []))
+      }
+    }
+
+    void buildQueue()
+    return () => { cancelled = true }
+  }, [requestedId, selection?.lectureId, selection?.sectionId, selection?.role, problemIdKey])
 
   useEffect(() => {
+    stopCharacterVoice()
     setRevealed(false)
     setThinking(false)
     setSelectedOptionIds([])
     setChoiceSubmitted(false)
   }, [problem?.id])
 
+  useEffect(() => () => stopCharacterVoice(), [])
+
   function toggleOption(id: string) {
     if (!problem || choiceSubmitted) return
-    playSound('option')
+    playSound(problem.questionFormat === 'multiple-choice' && selectedOptionIds.includes(id) ? 'option-remove' : 'option')
     pulseHaptic(8)
     if (problem.questionFormat === 'single-choice') {
       setSelectedOptionIds([id])
@@ -136,11 +184,22 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   }
 
   function toggleSound() {
-    const next = !soundEnabled
+    const next = !audioPreferences.soundEnabled
     if (!next) playSound('sound-off')
-    saveSoundEnabled(next)
-    setSoundEnabled(next)
+    const preferences = saveAudioPreferences({ soundEnabled: next })
+    setAudioPreferences(preferences)
     if (next) playSound('sound-on')
+  }
+
+  function toggleVoice() {
+    const next = !audioPreferences.voiceEnabled
+    if (!next) stopCharacterVoice()
+    const preferences = saveAudioPreferences({ voiceEnabled: next })
+    setAudioPreferences(preferences)
+    if (next) {
+      playSound('character-open')
+      speakCharacterVoice(getStoryVoiceCue('he-yaokun', '角色语音助阵已开启。下一题，继续。'), { delayMs: 180 })
+    }
   }
 
   async function grade(rating: ReviewRating) {
@@ -151,7 +210,29 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         selectedOptionIds,
         isCorrect: choiceCorrect
       } : {})
-      playSound(result.advance.realmBreakthrough ? 'realm-up' : result.advance.advanced ? 'star-up' : RATING_SOUND[rating])
+      const cycleLectureId = selection?.lectureId || getProblemLectureIds(problem)[0]
+      if (cycleLectureId && allProblems) {
+        const lectureProblemIds = allProblems
+          .filter((candidate) => getProblemLectureIds(candidate).includes(cycleLectureId))
+          .map((candidate) => candidate.id)
+        await recordPracticeCycleCompletion(cycleLectureId, problem.id, lectureProblemIds).catch(() => undefined)
+      }
+      const soundDuration = playRewardSound({
+        rating,
+        techniqueTriggered: result.technique.triggered,
+        coinsEarned: result.coinsEarned,
+        advanced: result.advance.advanced,
+        realmBreakthrough: result.advance.realmBreakthrough
+      })
+      const voiceCue = getReviewVoiceCue({
+        profile: result.profile,
+        rating,
+        isCorrect: choiceCorrect,
+        advanced: result.advance.advanced,
+        realmBreakthrough: result.advance.realmBreakthrough,
+        activeRouteId: romanceSetting?.value as RomanceRouteId | undefined,
+        seed: result.profile.totalReviews + problem.reviewCount
+      })
       pulseHaptic(result.advance.realmBreakthrough ? [55, 35, 85, 35, 120] : result.advance.advanced ? [35, 25, 55, 25, 75] : [28, 24, 48])
       setReward({
         card: result.reward,
@@ -163,14 +244,17 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         coinsEarned: result.coinsEarned,
         encouragement: result.encouragement,
         profile: result.profile,
-        technique: result.technique
+        technique: result.technique,
+        voiceCue
       })
+      if (getAudioPreferences().autoVoice) speakCharacterVoice(voiceCue, { delayMs: soundDuration + 160 })
     } finally {
       setSaving(false)
     }
   }
 
   function closeReward() {
+    stopCharacterVoice()
     playSound('next')
     setReward(undefined)
     if (queue && queueIndex < queue.length - 1) {
@@ -186,11 +270,14 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   }
 
   if (!problem) {
+    const selectionExhausted = !!selection && !!cycleStatus?.selectedTotal && cycleStatus.lectureRemaining > 0
     return (
       <main className="page centered-state">
         <Brain size={46} />
-        <h1>{selection ? '这个板块还没有题目' : '题库还是空的'}</h1>
-        <p>{selection ? '返回讲次地图，换一个板块；也可以在题库中录入自己的经典题。' : '先拍下一道典型题，就能开始你的做题旅程。'}</p>
+        <h1>{selectionExhausted ? '本轮这个板块已经刷完' : selection ? '这个板块还没有题目' : '题库还是空的'}</h1>
+        <p>{selectionExhausted
+          ? `第 ${cycleStatus?.cycle} 轮本讲还有 ${cycleStatus?.lectureRemaining} 道未刷。换一个板块继续；整讲全部完成后才会重新洗牌。`
+          : selection ? '返回讲次地图，换一个板块；也可以在题库中录入自己的经典题。' : '先拍下一道典型题，就能开始你的做题旅程。'}</p>
         <button type="button" className="button button-primary" onClick={onBack}>返回</button>
       </main>
     )
@@ -205,8 +292,11 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           <small>{problem.kind === 'concept' ? '定义与判据' : problem.questionFormat === 'open' ? '主观题' : problem.questionFormat === 'single-choice' ? '单选题' : '多选题'}</small>
         </div>
         <div className="review-header-actions">
-          <button type="button" className="icon-button sound-toggle" onClick={toggleSound} aria-label={soundEnabled ? '关闭做题音效' : '开启做题音效'} aria-pressed={soundEnabled} title={soundEnabled ? '关闭做题音效' : '开启做题音效'}>
-            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          <button type="button" className="icon-button sound-toggle" onClick={toggleSound} aria-label={audioPreferences.soundEnabled ? '关闭做题音效' : '开启做题音效'} aria-pressed={audioPreferences.soundEnabled} title={audioPreferences.soundEnabled ? '关闭做题音效' : '开启做题音效'}>
+            {audioPreferences.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+          <button type="button" className="icon-button sound-toggle voice-toggle" onClick={toggleVoice} aria-label={audioPreferences.voiceEnabled ? '关闭角色语音' : '开启角色语音'} aria-pressed={audioPreferences.voiceEnabled} title={audioPreferences.voiceEnabled ? '关闭角色语音' : '开启角色语音'}>
+            {audioPreferences.voiceEnabled ? <AudioLines size={18} /> : <MicOff size={18} />}
           </button>
           <span className="review-count">{queueIndex + 1}/{queue.length}</span>
         </div>
@@ -349,6 +439,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       {reward && (
         <RewardReveal
           {...reward}
+          onReplayVoice={() => speakCharacterVoice(reward.voiceCue)}
           continueLabel={queueIndex < queue.length - 1 ? `继续下一题 · ${queueIndex + 2}/${queue.length}` : selection ? '完成本轮，返回讲次' : '完成本题'}
           onClose={closeReward}
         />

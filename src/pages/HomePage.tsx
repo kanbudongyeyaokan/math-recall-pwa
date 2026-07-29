@@ -2,14 +2,16 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowRight, Coins, Flame, Plus, Shuffle, Smartphone, Sparkles, Target, WifiOff } from 'lucide-react'
 import { CultivatorScene } from '../components/CultivatorScene'
 import { StoryPanel } from '../components/StoryPanel'
-import { db, defaultProfile } from '../db'
-import { CALCULUS_LECTURES, getProblemLectureIds } from '../domain/curriculum'
+import { db, defaultProfile, getOrStartPracticeCycle } from '../db'
+import { CALCULUS_LECTURES, getProblemLectureIds, type PracticeSelection } from '../domain/curriculum'
 import { getRealmProgress } from '../domain/gamification'
+import { getUnseenPracticeIds } from '../domain/practiceCycle'
+import { playSound } from '../utils/sound'
 
 interface HomePageProps {
   online: boolean
   onOpenPractice: () => void
-  onStartProblem: (problemId: string) => void
+  onStartProblem: (problemId: string, selection?: PracticeSelection) => void
   onAdd: () => void
   onInstall: () => void
 }
@@ -24,9 +26,28 @@ export function HomePage({ online, onOpenPractice, onStartProblem, onAdd, onInst
     calculusProblems.some((problem) => problem.reviewCount > 0 && getProblemLectureIds(problem).includes(lecture.id))
   )).length
 
-  function drawRandom() {
+  async function drawRandom() {
     if (!problems.length) return onAdd()
-    onStartProblem(problems[Math.floor(Math.random() * problems.length)].id)
+    const lecturePools = CALCULUS_LECTURES.map((lecture) => ({
+      lecture,
+      problems: calculusProblems.filter((problem) => getProblemLectureIds(problem).includes(lecture.id))
+    })).filter((pool) => pool.problems.length > 0)
+    if (!lecturePools.length) {
+      const randomIndex = crypto.getRandomValues(new Uint32Array(1))[0] % problems.length
+      onStartProblem(problems[randomIndex].id)
+      return
+    }
+    const poolIndex = crypto.getRandomValues(new Uint32Array(1))[0] % lecturePools.length
+    const pool = lecturePools[poolIndex]
+    const prepared = await getOrStartPracticeCycle(pool.lecture.id, pool.problems.map((problem) => problem.id))
+    const problemId = getUnseenPracticeIds(prepared.state)[0]
+    if (!problemId) return
+    playSound('story-choice')
+    onStartProblem(problemId, {
+      lectureId: pool.lecture.id,
+      role: 'all',
+      label: `第 ${pool.lecture.number} 讲 · 随机未刷题`
+    })
   }
 
   return (
@@ -72,8 +93,8 @@ export function HomePage({ online, onOpenPractice, onStartProblem, onAdd, onInst
           <button type="button" className="journey-action primary" onClick={onOpenPractice}>
             <span><Target size={22} /></span><div><strong>高数 18 讲</strong><small>选择讲次与板块</small></div><ArrowRight size={18} />
           </button>
-          <button type="button" className="journey-action" onClick={drawRandom}>
-            <span><Shuffle size={22} /></span><div><strong>偶遇一题</strong><small>从全部题库随机抽取</small></div><ArrowRight size={18} />
+          <button type="button" className="journey-action" onClick={() => void drawRandom()}>
+            <span><Shuffle size={22} /></span><div><strong>偶遇一题</strong><small>从 18 讲本轮未刷题池抽取</small></div><ArrowRight size={18} />
           </button>
           <button type="button" className="journey-action" onClick={onAdd}>
             <span><Plus size={22} /></span><div><strong>录入新题</strong><small>拍题面与答案图片</small></div><ArrowRight size={18} />

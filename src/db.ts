@@ -12,6 +12,12 @@ import {
 import { getReviewOutcome } from './domain/scheduler'
 import { CULTIVATION_TECHNIQUES, resolveTechnique } from './domain/cultivation'
 import { STORY_ENCOUNTERS } from './domain/encounters'
+import {
+  getPracticeCycleSettingKey,
+  markPracticeProblemSeen as markCycleProblemSeen,
+  preparePracticeCycle,
+  type PracticeCycleState
+} from './domain/practiceCycle'
 import type {
   AppSetting,
   ImageAsset,
@@ -256,6 +262,27 @@ export async function getSettingValue<T>(key: string, fallback: T): Promise<T> {
 
 export async function setSettingValue<T>(key: string, value: T) {
   await db.settings.put({ key, value, updatedAt: Date.now() })
+}
+
+export async function getOrStartPracticeCycle(lectureId: string, problemIds: readonly string[], seed = Date.now()) {
+  return db.transaction('rw', db.settings, async () => {
+    const key = getPracticeCycleSettingKey(lectureId)
+    const record = await db.settings.get(key)
+    const prepared = preparePracticeCycle(lectureId, problemIds, record?.value as PracticeCycleState | undefined, seed)
+    if (prepared.changed) await db.settings.put({ key, value: prepared.state, updatedAt: Date.now() })
+    return prepared
+  })
+}
+
+export async function recordPracticeCycleCompletion(lectureId: string, problemId: string, problemIds: readonly string[]) {
+  return db.transaction('rw', db.settings, async () => {
+    const key = getPracticeCycleSettingKey(lectureId)
+    const record = await db.settings.get(key)
+    const prepared = preparePracticeCycle(lectureId, problemIds, record?.value as PracticeCycleState | undefined)
+    const next = markCycleProblemSeen(prepared.state, problemId)
+    if (prepared.changed || next !== prepared.state) await db.settings.put({ key, value: next, updatedAt: Date.now() })
+    return next
+  })
 }
 
 export async function saveImage(file: File) {

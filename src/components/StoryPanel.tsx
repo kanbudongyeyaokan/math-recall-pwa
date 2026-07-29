@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
+  AudioLines,
   BookOpen,
   ChevronRight,
   Coins,
@@ -9,10 +10,12 @@ import {
   MapPin,
   MessageCircle,
   Quote,
+  Square,
   Sparkles,
   Swords,
   Target,
   UsersRound,
+  Volume2,
   X
 } from 'lucide-react'
 import { chooseStoryEncounter, db } from '../db'
@@ -28,6 +31,8 @@ import {
   type StoryRole
 } from '../domain/story'
 import type { PlayerProfile } from '../types'
+import { getAudioPreferences, playSound } from '../utils/sound'
+import { getStoryVoiceCue, speakCharacterVoice, stopCharacterVoice } from '../utils/voice'
 
 const roleLabel: Record<StoryRole, string> = {
   family: '家人',
@@ -42,6 +47,10 @@ const roleLabel: Record<StoryRole, string> = {
 
 const routeSettingKey = 'active-romance-route'
 
+function getDialogueCharacterId(text: string, fallbackId: string) {
+  return STORY_CHARACTERS.find((character) => text.startsWith(character.name))?.id || fallbackId
+}
+
 interface ArchiveProps {
   character: StoryCharacter
   profile: PlayerProfile
@@ -50,6 +59,7 @@ interface ArchiveProps {
 }
 
 function CharacterArchive({ character, profile, activeRouteId, onClose }: ArchiveProps) {
+  const [speaking, setSpeaking] = useState(false)
   const bondPoints = profile.characterBonds[character.id] || 0
   const route = ROMANCE_ROUTES.find((candidate) => candidate.id === character.id)
   const routeStatus = route ? getRomanceRouteStatus(route, profile.totalReviews) : undefined
@@ -69,10 +79,25 @@ function CharacterArchive({ character, profile, activeRouteId, onClose }: Archiv
     document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', onKeyDown)
     return () => {
+      stopCharacterVoice()
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [onClose])
+
+  function toggleQuoteVoice() {
+    if (speaking) {
+      stopCharacterVoice()
+      setSpeaking(false)
+      return
+    }
+    playSound('character-open')
+    const started = speakCharacterVoice(getStoryVoiceCue(character.id, character.quote), {
+      onStart: () => setSpeaking(true),
+      onEnd: () => setSpeaking(false)
+    })
+    if (started) setSpeaking(true)
+  }
 
   return (
     <div className="character-archive-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -102,7 +127,7 @@ function CharacterArchive({ character, profile, activeRouteId, onClose }: Archiv
             </div>
           )}
 
-          <blockquote className="character-quote"><Quote size={19} /><p>{character.quote}</p></blockquote>
+          <blockquote className="character-quote"><Quote size={19} /><p>{character.quote}</p><button type="button" onClick={toggleQuoteVoice} aria-label={speaking ? `停止${character.name}语音` : `播放${character.name}语音`} title={speaking ? '停止语音' : '播放角色语音'}>{speaking ? <Square size={16} /> : <Volume2 size={18} />}</button></blockquote>
 
           <section className="character-archive-section">
             <h3><BookOpen size={17} />人物背景</h3>
@@ -132,13 +157,57 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
   const [lineIndex, setLineIndex] = useState(0)
   const [showRoster, setShowRoster] = useState(false)
   const [selectedCharacter, setSelectedCharacter] = useState<StoryCharacter>()
+  const [speaking, setSpeaking] = useState(false)
   const [encounterReply, setEncounterReply] = useState<{ title: string; reply: string; bondTargetId: string; bondGain: number; coinReward: number }>()
   const currentCharacter = getCharacter(progress.current.portraitId)
   const activeRouteId = routeSetting?.value as RomanceRouteId | undefined
   const activeRoute = ROMANCE_ROUTES.find((route) => route.id === activeRouteId)
   const pendingEncounter = getPendingEncounter(profile)
 
-  useEffect(() => setLineIndex(0), [progress.current.id])
+  useEffect(() => {
+    stopCharacterVoice()
+    setSpeaking(false)
+    setLineIndex(0)
+  }, [progress.current.id])
+
+  useEffect(() => () => stopCharacterVoice(), [])
+
+  function openCharacter(character: StoryCharacter) {
+    playSound('character-open')
+    stopCharacterVoice()
+    setSpeaking(false)
+    setSelectedCharacter(character)
+  }
+
+  function speakDialogue(index: number, delayMs = 0) {
+    const line = progress.current.dialogue[index]
+    const characterId = getDialogueCharacterId(line, currentCharacter.id)
+    const started = speakCharacterVoice(getStoryVoiceCue(characterId, line), {
+      delayMs,
+      onStart: () => setSpeaking(true),
+      onEnd: () => setSpeaking(false)
+    })
+    if (started) setSpeaking(true)
+  }
+
+  function toggleDialogueVoice() {
+    if (speaking) {
+      stopCharacterVoice()
+      setSpeaking(false)
+      return
+    }
+    playSound('character-open')
+    speakDialogue(lineIndex, 130)
+  }
+
+  function continueDialogue() {
+    const nextIndex = lineIndex + 1
+    stopCharacterVoice()
+    setSpeaking(false)
+    playSound('story-next')
+    setLineIndex(nextIndex)
+    if (getAudioPreferences().autoVoice) speakDialogue(nextIndex, 180)
+  }
 
   async function chooseRoute(routeId: RomanceRouteId) {
     await db.settings.put({ key: routeSettingKey, value: routeId, updatedAt: Date.now() })
@@ -148,8 +217,10 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
     if (!pendingEncounter) return
     const selected = pendingEncounter.choices.find((choice) => choice.id === choiceId)
     if (!selected) return
+    playSound('story-choice')
     await chooseStoryEncounter(pendingEncounter.id, selected.id)
     setEncounterReply({ title: pendingEncounter.title, reply: selected.reply, bondTargetId: selected.bondTargetId, bondGain: selected.bondGain, coinReward: selected.coinReward })
+    if (getAudioPreferences().autoVoice) speakCharacterVoice(getStoryVoiceCue(pendingEncounter.characterId, selected.reply), { delayMs: 380 })
   }
 
   const hasNextLine = lineIndex < progress.current.dialogue.length - 1
@@ -161,7 +232,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
           <h2 id="story-title">{progress.current.title}</h2>
           <p><MapPin size={14} />{progress.current.location}</p>
         </div>
-        <button className="story-speaker" type="button" onClick={() => setSelectedCharacter(currentCharacter)} aria-label={`查看${currentCharacter.name}人物档案`}>
+        <button className="story-speaker" type="button" onClick={() => openCharacter(currentCharacter)} aria-label={`查看${currentCharacter.name}人物档案`}>
           <span className="story-portrait speaking-portrait">
             <img src={currentCharacter.portrait} alt="" />
             <i aria-hidden="true" />
@@ -176,11 +247,16 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
       </blockquote>
       <div className="story-actions">
         <span>{progress.current.objective}</span>
-        {hasNextLine && (
-          <button type="button" onClick={() => setLineIndex((index) => index + 1)} aria-label="继续对话" title="继续对话">
-            <ChevronRight size={19} />
+        <div className="story-action-buttons">
+          <button type="button" onClick={toggleDialogueVoice} aria-label={speaking ? '停止当前角色语音' : '播放当前角色语音'} title={speaking ? '停止语音' : '播放当前对白'}>
+            {speaking ? <Square size={16} /> : <AudioLines size={19} />}
           </button>
-        )}
+          {hasNextLine && (
+            <button type="button" onClick={continueDialogue} aria-label="继续对话" title="继续对话">
+              <ChevronRight size={19} />
+            </button>
+          )}
+        </div>
       </div>
       <div className="story-progress" aria-label="剧情解锁进度" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}>
         <span style={{ width: `${progress.percent}%` }} />
@@ -216,7 +292,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
                 type="button"
                 className={unlocked ? 'roster-person' : 'roster-person locked'}
                 disabled={!unlocked}
-                onClick={() => setSelectedCharacter(character)}
+                onClick={() => openCharacter(character)}
                 aria-label={unlocked ? `查看${character.name}人物档案` : `${character.unlockAt}题后解锁人物`}
                 key={character.id}
               >
@@ -250,8 +326,9 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
                   className={active ? 'romance-route active' : 'romance-route'}
                   disabled={!unlocked}
                   onClick={() => {
+                    playSound('story-choice')
                     void chooseRoute(route.id)
-                    setSelectedCharacter(character)
+                    openCharacter(character)
                   }}
                   key={route.id}
                 >
@@ -267,7 +344,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
       )}
 
       {selectedCharacter && (
-        <CharacterArchive character={selectedCharacter} profile={profile} activeRouteId={activeRouteId} onClose={() => setSelectedCharacter(undefined)} />
+        <CharacterArchive character={selectedCharacter} profile={profile} activeRouteId={activeRouteId} onClose={() => { stopCharacterVoice(); setSelectedCharacter(undefined) }} />
       )}
     </section>
   )

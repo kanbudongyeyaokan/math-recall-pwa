@@ -229,6 +229,16 @@ export function getProblemLectureIds(problem: Problem) {
   })
   if (taggedLectureIds.length) return [...new Set(taggedLectureIds)]
 
+  const subjectTags = problem.tags.map((tag) => tag.trim().toLocaleLowerCase())
+  const belongsToAnotherSubject = subjectTags.some((tag) => (
+    tag === '线性代数'
+    || tag === '线代'
+    || tag === '概率论'
+    || tag === '概率统计'
+    || tag === '概率论与数理统计'
+  ))
+  if (belongsToAnotherSubject) return []
+
   const direct = CALCULUS_LECTURES.filter((lecture) => lecture.aliases.some((alias) => text.includes(alias.toLocaleLowerCase())))
   const pageRange = parsePageRange(problem.page)
   if (pageRange && (text.includes('高等数学') || text.includes('张宇基础30讲'))) {
