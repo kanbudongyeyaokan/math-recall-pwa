@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, BookOpenCheck, Check, Filter, Library, Route, Sigma, Zap } from 'lucide-react'
-import { db } from '../db'
+import { ArrowRight, BookOpenCheck, Check, Filter, Library, LockKeyhole, Route, Sigma, Swords, Trophy, Zap } from 'lucide-react'
+import { CharacterPortrait } from '../components/CharacterPortrait'
+import { db, defaultProfile } from '../db'
+import { getBossEligibility, getLectureBoss } from '../domain/boss'
 import {
   CALCULUS_LECTURES,
   getProblemLectureIds,
@@ -13,6 +15,8 @@ import {
   type PracticeSelection
 } from '../domain/curriculum'
 import { getPracticeCycleProgress, getPracticeCycleSettingKey, type PracticeCycleState } from '../domain/practiceCycle'
+import { getLectureMastery } from '../domain/mastery'
+import { getCharacter } from '../domain/story'
 import { playSound } from '../utils/sound'
 
 interface PracticePageProps {
@@ -24,6 +28,8 @@ const roles: PracticeRole[] = ['all', 'concept', 'example', 'choice', 'exercise'
 
 export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
   const problems = useLiveQuery(() => db.problems.filter((problem) => !problem.archived).toArray(), [], [])
+  const reviews = useLiveQuery(() => db.reviews.toArray(), [], [])
+  const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
   const [lectureId, setLectureId] = useState('lecture-01')
   const [role, setRole] = useState<PracticeRole>('all')
   const [sectionId, setSectionId] = useState<string>()
@@ -49,6 +55,10 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
   }))
   const lectureProblems = problems.filter((problem) => getProblemLectureIds(problem).includes(lectureId))
   const cycleState = cycleRecord?.value as PracticeCycleState | undefined
+  const mastery = useMemo(() => getLectureMastery(problems, reviews, lectureId), [problems, reviews, lectureId])
+  const boss = getLectureBoss(lectureId)
+  const bossVictory = profile.bossVictories[lectureId]
+  const bossEligibility = getBossEligibility(mastery, !!bossVictory)
   const cycleProgress = getPracticeCycleProgress(cycleState, lectureProblems.map((problem) => problem.id))
   const cycleSeenIds = new Set(cycleState?.seenIds || [])
   const selectedRemainingCount = cycleProgress.complete
@@ -86,6 +96,17 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
       lectureId: nextLectureId,
       role: 'all',
       label: `第 ${lecture.number} 讲 · 整讲混合`
+    })
+  }
+
+  function startBossBattle() {
+    if (!bossEligibility.unlocked) return
+    playSound('battle-start')
+    onStart({
+      lectureId,
+      role: 'all',
+      mode: 'boss',
+      label: `第 ${selectedLecture.number} 讲 Boss · ${boss.name}`
     })
   }
 
@@ -174,6 +195,23 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
               : selectedRemainingCount > 0
                 ? <>随机开始 · 本轮剩余 {selectedRemainingCount} 道<ArrowRight size={19} /></>
                 : <>本轮此部分已刷完</>}
+        </button>
+      </section>
+
+      <section className={`lecture-boss-gate ${bossEligibility.unlocked ? 'unlocked' : 'locked'}`} aria-labelledby="lecture-boss-title">
+        <div className="boss-opponent-portrait"><CharacterPortrait character={getCharacter(boss.opponentId)} pose="challenge" /></div>
+        <div className="boss-gate-copy">
+          <span><Swords size={15} />第 {selectedLecture.number} 讲镇守者</span>
+          <h2 id="lecture-boss-title">{boss.name}</h2>
+          <p>{bossVictory ? `最佳战绩 ${bossVictory.bestScore} · 已击破 ${bossVictory.victories} 次` : boss.title}</p>
+          <div className="boss-unlock-progress">
+            <span className={mastery.attempted >= bossEligibility.requiredAttempted ? 'done' : ''}>尝试 {mastery.attempted}/{bossEligibility.requiredAttempted}</span>
+            <span className={mastery.mastered >= bossEligibility.requiredMastered ? 'done' : ''}>掌握 {mastery.mastered}/{bossEligibility.requiredMastered}</span>
+            <span>讲次掌握率 {mastery.scorePercent}%</span>
+          </div>
+        </div>
+        <button type="button" onClick={startBossBattle} disabled={!bossEligibility.unlocked}>
+          {bossEligibility.unlocked ? <><Trophy size={18} />{bossVictory ? '再次挑战' : '进入决战'}</> : <><LockKeyhole size={17} />尚未解锁</>}
         </button>
       </section>
 

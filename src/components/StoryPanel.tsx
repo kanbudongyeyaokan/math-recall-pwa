@@ -24,6 +24,8 @@ import {
   getCharacter,
   getRomanceRouteStatus,
   getStoryProgress,
+  isCharacterUnlocked,
+  isStoryThresholdUnlocked,
   ROMANCE_ROUTES,
   STORY_CHARACTERS,
   type RomanceRouteId,
@@ -65,7 +67,7 @@ export function CharacterArchive({ character, profile, activeRouteId, onClose }:
   const [pose, setPose] = useState<CharacterPose>('idle')
   const bondPoints = profile.characterBonds[character.id] || 0
   const route = ROMANCE_ROUTES.find((candidate) => candidate.id === character.id)
-  const routeStatus = route ? getRomanceRouteStatus(route, profile.totalReviews) : undefined
+  const routeStatus = route ? getRomanceRouteStatus(route, profile) : undefined
   const currentRelation = character.role === 'protagonist'
     ? '本命角色 · 由每一次做题持续塑造'
     : route && routeStatus
@@ -278,7 +280,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
       <div className="story-progress" aria-label="剧情解锁进度" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}>
         <span style={{ width: `${progress.percent}%` }} />
       </div>
-      {progress.next && <small className="story-next">再完成 {progress.remaining} 道题，解锁「{progress.next.title}」</small>}
+      {progress.next && <small className="story-next">再获得 {progress.remaining} 掌握力，解锁「{progress.next.title}」</small>}
 
       {encounterReply ? (
         <div className="encounter-result bond-awarded">
@@ -294,7 +296,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
 
       <div className="story-secondary-actions">
         <button type="button" onClick={() => setShowRoster((value) => !value)} aria-expanded={showRoster}>
-          <UsersRound size={16} />人物志 · {STORY_CHARACTERS.filter((character) => profile.totalReviews >= character.unlockAt).length}/{STORY_CHARACTERS.length}
+          <UsersRound size={16} />人物志 · {STORY_CHARACTERS.filter((character) => isCharacterUnlocked(profile, character)).length}/{STORY_CHARACTERS.length}
         </button>
         <span><HeartHandshake size={15} />{activeRoute ? activeRoute.routeName : '情缘未定'}</span>
       </div>
@@ -302,7 +304,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
       {showRoster && (
         <div className="story-roster" aria-label="已相遇人物">
           {[...STORY_CHARACTERS].sort((left, right) => left.unlockAt - right.unlockAt).map((character) => {
-            const unlocked = profile.totalReviews >= character.unlockAt
+            const unlocked = isCharacterUnlocked(profile, character)
             const bonds = profile.characterBonds[character.id] || 0
             return (
               <button
@@ -310,7 +312,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
                 className={unlocked ? 'roster-person' : 'roster-person locked'}
                 disabled={!unlocked}
                 onClick={() => openCharacter(character)}
-                aria-label={unlocked ? `查看${character.name}人物档案` : `${character.unlockAt}题后解锁人物`}
+                aria-label={unlocked ? `查看${character.name}人物档案` : `掌握力达到${character.unlockAt}后解锁人物`}
                 key={character.id}
               >
                 <span className="roster-portrait">
@@ -318,7 +320,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
                   {!unlocked && <LockKeyhole size={16} />}
                   {unlocked && <i aria-hidden="true" />}
                 </span>
-                <strong>{unlocked ? character.name : `${character.unlockAt} 题解锁`}</strong>
+                <strong>{unlocked ? character.name : `掌握力 ${character.unlockAt}`}</strong>
                 <small>{unlocked ? character.title : '尚未相遇'}</small>
                 {unlocked && <p>{character.summary}</p>}
                 {unlocked && bonds > 0 && <em>{getBondStatus(bonds)} · {bonds} 羁绊</em>}
@@ -328,14 +330,14 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
         </div>
       )}
 
-      {profile.totalReviews >= ROMANCE_ROUTES[0].unlockAt && (
+      {isStoryThresholdUnlocked(profile, ROMANCE_ROUTES[0].unlockAt) && (
         <div className="romance-routes" aria-label="情缘路线">
           <div className="romance-route-heading"><HeartHandshake size={17} /><strong>情缘路线</strong><small>选择同行路线，点击查看档案</small></div>
           <div className="romance-route-list">
             {ROMANCE_ROUTES.map((route) => {
               const character = getCharacter(route.portraitId)
-              const unlocked = profile.totalReviews >= route.unlockAt
-              const status = getRomanceRouteStatus(route, profile.totalReviews)
+              const unlocked = isStoryThresholdUnlocked(profile, route.unlockAt)
+              const status = getRomanceRouteStatus(route, profile)
               const active = activeRouteId === route.id
               return (
                 <button
@@ -350,7 +352,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
                   key={route.id}
                 >
                   <CharacterPortrait character={character} pose="idle" />
-                  <span><strong>{unlocked ? route.name : `${route.unlockAt} 题`}</strong><small>{unlocked ? `${route.routeName} · ${status.label}` : '尚未相遇'}</small></span>
+                  <span><strong>{unlocked ? route.name : `掌握力 ${route.unlockAt}`}</strong><small>{unlocked ? `${route.routeName} · ${status.label}` : '尚未相遇'}</small></span>
                   {active && <HeartHandshake size={16} />}
                 </button>
               )

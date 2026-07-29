@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, RefreshCw, Smartphone, X } from 'lucide-react'
+import { BookOpenCheck, CheckCircle2, RefreshCw, Smartphone, X } from 'lucide-react'
 import { registerSW } from 'virtual:pwa-register'
 import { BottomNav, type Screen } from './components/BottomNav'
 import { InstallGuide } from './components/InstallGuide'
-import { initializeDatabase, repairStreakIfNeeded, requestPersistentStorage } from './db'
+import {
+  clearActivePracticeSession,
+  getActivePracticeSession,
+  initializeDatabase,
+  repairStreakIfNeeded,
+  requestPersistentStorage,
+  saveActivePracticeSession
+} from './db'
 import type { PracticeSelection } from './domain/curriculum'
+import { getPendingPracticeSession } from './domain/practiceSession'
 import { HomePage } from './pages/HomePage'
 import { LibraryPage } from './pages/LibraryPage'
 import { PracticePage } from './pages/PracticePage'
@@ -12,6 +20,7 @@ import { ProblemFormPage } from './pages/ProblemFormPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReviewPage } from './pages/ReviewPage'
 import { WorldPage } from './pages/WorldPage'
+import type { ActivePracticeSession } from './types'
 import { pauseBackgroundMusic, resumeBackgroundMusic, setBackgroundMusicScene } from './utils/sound'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -35,6 +44,7 @@ export default function App() {
   const [updateSW, setUpdateSW] = useState<((reloadPage?: boolean) => Promise<void>)>()
   const [updateRegistration, setUpdateRegistration] = useState<ServiceWorkerRegistration>()
   const [showInstallGuide, setShowInstallGuide] = useState(false)
+  const [resumableSession, setResumableSession] = useState<ActivePracticeSession>()
   const isWechat = /MicroMessenger/i.test(navigator.userAgent)
 
   useEffect(() => {
@@ -42,6 +52,11 @@ export default function App() {
       .then(repairStreakIfNeeded)
       .then(async () => {
         await requestPersistentStorage().catch(() => undefined)
+        const storedSession = await getActivePracticeSession().catch(() => undefined)
+        const session = getPendingPracticeSession(storedSession)
+        if (storedSession && !session) await clearActivePracticeSession(storedSession.id)
+        else if (session && session !== storedSession) await saveActivePracticeSession(session)
+        if (session?.queueIds.length && session.queueIndex < session.queueIds.length) setResumableSession(session)
         setReady(true)
       })
       .catch((error) => setFatalError(error instanceof Error ? error.message : '本地数据库初始化失败'))
@@ -106,13 +121,15 @@ export default function App() {
   }, [toast])
 
   useEffect(() => {
-    const scene = screen === 'review' || screen === 'practice'
-      ? 'focus'
+    const scene = screen === 'review' && practiceSelection?.mode === 'boss'
+      ? 'battle'
+      : screen === 'review' || screen === 'practice'
+        ? 'focus'
       : screen === 'world'
         ? 'journey'
         : 'journey'
     setBackgroundMusicScene(scene)
-  }, [screen])
+  }, [screen, practiceSelection?.mode])
 
   useEffect(() => {
     const unlockAudio = () => resumeBackgroundMusic()
@@ -141,14 +158,42 @@ export default function App() {
   function openReview(id?: string, selection?: PracticeSelection) {
     setReviewId(id)
     setPracticeSelection(selection)
+    setResumableSession(undefined)
     setScreen('review')
     window.scrollTo({ top: 0 })
+  }
+
+  async function exitReview() {
+    const session = getPendingPracticeSession(await getActivePracticeSession().catch(() => undefined))
+    setResumableSession(session)
+    navigate(practiceSelection ? 'practice' : 'library')
+  }
+
+  function completeReview() {
+    setResumableSession(undefined)
+    navigate('practice')
   }
 
   function openEdit(id: string) {
     setEditId(id)
     setScreen('form')
     window.scrollTo({ top: 0 })
+  }
+
+  function resumePracticeSession() {
+    if (!resumableSession) return
+    setReviewId(resumableSession.requestedId)
+    setPracticeSelection(resumableSession.selection as PracticeSelection | undefined)
+    setResumableSession(undefined)
+    setScreen('review')
+    window.scrollTo({ top: 0 })
+  }
+
+  async function discardPracticeSession() {
+    if (!resumableSession) return
+    await clearActivePracticeSession(resumableSession.id)
+    setResumableSession(undefined)
+    setToast('上次未完成的会话已结束，历史做题记录仍保留')
   }
 
   async function installApp() {
@@ -189,7 +234,15 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {(showWechatNotice || updateAvailable) && <div className="system-notices">
+      {(showWechatNotice || updateAvailable || resumableSession) && <div className="system-notices">
+        {resumableSession && (
+          <div className="system-banner resume-banner" role="status">
+            <BookOpenCheck size={19} />
+            <span><strong>上次做到第 {resumableSession.queueIndex + 1}/{resumableSession.queueIds.length} 题</strong><small>题序、选择和解析状态均已保存在本机</small></span>
+            <button type="button" className="button button-accent" onClick={resumePracticeSession}>继续</button>
+            <button type="button" className="icon-button" onClick={() => void discardPracticeSession()} aria-label="结束上次会话"><X size={17} /></button>
+          </div>
+        )}
         {showWechatNotice && (
           <div className="system-banner wechat-banner" role="status">
             <Smartphone size={19} />
@@ -207,12 +260,12 @@ export default function App() {
       </div>}
       {screen === 'home' && <HomePage online={online} onOpenPractice={() => navigate('practice')} onStartProblem={(id, selection) => openReview(id, selection)} onAdd={() => navigate('form')} onInstall={() => setShowInstallGuide(true)} />}
       {screen === 'practice' && <PracticePage onStart={(selection) => openReview(undefined, selection)} onOpenLibrary={() => navigate('library')} />}
-      {screen === 'review' && <ReviewPage requestedId={reviewId} selection={practiceSelection} onBack={() => navigate(practiceSelection ? 'practice' : 'library')} onComplete={() => navigate('practice')} />}
+      {screen === 'review' && <ReviewPage requestedId={reviewId} selection={practiceSelection} onBack={() => void exitReview()} onComplete={completeReview} />}
       {screen === 'world' && <WorldPage notify={setToast} onPractice={() => navigate('practice')} />}
       {screen === 'library' && <LibraryPage onAdd={() => navigate('form')} onEdit={openEdit} onReview={openReview} notify={setToast} />}
       {screen === 'form' && <ProblemFormPage editId={editId} onBack={() => navigate(editId ? 'library' : 'home')} onSaved={(message) => { setToast(message); navigate('library') }} />}
       {screen === 'profile' && <ProfilePage canInstall={!!installPrompt} isStandalone={isStandalone} isWechat={isWechat} onInstall={installApp} onCheckUpdate={checkForAppUpdate} onOpenWorld={() => navigate('world')} appVersion={__APP_VERSION__} notify={setToast} />}
-      <BottomNav active={screen} onNavigate={navigate} />
+      {screen !== 'review' && <BottomNav active={screen} onNavigate={navigate} />}
       {showInstallGuide && <InstallGuide canInstall={!!installPrompt} isWechat={isWechat} onInstall={installApp} onClose={() => setShowInstallGuide(false)} />}
       {toast && (
         <div className="toast" role="status">

@@ -1,13 +1,16 @@
 import type { PlayerProfile, UnlockEvent } from '../types'
 import { STORY_ENCOUNTERS } from './encounters'
 import { TITLE_DEFINITIONS } from './gamification'
-import { STORY_CHAPTERS, STORY_CHARACTERS } from './story'
+import { getMasteryPower } from './mastery'
+import { isCharacterUnlocked, STORY_CHAPTERS, STORY_CHARACTERS } from './story'
 
 function crossed(previous: number, next: number, threshold: number) {
   return previous < threshold && next >= threshold
 }
 
 export function getNewUnlockEvents(previous: PlayerProfile, next: PlayerProfile): UnlockEvent[] {
+  const previousPower = getMasteryPower(previous)
+  const nextPower = getMasteryPower(next)
   const achievements = TITLE_DEFINITIONS
     .filter((title) => !title.unlocked(previous) && title.unlocked(next))
     .map((title) => ({
@@ -18,7 +21,7 @@ export function getNewUnlockEvents(previous: PlayerProfile, next: PlayerProfile)
     }))
 
   const characters = STORY_CHARACTERS
-    .filter((character) => crossed(previous.totalReviews, next.totalReviews, character.unlockAt))
+    .filter((character) => !isCharacterUnlocked(previous, character) && isCharacterUnlocked(next, character))
     .map((character) => ({
       id: `character:${character.id}`,
       kind: 'character' as const,
@@ -27,7 +30,7 @@ export function getNewUnlockEvents(previous: PlayerProfile, next: PlayerProfile)
     }))
 
   const challenges = STORY_ENCOUNTERS
-    .filter((encounter) => crossed(previous.totalReviews, next.totalReviews, encounter.threshold))
+    .filter((encounter) => crossed(previousPower, nextPower, encounter.threshold))
     .map((encounter) => ({
       id: `challenge:${encounter.id}`,
       kind: 'challenge' as const,
@@ -36,7 +39,7 @@ export function getNewUnlockEvents(previous: PlayerProfile, next: PlayerProfile)
     }))
 
   const quests = STORY_CHAPTERS
-    .filter((chapter) => crossed(previous.totalReviews, next.totalReviews, chapter.threshold))
+    .filter((chapter) => crossed(previousPower, nextPower, chapter.threshold))
     .map((chapter) => ({
       id: `quest:${chapter.id}`,
       kind: 'quest' as const,

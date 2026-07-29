@@ -3,8 +3,8 @@ import { defaultProfile } from '../db'
 import { getBondStatus, getPendingEncounter, STORY_ENCOUNTERS } from './encounters'
 
 describe('剧情抉择与人物羁绊', () => {
-  it('按做题数只返回尚未完成的最早事件', () => {
-    const profile = { ...defaultProfile, totalReviews: 40 }
+  it('按真实掌握力只返回尚未完成的最早事件', () => {
+    const profile = { ...defaultProfile, masteredProblemIds: Array.from({ length: 40 }, (_, index) => `q${index}`) }
     expect(getPendingEncounter(profile)?.id).toBe('family-call')
     expect(getPendingEncounter({ ...profile, storyChoices: { 'family-call': 'honest' } })?.id).toBe('rival-dare')
   })

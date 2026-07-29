@@ -15,6 +15,7 @@ import {
   Route,
   ScrollText,
   ShieldAlert,
+  Swords,
   Volume2,
   VolumeX,
   X
@@ -25,7 +26,17 @@ import { DbImage } from '../components/DbImage'
 import { Lightbox } from '../components/Lightbox'
 import { MathText } from '../components/MathText'
 import { RewardReveal } from '../components/RewardReveal'
-import { db, defaultProfile, getOrStartPracticeCycle, recordPracticeCycleCompletion, recordReview } from '../db'
+import {
+  clearActivePracticeSession,
+  db,
+  defaultProfile,
+  getActivePracticeSession,
+  getOrStartPracticeCycle,
+  recordPracticeCycleCompletion,
+  recordBossBattleResult,
+  recordReview,
+  saveActivePracticeSession
+} from '../db'
 import {
   getLectureById,
   getProblemLectureIds,
@@ -34,12 +45,23 @@ import {
   PRACTICE_ROLE_LABELS,
   type PracticeSelection
 } from '../domain/curriculum'
+import { buildBossQueue, getLectureBoss, scoreBossBattle } from '../domain/boss'
+import { getLectureMastery } from '../domain/mastery'
 import type { RealmProgress } from '../domain/gamification'
 import { getTechnique, type TechniqueResolution } from '../domain/cultivation'
 import { formatProblemPageLabel, isChoiceAnswerCorrect } from '../domain/questions'
 import { getUnseenPracticeIds } from '../domain/practiceCycle'
+import {
+  advancePracticeSession,
+  completeSessionProblem,
+  createPracticeSession,
+  getPendingPracticeSession,
+  sanitizePracticeSession,
+  sessionMatchesRequest,
+  updateSessionAnswer
+} from '../domain/practiceSession'
 import type { RomanceRouteId } from '../domain/story'
-import type { PlayerProfile, Problem, ReviewRating, RewardCard, UnlockEvent } from '../types'
+import type { ActivePracticeSession, PlayerProfile, Problem, ReviewRating, RewardCard, UnlockEvent } from '../types'
 import {
   getAudioPreferences,
   playRewardSound,
@@ -74,6 +96,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   const allProblems = useLiveQuery(() => db.problems.filter((item) => !item.archived).toArray(), [])
   const problemIdKey = allProblems?.map((problem) => problem.id).sort().join('|')
   const [queue, setQueue] = useState<Problem[]>()
+  const [activeSession, setActiveSession] = useState<ActivePracticeSession>()
   const [cycleStatus, setCycleStatus] = useState<{ cycle: number; lectureRemaining: number; selectedTotal: number }>()
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
   const [queueIndex, setQueueIndex] = useState(0)
@@ -110,6 +133,8 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     : getLectureById(problem ? getProblemLectureIds(problem)[0] : undefined)
   const queueLabel = selection?.label || (lecture ? `第 ${lecture.number} 讲 · ${PRACTICE_ROLE_LABELS[getProblemRole(problem!)]}` : '自选题目')
   const voiceSupported = hasCharacterVoiceSupport()
+  const boss = selection?.mode === 'boss' ? getLectureBoss(selection.lectureId) : undefined
+  const bossProgress = boss ? scoreBossBattle(activeSession?.outcomes || [], queue || []) : undefined
 
   useEffect(() => {
     let cancelled = false
@@ -119,43 +144,88 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     if (!allProblems) return () => { cancelled = true }
 
     async function buildQueue() {
+      const availableById = new Map(allProblems!.map((problem) => [problem.id, problem]))
+      const restoreOrCreate = async (nextProblems: Problem[]) => {
+        if (!nextProblems.length) {
+          if (!cancelled) setQueue([])
+          return
+        }
+        const stored = await getActivePracticeSession()
+        let restored = sessionMatchesRequest(stored, requestedId, selection)
+          ? sanitizePracticeSession(stored!, new Set(availableById.keys()))
+          : undefined
+        if (restored) {
+          const pending = getPendingPracticeSession(restored)
+          if (!pending) {
+            await clearActivePracticeSession(restored.id)
+            if (!cancelled) setQueue([])
+            return
+          }
+          restored = pending
+        }
+        const session = restored || createPracticeSession({
+          mode: requestedId ? 'single' : selection?.mode === 'boss' ? 'boss' : 'practice',
+          requestedId,
+          selection,
+          queueIds: nextProblems.map((problem) => problem.id)
+        })
+        const sessionQueue = session.queueIds.flatMap((id) => availableById.get(id) || [])
+        await saveActivePracticeSession(session)
+        if (!cancelled) {
+          setActiveSession(session)
+          setQueueIndex(session.queueIndex)
+          setQueue(sessionQueue)
+        }
+      }
+
       if (requestedId) {
         const requested = allProblems!.find((problem) => problem.id === requestedId)
-        if (!cancelled) setQueue(requested ? [requested] : [])
+        await restoreOrCreate(requested ? [requested] : [])
         return
       }
       if (!selection) {
-        if (!cancelled) setQueue([...allProblems!].sort(problemOrder))
+        await restoreOrCreate([...allProblems!].sort(problemOrder))
         return
       }
 
       const lectureProblems = allProblems!.filter((problem) => getProblemLectureIds(problem).includes(selection.lectureId))
+      if (selection.mode === 'boss') {
+        const reviews = await db.reviews.toArray()
+        const mastery = getLectureMastery(allProblems!, reviews, selection.lectureId)
+        const queueIds = buildBossQueue(allProblems!, mastery)
+        const byId = new Map(lectureProblems.map((problem) => [problem.id, problem]))
+        await restoreOrCreate(queueIds.flatMap((id) => byId.get(id) || []))
+        return
+      }
       const selectedProblems = lectureProblems.filter((problem) => matchesPracticeSelection(problem, selection))
       const prepared = await getOrStartPracticeCycle(selection.lectureId, lectureProblems.map((problem) => problem.id))
       const selectedIds = new Set(selectedProblems.map((problem) => problem.id))
       const unseenIds = getUnseenPracticeIds(prepared.state, [...selectedIds])
-      const byId = new Map(selectedProblems.map((problem) => [problem.id, problem]))
       if (!cancelled) {
         setCycleStatus({
           cycle: prepared.state.cycle,
           lectureRemaining: getUnseenPracticeIds(prepared.state).length,
           selectedTotal: selectedProblems.length
         })
-        setQueue(unseenIds.flatMap((id) => byId.get(id) || []))
       }
+      const byId = new Map(selectedProblems.map((problem) => [problem.id, problem]))
+      await restoreOrCreate(unseenIds.flatMap((id) => byId.get(id) || []))
     }
 
     void buildQueue()
     return () => { cancelled = true }
-  }, [requestedId, selection?.lectureId, selection?.sectionId, selection?.role, problemIdKey])
+  }, [requestedId, selection?.lectureId, selection?.sectionId, selection?.role, selection?.mode, problemIdKey])
 
   useEffect(() => {
     stopCharacterVoice()
-    setRevealed(false)
-    setThinking(false)
-    setSelectedOptionIds([])
-    setChoiceSubmitted(false)
-    setExpandedSections(new Set(['answer', 'core', ...(problem?.solutionMethods[0]?.id ? [`method:${problem.solutionMethods[0].id}`] : [])]))
+    const saved = activeSession && activeSession.answer.problemId === problem?.id ? activeSession.answer : undefined
+    setRevealed(saved?.revealed || false)
+    setThinking(saved?.thinking || false)
+    setSelectedOptionIds(saved?.selectedOptionIds || [])
+    setChoiceSubmitted(saved?.choiceSubmitted || false)
+    setExpandedSections(new Set(saved?.expandedSectionIds?.length
+      ? saved.expandedSectionIds
+      : ['answer', 'core', ...(problem?.solutionMethods[0]?.id ? [`method:${problem.solutionMethods[0].id}`] : [])]))
   }, [problem?.id])
 
   useEffect(() => () => stopCharacterVoice(), [])
@@ -174,15 +244,27 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     }
   }, [audioOpen])
 
+  function persistAnswer(patch: Partial<ActivePracticeSession['answer']>) {
+    setActiveSession((current) => {
+      if (!current || current.answer.problemId !== problem?.id) return current
+      const next = updateSessionAnswer(current, patch)
+      void saveActivePracticeSession(next)
+      return next
+    })
+  }
+
   function toggleOption(id: string) {
     if (!problem || choiceSubmitted) return
     playSound(problem.questionFormat === 'multiple-choice' && selectedOptionIds.includes(id) ? 'option-remove' : 'option')
     pulseHaptic(8)
     if (problem.questionFormat === 'single-choice') {
       setSelectedOptionIds([id])
+      persistAnswer({ selectedOptionIds: [id] })
       return
     }
-    setSelectedOptionIds((current) => current.includes(id) ? current.filter((optionId) => optionId !== id) : [...current, id])
+    const next = selectedOptionIds.includes(id) ? selectedOptionIds.filter((optionId) => optionId !== id) : [...selectedOptionIds, id]
+    setSelectedOptionIds(next)
+    persistAnswer({ selectedOptionIds: next })
   }
 
   function submitChoice() {
@@ -192,17 +274,20 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     pulseHaptic(correct ? [16, 22, 34] : 45)
     setChoiceSubmitted(true)
     setThinking(true)
+    persistAnswer({ choiceSubmitted: true, thinking: true })
   }
 
   function startThinking() {
     playSound('focus')
     setThinking(true)
+    persistAnswer({ thinking: true })
   }
 
   function revealAnswer() {
     playSound('reveal')
     pulseHaptic(12)
     setRevealed(true)
+    persistAnswer({ revealed: true })
   }
 
   function toggleSound() {
@@ -233,24 +318,22 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   }
 
   function toggleAnalysisSection(id: string) {
-    setExpandedSections((current) => {
-      const next = new Set(current)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    const next = new Set(expandedSections)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setExpandedSections(next)
+    persistAnswer({ expandedSectionIds: [...next] })
   }
 
   function toggleAllMethods() {
     if (!problem) return
     const methodKeys = problem.solutionMethods.map((method) => `method:${method.id}`)
     const allExpanded = methodKeys.every((key) => expandedSections.has(key))
-    setExpandedSections((current) => {
-      const next = new Set(current)
-      methodKeys.forEach((key) => allExpanded ? next.delete(key) : next.add(key))
-      if (allExpanded && methodKeys[0]) next.add(methodKeys[0])
-      return next
-    })
+    const next = new Set(expandedSections)
+    methodKeys.forEach((key) => allExpanded ? next.delete(key) : next.add(key))
+    if (allExpanded && methodKeys[0]) next.add(methodKeys[0])
+    setExpandedSections(next)
+    persistAnswer({ expandedSectionIds: [...next] })
   }
 
   async function grade(rating: ReviewRating) {
@@ -262,30 +345,54 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         isCorrect: choiceCorrect
       } : {})
       const cycleLectureId = selection?.lectureId || getProblemLectureIds(problem)[0]
-      if (cycleLectureId && allProblems) {
+      if (cycleLectureId && allProblems && selection?.mode !== 'boss') {
         const lectureProblemIds = allProblems
           .filter((candidate) => getProblemLectureIds(candidate).includes(cycleLectureId))
           .map((candidate) => candidate.id)
         await recordPracticeCycleCompletion(cycleLectureId, problem.id, lectureProblemIds).catch(() => undefined)
       }
+      let completedSession = activeSession
+      let rewardProfile = result.profile
+      let rewardCoins = result.coinsEarned
+      let rewardEncouragement = result.encouragement
+      let rewardUnlockEvents = result.unlockEvents
+      if (activeSession) {
+        completedSession = completeSessionProblem(activeSession, {
+          problemId: problem.id,
+          rating,
+          isCorrect: isChoice ? choiceCorrect : undefined
+        })
+        await saveActivePracticeSession(completedSession)
+        setActiveSession(completedSession)
+      }
+      if (boss && queue && completedSession && queueIndex === queue.length - 1) {
+        const battleScore = scoreBossBattle(completedSession.outcomes, queue)
+        const bossResult = await recordBossBattleResult(boss.lectureId, battleScore.score, battleScore.passed)
+        rewardProfile = bossResult.profile
+        rewardCoins += bossResult.coinBonus
+        rewardUnlockEvents = [...new Map([...result.unlockEvents, ...bossResult.unlockEvents].map((event) => [event.id, event])).values()]
+        rewardEncouragement = battleScore.passed
+          ? `${result.encouragement} ${boss.name}已被击破，真实掌握通过检验。`
+          : `${result.encouragement} ${boss.name}还剩 ${battleScore.remainingHp} 点生命；补强薄弱题后再战。`
+      }
       const soundDuration = playRewardSound({
         rating,
         techniqueTriggered: result.technique.triggered,
-        coinsEarned: result.coinsEarned,
+        coinsEarned: rewardCoins,
         advanced: result.advance.advanced,
         realmBreakthrough: result.advance.realmBreakthrough
       })
-      const unlockSoundDuration = result.unlockEvents.length
-        ? playUnlockSounds(result.unlockEvents, soundDuration + 120)
+      const unlockSoundDuration = rewardUnlockEvents.length
+        ? playUnlockSounds(rewardUnlockEvents, soundDuration + 120)
         : 0
       const voiceCue = getReviewVoiceCue({
-        profile: result.profile,
+        profile: rewardProfile,
         rating,
         isCorrect: choiceCorrect,
         advanced: result.advance.advanced,
         realmBreakthrough: result.advance.realmBreakthrough,
         activeRouteId: romanceSetting?.value as RomanceRouteId | undefined,
-        seed: result.profile.totalReviews + problem.reviewCount
+        seed: rewardProfile.totalReviews + problem.reviewCount
       })
       pulseHaptic(result.advance.realmBreakthrough ? [55, 35, 85, 35, 120] : result.advance.advanced ? [35, 25, 55, 25, 75] : [28, 24, 48])
       setReward({
@@ -295,11 +402,11 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         advanced: result.advance.advanced,
         realmBreakthrough: result.advance.realmBreakthrough,
         nextRealm: result.advance.next,
-        coinsEarned: result.coinsEarned,
-        encouragement: result.encouragement,
-        profile: result.profile,
+        coinsEarned: rewardCoins,
+        encouragement: rewardEncouragement,
+        profile: rewardProfile,
         technique: result.technique,
-        unlockEvents: result.unlockEvents,
+        unlockEvents: rewardUnlockEvents,
         voiceCue
       })
       if (getAudioPreferences().autoVoice) speakCharacterVoice(voiceCue, { delayMs: Math.max(soundDuration, unlockSoundDuration) + 160 })
@@ -308,15 +415,26 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     }
   }
 
-  function closeReward() {
+  async function closeReward() {
     stopCharacterVoice()
     playSound('next')
     setReward(undefined)
     if (queue && queueIndex < queue.length - 1) {
-      setQueueIndex((index) => index + 1)
+      if (activeSession) {
+        const next = advancePracticeSession(activeSession)
+        if (next) {
+          await saveActivePracticeSession(next)
+          setActiveSession(next)
+          setQueueIndex(next.queueIndex)
+        }
+      } else {
+        setQueueIndex((index) => index + 1)
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
+    await clearActivePracticeSession(activeSession?.id)
+    setActiveSession(undefined)
     onComplete()
   }
 
@@ -350,7 +468,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           <button type="button" className="icon-button sound-toggle" onClick={() => setAudioOpen(true)} aria-label="打开音效和语音设置" aria-expanded={audioOpen} title="音效和语音设置">
             {audioPreferences.soundEnabled || audioPreferences.voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
-          <span className="review-count">{queueIndex + 1}/{queue.length}</span>
+          <span className="review-count session-saved" title="当前进度已保存到本机">{queueIndex + 1}/{queue.length}</span>
         </div>
       </header>
 
@@ -370,6 +488,15 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
       <div className="session-progress" role="progressbar" aria-label="本次做题进度" aria-valuemin={0} aria-valuemax={queue.length} aria-valuenow={queueIndex + 1}>
         <span style={{ width: `${((queueIndex + 1) / queue.length) * 100}%` }} />
       </div>
+
+      {boss && bossProgress && (
+        <section className="boss-battle-hud" aria-label={`${boss.name}生命值`}>
+          <div><span><Swords size={15} />Boss 战 · {boss.title}</span><strong>{boss.name}</strong></div>
+          <b>HP {Math.max(0, boss.maxHp - bossProgress.damage)}/{boss.maxHp}</b>
+          <div className="boss-hp-track"><span style={{ width: `${Math.max(0, boss.maxHp - bossProgress.damage)}%` }} /></div>
+          <small>至少 4 题独立完成且造成 80 点伤害</small>
+        </section>
+      )}
 
       <div className="active-technique-strip"><ScrollText size={16} /><span>运转功法</span><strong>{getTechnique(profile.activeTechniqueId).name}</strong><small>{getTechnique(profile.activeTechniqueId).triggerLabel}</small></div>
 

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { db, defaultProfile, requestPersistentStorage, restoreLatestSnapshot, saveImage } from '../db'
 import { getRealmProgress } from '../domain/gamification'
-import { getCharacter } from '../domain/story'
+import { getCharacter, isCharacterUnlocked } from '../domain/story'
 import type { StoragePersistenceState } from '../types'
 import { downloadBackup, restoreBackup } from '../utils/backup'
 import { PlayerAvatar } from '../components/PlayerAvatar'
@@ -82,7 +82,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
   }
 
   function previewCharacterVoice() {
-    const characterId = profile.totalReviews >= 22 ? 'chen-yanjun' : 'he-xinping'
+    const characterId = isCharacterUnlocked(profile, getCharacter('chen-yanjun')) ? 'chen-yanjun' : 'he-xinping'
     const text = characterId === 'chen-yanjun'
       ? '何耀焜，条件和推导都守住了。这一题，很漂亮。'
       : '先把自己的路走稳，家里永远是你的后方。'
@@ -248,11 +248,11 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
           <div className="voice-cast-samples" aria-label="核心角色声线试听">
             {voiceDiagnostics.profiles.map((voiceProfile) => {
               const character = getCharacter(voiceProfile.characterId)
-              const unlocked = profile.totalReviews >= character.unlockAt
+              const unlocked = isCharacterUnlocked(profile, character)
               return (
                 <button type="button" disabled={!unlocked || !audioPreferences.voiceEnabled} onClick={() => speakCharacterVoice(getStoryVoiceCue(character.id, character.quote))} key={character.id}>
                   <span>{character.name.slice(0, 1)}</span>
-                  <strong>{unlocked ? character.name : `${character.unlockAt}题`}</strong>
+                  <strong>{unlocked ? character.name : `掌握力${character.unlockAt}`}</strong>
                   <small>{unlocked ? voiceProfile.voiceName || `${voiceProfile.rate.toFixed(2)}x · 音高 ${voiceProfile.pitch.toFixed(2)}` : '尚未相遇'}</small>
                 </button>
               )

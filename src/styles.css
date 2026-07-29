@@ -275,6 +275,7 @@ h1, h2, h3, p { margin-top: 0; }
 .bottom-nav .nav-prominent.active .nav-icon { color: var(--ink); background: #c8ff62; }
 
 .review-page { background: linear-gradient(180deg, #eceadf 0, var(--paper) 310px); }
+.practice-session-page { padding-bottom: calc(30px + var(--safe-bottom)); }
 .review-header { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 12px; margin: 2px 0 20px; }
 .review-header > div:nth-child(2) { min-width: 0; text-align: center; }
 .review-header span, .review-header small { display: block; }
@@ -285,6 +286,7 @@ h1, h2, h3, p { margin-top: 0; }
 .review-header-actions .sound-toggle[aria-pressed="true"] { color: #efffcf; background: #253028; border-color: #253028; }
 .review-header-actions .voice-toggle[aria-pressed="true"] { color: #d9fff6; background: #245f58; border-color: #245f58; }
 .review-count, .step-label { min-width: 44px; padding: 8px; color: var(--muted); text-align: center; background: #dedfd6; border-radius: 11px; font-size: 0.7rem; }
+.session-saved::before { content: ""; width: 6px; height: 6px; display: inline-block; margin-right: 4px; vertical-align: 1px; background: #6f9b24; border-radius: 50%; }
 .review-card { padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
 .review-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.73rem; font-weight: 700; }
 .review-meta span:last-child { display: inline-flex; align-items: center; gap: 5px; }
@@ -673,6 +675,7 @@ h1, h2, h3, p { margin-top: 0; }
 .system-banner small { margin-top: 2px; color: #c4cec7; font-size: .61rem; line-height: 1.35; }
 .system-banner .icon-button { width: 38px; height: 38px; color: #fff; background: #344239; border-color: #506057; }
 .system-banner .button { min-height: 38px; padding: 7px 10px; border-radius: 8px; font-size: .67rem; }
+.resume-banner { grid-template-columns: 24px minmax(0, 1fr) auto 38px; }
 .update-banner { color: #222615; background: #f4d876; border-bottom-color: #d6b64e; }
 .update-banner > svg { color: #5a4600; }
 .update-banner small { color: #66591d; }
@@ -1219,11 +1222,32 @@ h1, h2, h3, p { margin-top: 0; }
 .practice-role-tabs { display: grid; grid-template-columns: repeat(5, minmax(64px, 1fr)); gap: 4px; overflow-x: auto; padding: 4px; background: #e9ebe7; border-radius: 8px; scrollbar-width: none; }
 .practice-role-tabs button { min-width: 64px; min-height: 44px; padding: 6px 4px; color: #68716d; background: transparent; border: 0; border-radius: 6px; font-size: .61rem; font-weight: 850; }
 .practice-role-tabs button small { display: block; margin-top: 2px; font-size: .52rem; }.practice-role-tabs button.active { color: #fff; background: #252d2a; }
+.lecture-boss-gate { min-height: 132px; display: grid; grid-template-columns: 82px minmax(0, 1fr) auto; align-items: center; gap: 14px; margin: 16px 0; padding: 14px; color: #eef2ef; background: #222a27; border: 1px solid #39433f; border-left: 4px solid #b63f39; border-radius: 8px; box-shadow: 0 10px 25px rgba(24, 31, 28, .13); }
+.lecture-boss-gate.locked { color: #d5dad6; background: #353b38; border-left-color: #7b817e; }
+.boss-opponent-portrait { width: 82px; height: 104px; overflow: hidden; background: #151a18; border: 1px solid #555f5a; border-radius: 6px; }
+.boss-opponent-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; animation: character-challenge 2.4s ease-in-out infinite; }
+.boss-gate-copy { min-width: 0; }
+.boss-gate-copy > span { display: inline-flex; align-items: center; gap: 5px; color: #e7bd5a; font-size: .61rem; font-weight: 900; }
+.boss-gate-copy h2 { margin: 5px 0 3px; font-size: 1rem; }
+.boss-gate-copy > p { margin: 0; color: #aeb8b3; font-size: .64rem; }
+.boss-unlock-progress { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.boss-unlock-progress span { padding: 4px 6px; color: #c3cbc7; background: #323b37; border: 1px solid #48524d; border-radius: 5px; font-size: .54rem; font-weight: 800; }
+.boss-unlock-progress span.done { color: #dfffaa; border-color: #688947; }
+.lecture-boss-gate > button { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 11px; color: #1b211e; background: #e8bd58; border: 0; border-radius: 6px; font-size: .63rem; font-weight: 900; }
+.lecture-boss-gate > button:disabled { color: #aeb4b0; background: #4b514e; }
 .lecture-section-list { display: grid; gap: 6px; margin: 13px 0; }
 .lecture-section-list button { min-height: 54px; display: grid; grid-template-columns: 23px minmax(0, 1fr); align-items: center; gap: 9px; padding: 9px 11px; text-align: left; color: #353d3a; background: #f3f4f1; border: 1px solid #e1e3df; border-radius: 7px; }.lecture-section-list button.active { color: #6f211f; background: #f9e9e5; border-color: #dca19a; }.lecture-section-list button:disabled { opacity: .48; }.lecture-section-list strong, .lecture-section-list small { display: block; }.lecture-section-list strong { font-size: .72rem; }.lecture-section-list small { margin-top: 3px; color: #7c8581; font-size: .59rem; }
 .start-lecture-button { color: #fff; background: #a63330; }.start-lecture-button:hover { background: #be3e3a; }
 .other-bank-row { display: grid; grid-template-columns: 25px minmax(0, 1fr) auto; align-items: center; gap: 9px; margin-top: 13px; padding: 13px; background: #e8ebea; border-radius: 8px; }.other-bank-row strong, .other-bank-row p { display: block; }.other-bank-row strong { font-size: .72rem; }.other-bank-row p { margin: 3px 0 0; color: #747d79; font-size: .58rem; }.other-bank-row button { padding: 7px 8px; color: #fff; background: #313a37; border: 0; border-radius: 6px; font-size: .59rem; font-weight: 800; }
 .session-progress { height: 5px; overflow: hidden; margin: -13px 0 15px; background: #d5d8d3; border-radius: 999px; }.session-progress span { display: block; height: 100%; background: linear-gradient(90deg, #ad3431, #e4b552); transition: width .35s ease; }
+.boss-battle-hud { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; margin: 0 0 12px; padding: 12px; color: #edf2ef; background: #242a28; border-left: 4px solid #bc403b; border-radius: 7px; }
+.boss-battle-hud > div:first-child span, .boss-battle-hud > div:first-child strong { display: block; }
+.boss-battle-hud > div:first-child span { display: flex; align-items: center; gap: 5px; color: #e6ba56; font-size: .57rem; font-weight: 850; }
+.boss-battle-hud > div:first-child strong { margin-top: 3px; font-size: .78rem; }
+.boss-battle-hud > b { align-self: end; color: #f3d987; font-size: .65rem; }
+.boss-hp-track { grid-column: 1 / -1; height: 8px; overflow: hidden; background: #111614; border: 1px solid #414945; border-radius: 3px; }
+.boss-hp-track span { display: block; height: 100%; background: linear-gradient(90deg, #9f2d2c, #e45d4f); transition: width .45s ease; }
+.boss-battle-hud > small { grid-column: 1 / -1; color: #9ea9a4; font-size: .55rem; }
 .choice-cheer { display: grid; grid-template-columns: 126px minmax(0, 1fr); align-items: center; margin: -18px -10px 5px; text-align: left; }.choice-cheer strong, .choice-cheer span { display: block; }.choice-cheer strong { color: #f5cb68; font-size: .92rem; }.choice-cheer span { margin-top: 4px; color: #c3d2cd; font-size: .68rem; line-height: 1.45; }
 
 /* 安装与升级 */
@@ -1272,6 +1296,8 @@ h1, h2, h3, p { margin-top: 0; }
   .profile-hero-copy > strong { font-size: 1.12rem; }
   .profile-hero-copy > span { font-size: .59rem; }
   .review-card { padding: 17px 15px; }
+  .practice-session-page { padding-top: 12px; padding-right: 12px; padding-left: 12px; }
+  .practice-session-page .review-header { position: sticky; z-index: 30; top: 0; margin: -12px -12px 14px; padding: calc(9px + env(safe-area-inset-top)) 12px 9px; background: rgba(243, 243, 239, .94); border-bottom: 1px solid rgba(207, 212, 207, .9); backdrop-filter: blur(15px); }
   .review-header { grid-template-columns: 40px minmax(64px, 1fr) auto; gap: 6px; }
   .review-header > .icon-button { width: 40px; height: 40px; }
   .review-header-actions { gap: 4px; }
@@ -1282,6 +1308,9 @@ h1, h2, h3, p { margin-top: 0; }
   .review-card h1 { font-size: 1.3rem; }
   .choice-cheer { grid-template-columns: 108px minmax(0, 1fr); }
   .answer-panel { padding: 16px 13px; }
+  .lecture-boss-gate { grid-template-columns: 68px minmax(0, 1fr); gap: 11px; padding: 12px; }
+  .boss-opponent-portrait { width: 68px; height: 94px; }
+  .lecture-boss-gate > button { grid-column: 1 / -1; width: 100%; }
 }
 
 @media (max-width: 350px) {

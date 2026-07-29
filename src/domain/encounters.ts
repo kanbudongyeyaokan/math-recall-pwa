@@ -1,4 +1,5 @@
 import type { PlayerProfile } from '../types'
+import { isStoryThresholdUnlocked } from './story'
 
 export interface EncounterChoice {
   id: string
@@ -110,7 +111,7 @@ export const STORY_ENCOUNTERS: readonly StoryEncounter[] = [
 ] as const
 
 export function getPendingEncounter(profile: PlayerProfile) {
-  return STORY_ENCOUNTERS.find((encounter) => profile.totalReviews >= encounter.threshold && !profile.storyChoices[encounter.id])
+  return STORY_ENCOUNTERS.find((encounter) => isStoryThresholdUnlocked(profile, encounter.threshold) && !profile.storyChoices[encounter.id])
 }
 
 export function getBondStatus(points: number) {

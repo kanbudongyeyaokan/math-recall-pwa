@@ -9,15 +9,15 @@ describe('交大斗魂剧情进度', () => {
     expect(progress.remaining).toBe(1)
   })
 
-  it('按真实做题数量解锁宿敌与后续对话', () => {
-    const progress = getStoryProgress({ ...defaultProfile, totalReviews: 32 })
+  it('按真实掌握力解锁宿敌与后续对话', () => {
+    const progress = getStoryProgress({ ...defaultProfile, masteredProblemIds: Array.from({ length: 32 }, (_, index) => `q${index}`) })
     expect(progress.current.id).toBe('yuan-speedboard')
     expect(progress.current.speaker).toBe('袁越')
     expect(progress.next?.id).toBe('two-methods')
   })
 
-  it('三百题后抵达交大终章', () => {
-    const progress = getStoryProgress({ ...defaultProfile, totalReviews: 300 })
+  it('掌握力达到三百后抵达交大终章', () => {
+    const progress = getStoryProgress({ ...defaultProfile, masteredProblemIds: Array.from({ length: 300 }, (_, index) => `q${index}`) })
     expect(progress.current.id).toBe('future')
     expect(progress.percent).toBe(100)
   })

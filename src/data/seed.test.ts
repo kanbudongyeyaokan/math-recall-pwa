@@ -2,7 +2,13 @@ import katex from 'katex'
 import { describe, expect, it } from 'vitest'
 import { curatedBankPoints } from './banks/curatedBank'
 import { getProblemRole } from '../domain/curriculum'
-import { findDuplicateMethodGroups, getMathFragments, getProblemTextFields, hasBalancedMathDelimiters } from './questionQuality'
+import {
+  findDuplicateMethodGroups,
+  getMathFragments,
+  getProblemTextFields,
+  hasBalancedMathDelimiters,
+  hasUnwrappedMathSymbols
+} from './questionQuality'
 import { DEPRECATED_SEED_IDS, makeSeedProblems } from './seed'
 
 describe('高质量考研数学题库', () => {
@@ -70,11 +76,12 @@ describe('高质量考研数学题库', () => {
     }
   })
 
-  it('新增题数学分隔符配对且每段公式均能被 KaTeX 严格解析', () => {
+  it('全题库数学分隔符配对、无散落 Unicode 公式且每段均能被 KaTeX 严格解析', () => {
     const failures: string[] = []
-    for (const problem of curated) {
+    for (const problem of seeds) {
       for (const text of getProblemTextFields(problem)) {
         if (!hasBalancedMathDelimiters(text)) failures.push(`${problem.id}:unbalanced`)
+        if (hasUnwrappedMathSymbols(text)) failures.push(`${problem.id}:unwrapped-unicode`)
         for (const formula of getMathFragments(text)) {
           try {
             katex.renderToString(formula, { throwOnError: true, strict: 'error' })

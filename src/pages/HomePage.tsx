@@ -6,6 +6,7 @@ import { StoryPanel } from '../components/StoryPanel'
 import { db, defaultProfile, getOrStartPracticeCycle } from '../db'
 import { CALCULUS_LECTURES, getProblemLectureIds, type PracticeSelection } from '../domain/curriculum'
 import { getRealmProgress } from '../domain/gamification'
+import { getMasteryPower } from '../domain/mastery'
 import { getUnseenPracticeIds } from '../domain/practiceCycle'
 import { playSound } from '../utils/sound'
 
@@ -23,9 +24,8 @@ export function HomePage({ online, onOpenPractice, onStartProblem, onAdd, onInst
   const lastReward = useLiveQuery(() => db.rewards.orderBy('earnedAt').last())
   const realm = getRealmProgress(profile.xp)
   const calculusProblems = problems.filter((problem) => getProblemLectureIds(problem).length > 0)
-  const completedLectures = CALCULUS_LECTURES.filter((lecture) => (
-    calculusProblems.some((problem) => problem.reviewCount > 0 && getProblemLectureIds(problem).includes(lecture.id))
-  )).length
+  const completedLectures = Object.keys(profile.bossVictories).length
+  const masteryPower = getMasteryPower(profile)
 
   async function drawRandom() {
     if (!problems.length) return onAdd()
@@ -81,8 +81,8 @@ export function HomePage({ online, onOpenPractice, onStartProblem, onAdd, onInst
       </section>
 
       <section className="mission-strip" aria-label="交大主线进度">
-        <div><Target size={19} /><span><strong>{completedLectures}/18</strong><small>高数讲次已踏足</small></span></div>
-        <div><Flame size={19} /><span><strong>{profile.totalReviews}</strong><small>累计完成题目</small></span></div>
+        <div><Target size={19} /><span><strong>{completedLectures}/18</strong><small>讲次 Boss 已击破</small></span></div>
+        <div><Flame size={19} /><span><strong>{masteryPower}</strong><small>真实掌握力</small></span></div>
         <div><SpiritStoneIcon size="md" /><span><strong>{profile.coins}</strong><small>可用灵石</small></span></div>
       </section>
 

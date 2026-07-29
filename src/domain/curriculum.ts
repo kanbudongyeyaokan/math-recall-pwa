@@ -25,6 +25,7 @@ export interface PracticeSelection {
   sectionId?: string
   role: PracticeRole
   label: string
+  mode?: 'practice' | 'boss'
 }
 
 export const PRACTICE_ROLE_LABELS: Record<PracticeRole, string> = {

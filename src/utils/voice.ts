@@ -1,4 +1,4 @@
-import { getCharacter, type RomanceRouteId, type StoryRole } from '../domain/story'
+import { getCharacter, isCharacterUnlocked, type RomanceRouteId, type StoryRole } from '../domain/story'
 import type { PlayerProfile, ReviewRating } from '../types'
 import { getAudioPreferences } from './sound'
 
@@ -251,14 +251,14 @@ export function getReviewVoiceCue(context: ReviewVoiceContext): CharacterVoiceCu
   const moment: VoiceMoment = context.realmBreakthrough ? 'realm' : context.advanced ? 'star' : context.rating
   const seed = context.seed ?? context.profile.totalReviews
   const activeRouteUnlocked = context.activeRouteId
-    && getCharacter(context.activeRouteId).unlockAt <= context.profile.totalReviews
+    && isCharacterUnlocked(context.profile, getCharacter(context.activeRouteId))
   let characterId: string
 
   if ((moment === 'realm' || moment === 'star') && activeRouteUnlocked) characterId = context.activeRouteId!
-  else if (moment === 'realm') characterId = context.profile.totalReviews >= 22 ? 'chen-yanjun' : 'he-yaokun'
+  else if (moment === 'realm') characterId = isCharacterUnlocked(context.profile, getCharacter('chen-yanjun')) ? 'chen-yanjun' : 'he-yaokun'
   else if (activeRouteUnlocked && (context.rating === 'multiple' || (context.rating === 'independent' && seed % 2 === 0))) characterId = context.activeRouteId!
   else {
-    const unlocked = REVIEW_SPEAKERS[context.rating].filter((speaker) => speaker.unlockAt <= context.profile.totalReviews)
+    const unlocked = REVIEW_SPEAKERS[context.rating].filter((speaker) => isCharacterUnlocked(context.profile, getCharacter(speaker.id)))
     characterId = unlocked[Math.abs(seed) % unlocked.length]?.id || 'he-yaokun'
   }
 

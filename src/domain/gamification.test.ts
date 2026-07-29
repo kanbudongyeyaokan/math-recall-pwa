@@ -25,7 +25,11 @@ const profile: PlayerProfile = {
   activeTechniqueId: 'definition-heart',
   techniqueMastery: {},
   storyChoices: {},
-  characterBonds: {}
+  characterBonds: {},
+  masteredProblemIds: [],
+  correctedProblemIds: [],
+  bossVictories: {},
+  bossAttempts: 0
 }
 
 describe('斗气境界与奖励进度', () => {

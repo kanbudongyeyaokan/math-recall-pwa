@@ -54,3 +54,12 @@ export function hasBalancedMathDelimiters(text: string) {
   const withoutBlocks = text.replace(/\$\$[\s\S]*?\$\$/g, '')
   return (withoutBlocks.match(/\$/g)?.length || 0) % 2 === 0
 }
+
+const UNWRAPPED_MATH_SYMBOLS = /[∫∑√∞∂∇∏∬∮₀₁₂₃₄₅₆₇₈₉⁰¹²³⁴⁵⁶⁷⁸⁹ᵀᵖᐟ]/
+
+export function hasUnwrappedMathSymbols(text: string) {
+  const prose = text
+    .replace(/\$\$[\s\S]*?\$\$/g, '')
+    .replace(/\$[^$\n]+?\$/g, '')
+  return UNWRAPPED_MATH_SYMBOLS.test(prose)
+}

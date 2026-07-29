@@ -1,4 +1,5 @@
 import type { PlayerProfile } from '../types'
+import { getMasteryPower } from './mastery'
 
 export type StoryRole = 'family' | 'mentor' | 'rival' | 'friend' | 'classmate' | 'romance' | 'stranger' | 'protagonist'
 export type RomanceRouteId = 'chen-yanjun' | 'medusa' | 'xiaoyixian'
@@ -430,27 +431,38 @@ export function getCharacterPortrait(character: StoryCharacter, pose: CharacterP
   return character.portraits?.[pose] || character.portraits?.idle || character.portrait
 }
 
-export function getRomanceRouteStatus(route: RomanceRoute, totalReviews: number) {
-  if (totalReviews < route.unlockAt) return { label: '未相识', progress: 0 }
-  if (totalReviews < route.confidantAt) {
-    return { label: '相识', progress: Math.round(((totalReviews - route.unlockAt) / (route.confidantAt - route.unlockAt)) * 100) }
+export function isStoryThresholdUnlocked(profile: PlayerProfile, threshold: number) {
+  return getMasteryPower(profile) >= threshold
+}
+
+export function isCharacterUnlocked(profile: PlayerProfile, character: StoryCharacter) {
+  return character.role === 'protagonist' || isStoryThresholdUnlocked(profile, character.unlockAt)
+}
+
+export function getRomanceRouteStatus(route: RomanceRoute, source: PlayerProfile | number) {
+  const masteryPower = typeof source === 'number' ? source : getMasteryPower(source)
+  if (masteryPower < route.unlockAt) return { label: '未相识', progress: 0 }
+  if (masteryPower < route.confidantAt) {
+    return { label: '相识', progress: Math.round(((masteryPower - route.unlockAt) / (route.confidantAt - route.unlockAt)) * 100) }
   }
-  if (totalReviews < route.partnerAt) {
-    return { label: '知己', progress: Math.round(((totalReviews - route.confidantAt) / (route.partnerAt - route.confidantAt)) * 100) }
+  if (masteryPower < route.partnerAt) {
+    return { label: '知己', progress: Math.round(((masteryPower - route.confidantAt) / (route.partnerAt - route.confidantAt)) * 100) }
   }
   return { label: '恋人', progress: 100 }
 }
 
 export function getStoryProgress(profile: PlayerProfile) {
-  const current = [...STORY_CHAPTERS].reverse().find((chapter) => profile.totalReviews >= chapter.threshold) || STORY_CHAPTERS[0]
-  const next = STORY_CHAPTERS.find((chapter) => profile.totalReviews < chapter.threshold)
+  const masteryPower = getMasteryPower(profile)
+  const current = [...STORY_CHAPTERS].reverse().find((chapter) => masteryPower >= chapter.threshold) || STORY_CHAPTERS[0]
+  const next = STORY_CHAPTERS.find((chapter) => masteryPower < chapter.threshold)
   const start = current.threshold
   const end = next?.threshold ?? start
   return {
     current,
     next,
-    remaining: next ? next.threshold - profile.totalReviews : 0,
-    percent: next ? Math.max(0, Math.min(100, Math.round(((profile.totalReviews - start) / (end - start)) * 100))) : 100,
-    unlocked: STORY_CHAPTERS.filter((chapter) => profile.totalReviews >= chapter.threshold)
+    masteryPower,
+    remaining: next ? next.threshold - masteryPower : 0,
+    percent: next ? Math.max(0, Math.min(100, Math.round(((masteryPower - start) / (end - start)) * 100))) : 100,
+    unlocked: STORY_CHAPTERS.filter((chapter) => masteryPower >= chapter.threshold)
   }
 }

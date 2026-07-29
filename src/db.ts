@@ -13,14 +13,19 @@ import {
 import { getReviewOutcome } from './domain/scheduler'
 import { CULTIVATION_TECHNIQUES, resolveTechnique } from './domain/cultivation'
 import { STORY_ENCOUNTERS } from './domain/encounters'
+import { isStoryThresholdUnlocked } from './domain/story'
+import { getLectureBoss } from './domain/boss'
 import { getNewUnlockEvents } from './domain/unlocks'
+import { applyProblemMasteryToProfile, rebuildProfileMastery } from './domain/mastery'
 import {
   getPracticeCycleSettingKey,
   markPracticeProblemSeen as markCycleProblemSeen,
   preparePracticeCycle,
   type PracticeCycleState
 } from './domain/practiceCycle'
+import { ACTIVE_PRACTICE_SESSION_KEY } from './domain/practiceSession'
 import type {
+  ActivePracticeSession,
   AppSetting,
   ImageAsset,
   PlayerProfile,
@@ -79,7 +84,11 @@ export const defaultProfile: PlayerProfile = {
   activeTechniqueId: 'definition-heart',
   techniqueMastery: {},
   storyChoices: {},
-  characterBonds: {}
+  characterBonds: {},
+  masteredProblemIds: [],
+  correctedProblemIds: [],
+  bossVictories: {},
+  bossAttempts: 0
 }
 
 export function normalizeProblemRecord(problem: Problem): Problem {
@@ -123,7 +132,11 @@ export function normalizeProfileRecord(profile?: PlayerProfile): PlayerProfile {
     storyChoices: profile?.storyChoices && typeof profile.storyChoices === 'object' ? profile.storyChoices : {},
     characterBonds: profile?.characterBonds && typeof profile.characterBonds === 'object'
       ? migrateCharacterBonds(profile.characterBonds)
-      : {}
+      : {},
+    masteredProblemIds: Array.isArray(profile?.masteredProblemIds) ? [...new Set(profile.masteredProblemIds)] : [],
+    correctedProblemIds: Array.isArray(profile?.correctedProblemIds) ? [...new Set(profile.correctedProblemIds)] : [],
+    bossVictories: profile?.bossVictories && typeof profile.bossVictories === 'object' ? profile.bossVictories : {},
+    bossAttempts: profile?.bossAttempts || 0
   }
 }
 
@@ -266,11 +279,29 @@ export class MathRecallDatabase extends Dexie {
 export const db = new MathRecallDatabase()
 
 export async function initializeDatabase() {
-  await db.transaction('rw', db.problems, db.profiles, db.settings, async () => {
+  await db.transaction('rw', db.problems, db.reviews, db.profiles, db.settings, async () => {
     const dismissed = new Set(await getSettingValue<string[]>(DISMISSED_SEEDS_KEY, []))
-    const existingIds = new Set(await db.problems.toCollection().primaryKeys())
-    const missingSeeds = makeSeedProblems().filter((problem) => !existingIds.has(problem.id) && !dismissed.has(problem.id))
+    const seeds = makeSeedProblems()
+    const existingSeeds = await db.problems.bulkGet(seeds.map((problem) => problem.id))
+    const existingById = new Map(existingSeeds.filter(Boolean).map((problem) => [problem!.id, problem!]))
+    const missingSeeds = seeds.filter((problem) => !existingById.has(problem.id) && !dismissed.has(problem.id))
     if (missingSeeds.length) await db.problems.bulkAdd(missingSeeds)
+
+    const refreshedSeeds = seeds.flatMap((seed) => {
+      const existing = existingById.get(seed.id)
+      if (!existing?.isSeed || (existing.seedVersion || 0) >= (seed.seedVersion || 0)) return []
+      return [{
+        ...seed,
+        createdAt: existing.createdAt,
+        nextReviewAt: existing.nextReviewAt,
+        intervalIndex: existing.intervalIndex,
+        reviewCount: existing.reviewCount,
+        archived: existing.archived,
+        questionImageId: existing.questionImageId,
+        answerImageId: existing.answerImageId
+      }]
+    })
+    if (refreshedSeeds.length) await db.problems.bulkPut(refreshedSeeds)
 
     for (const id of DEPRECATED_SEED_IDS) {
       const duplicate = await db.problems.get(id)
@@ -285,7 +316,10 @@ export async function initializeDatabase() {
 
     const currentProfile = await db.profiles.get('player')
     if (!currentProfile) await db.profiles.add(defaultProfile)
-    else await db.profiles.put(normalizeProfileRecord(currentProfile))
+    else {
+      const [problems, reviews] = await Promise.all([db.problems.toArray(), db.reviews.toArray()])
+      await db.profiles.put(rebuildProfileMastery(normalizeProfileRecord(currentProfile), problems, reviews))
+    }
   })
 }
 
@@ -296,6 +330,23 @@ export async function getSettingValue<T>(key: string, fallback: T): Promise<T> {
 
 export async function setSettingValue<T>(key: string, value: T) {
   await db.settings.put({ key, value, updatedAt: Date.now() })
+}
+
+export async function getActivePracticeSession() {
+  return getSettingValue<ActivePracticeSession | undefined>(ACTIVE_PRACTICE_SESSION_KEY, undefined)
+}
+
+export async function saveActivePracticeSession(session: ActivePracticeSession) {
+  await setSettingValue(ACTIVE_PRACTICE_SESSION_KEY, session)
+  return session
+}
+
+export async function clearActivePracticeSession(sessionId?: string) {
+  if (sessionId) {
+    const active = await getActivePracticeSession()
+    if (active?.id !== sessionId) return
+  }
+  await db.settings.delete(ACTIVE_PRACTICE_SESSION_KEY)
 }
 
 export async function getOrStartPracticeCycle(lectureId: string, problemIds: readonly string[], seed = Date.now()) {
@@ -413,22 +464,14 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
       realmBreakthrough: advance.realmBreakthrough,
       coinsEarned
     })
-    const nextProfile: PlayerProfile = {
+    const profileWithTechnique: PlayerProfile = {
       ...studiedProfile,
       techniqueMastery: {
         ...studiedProfile.techniqueMastery,
         [technique.technique.id]: technique.nextMastery
       }
     }
-    const unlockEvents = getNewUnlockEvents(currentProfile, nextProfile)
-
-    await db.problems.update(problemId, {
-      nextReviewAt: outcome.nextReviewAt,
-      intervalIndex: outcome.intervalIndex,
-      reviewCount: problem.reviewCount + 1,
-      updatedAt: now
-    })
-    await db.reviews.add({
+    const reviewRecord: ReviewLog = {
       problemId,
       rating,
       reviewedAt: now,
@@ -442,7 +485,17 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
       techniqueXpBonus: technique.xpBonus,
       techniqueCoinBonus: technique.coinBonus,
       techniqueMasteryGained: technique.masteryGained
+    }
+    const nextProfile = applyProblemMasteryToProfile(profileWithTechnique, problem, [...previousReviews, reviewRecord])
+    const unlockEvents = getNewUnlockEvents(currentProfile, nextProfile)
+
+    await db.problems.update(problemId, {
+      nextReviewAt: outcome.nextReviewAt,
+      intervalIndex: outcome.intervalIndex,
+      reviewCount: problem.reviewCount + 1,
+      updatedAt: now
     })
+    await db.reviews.add(reviewRecord)
     await db.rewards.add(reward)
     await db.profiles.put(nextProfile)
 
@@ -450,6 +503,43 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
   })
   await createRecoverySnapshot('完成做题')
   return result
+}
+
+export async function recordBossBattleResult(lectureId: string, score: number, passed: boolean) {
+  return db.transaction('rw', db.profiles, async () => {
+    const current = normalizeProfileRecord(await db.profiles.get('player'))
+    const boss = getLectureBoss(lectureId)
+    const previousVictory = current.bossVictories[lectureId]
+    const firstVictory = passed && !previousVictory
+    const coinBonus = passed ? (firstVictory ? 80 : 24) : 0
+    const next: PlayerProfile = {
+      ...current,
+      coins: current.coins + coinBonus,
+      lifetimeCoins: current.lifetimeCoins + coinBonus,
+      bossAttempts: current.bossAttempts + 1,
+      bossVictories: passed ? {
+        ...current.bossVictories,
+        [lectureId]: {
+          lectureId,
+          bossId: boss.id,
+          bestScore: Math.max(score, previousVictory?.bestScore || 0),
+          victories: (previousVictory?.victories || 0) + 1,
+          lastDefeatedAt: Date.now()
+        }
+      } : current.bossVictories
+    }
+    const unlockEvents = getNewUnlockEvents(current, next)
+    if (firstVictory) {
+      unlockEvents.unshift({
+        id: `challenge:${boss.id}`,
+        kind: 'challenge',
+        title: `${boss.name} · 首次击破`,
+        description: `第 ${Number(lectureId.slice(-2))} 讲 Boss 战通关`
+      })
+    }
+    await db.profiles.put(next)
+    return { profile: next, boss, score, passed, firstVictory, coinBonus, unlockEvents }
+  })
 }
 
 export async function equipTechnique(techniqueId: string) {
@@ -470,7 +560,7 @@ export async function chooseStoryEncounter(encounterId: string, choiceId: string
     const encounter = STORY_ENCOUNTERS.find((candidate) => candidate.id === encounterId)
     const selected = encounter?.choices.find((candidate) => candidate.id === choiceId)
     if (!encounter || !selected) throw new Error('剧情选择不存在')
-    if (profile.totalReviews < encounter.threshold) throw new Error('这段剧情尚未解锁')
+    if (!isStoryThresholdUnlocked(profile, encounter.threshold)) throw new Error('这段剧情尚未解锁')
     if (profile.storyChoices[encounter.id]) return profile
     const next: PlayerProfile = {
       ...profile,

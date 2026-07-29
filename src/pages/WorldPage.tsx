@@ -31,6 +31,8 @@ import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamifi
 import {
   getRomanceRouteStatus,
   getStoryProgress,
+  isCharacterUnlocked,
+  isStoryThresholdUnlocked,
   ROMANCE_ROUTES,
   STORY_CHAPTERS,
   STORY_CHARACTERS,
@@ -90,10 +92,6 @@ const missionViews = [
   { id: 'technique' as const, label: '功法', Icon: ScrollText },
   { id: 'honor' as const, label: '荣誉', Icon: Award }
 ]
-
-function isUnlockedCharacter(character: StoryCharacter, totalReviews: number) {
-  return character.role === 'protagonist' || totalReviews >= character.unlockAt
-}
 
 function nextBondLabel(points: number) {
   if (points < 8) return `再获得 ${8 - points} 羁绊进入“留下印象”`
@@ -231,24 +229,24 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
           <section className="world-section character-roster-section">
             <div className="world-section-heading">
               <div><p className="eyebrow"><UserRoundSearch size={14} /> 人物志</p><h2>相遇与羁绊</h2></div>
-              <strong>{STORY_CHARACTERS.filter((character) => isUnlockedCharacter(character, profile.totalReviews)).length}/{STORY_CHARACTERS.length}</strong>
+              <strong>{STORY_CHARACTERS.filter((character) => isCharacterUnlocked(profile, character)).length}/{STORY_CHARACTERS.length}</strong>
             </div>
             <div className="horizontal-filters" role="tablist" aria-label="人物阵营">
               {characterFilters.map((filter) => <button type="button" role="tab" aria-selected={characterFilter === filter.id} className={characterFilter === filter.id ? 'active' : ''} onClick={() => setCharacterFilter(filter.id)} key={filter.id}>{filter.label}</button>)}
             </div>
             <div className="world-character-grid">
               {visibleCharacters.map((character) => {
-                const unlocked = isUnlockedCharacter(character, profile.totalReviews)
+                const unlocked = isCharacterUnlocked(profile, character)
                 const bond = profile.characterBonds[character.id] || 0
                 const route = ROMANCE_ROUTES.find((candidate) => candidate.id === character.id)
-                const relation = route ? getRomanceRouteStatus(route, profile.totalReviews).label : character.role === 'protagonist' ? realm.realm : getBondStatus(bond)
+                const relation = route ? getRomanceRouteStatus(route, profile).label : character.role === 'protagonist' ? realm.realm : getBondStatus(bond)
                 return (
                   <button type="button" className={`world-character ${unlocked ? '' : 'locked'} role-${character.role}`} disabled={!unlocked} onClick={() => { playSound('character-open'); setSelectedCharacter(character) }} key={character.id}>
                     <span className="world-character-portrait"><CharacterPortrait character={character} pose={character.role === 'rival' ? 'challenge' : 'idle'} /></span>
                     <span className="world-character-copy">
                       <small>{STORY_ROLE_LABELS[character.role]}</small>
                       <strong>{unlocked ? character.name : '尚未相遇'}</strong>
-                      <em>{unlocked ? relation : `完成 ${character.unlockAt} 题解锁`}</em>
+                      <em>{unlocked ? relation : `掌握力 ${character.unlockAt} 解锁`}</em>
                       {unlocked && character.role !== 'protagonist' && <i>{nextBondLabel(bond)}</i>}
                     </span>
                     {unlocked ? <ChevronRight size={18} /> : <LockKeyhole size={17} />}
@@ -309,9 +307,9 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
               <div className="world-section-heading"><div><p className="eyebrow"><Map size={14} /> 交大之路</p><h2>主线章节</h2></div><strong>{story.unlocked.length}/{STORY_CHAPTERS.length}</strong></div>
               <div className="story-timeline">
                 {visibleChapters.map((chapter) => {
-                  const unlocked = profile.totalReviews >= chapter.threshold
+                  const unlocked = isStoryThresholdUnlocked(profile, chapter.threshold)
                   const current = chapter.id === story.current.id
-                  return <article className={`${unlocked ? 'unlocked' : 'locked'} ${current ? 'current' : ''}`} key={chapter.id}><span>{unlocked ? <Check size={15} /> : <LockKeyhole size={14} />}</span><div><small>{chapter.act} · {chapter.location}</small><strong>{chapter.title}</strong><p>{unlocked ? chapter.objective : `累计完成 ${chapter.threshold} 题解锁`}</p></div>{current && <b>当前</b>}</article>
+                  return <article className={`${unlocked ? 'unlocked' : 'locked'} ${current ? 'current' : ''}`} key={chapter.id}><span>{unlocked ? <Check size={15} /> : <LockKeyhole size={14} />}</span><div><small>{chapter.act} · {chapter.location}</small><strong>{chapter.title}</strong><p>{unlocked ? chapter.objective : `掌握力达到 ${chapter.threshold} 解锁`}</p></div>{current && <b>当前</b>}</article>
                 })}
               </div>
               <button type="button" className="timeline-toggle" onClick={() => setShowAllChapters((current) => !current)}>{showAllChapters ? '收起章节' : `查看完整 ${STORY_CHAPTERS.length} 章`}<ChevronRight size={17} /></button>
@@ -323,10 +321,10 @@ export function WorldPage({ notify, onPractice }: WorldPageProps) {
               <div className="world-section-heading"><div><p className="eyebrow"><Swords size={14} /> 抉择事件</p><h2>对手与同行者的挑战</h2></div><strong>{Object.keys(profile.storyChoices).length}/{STORY_ENCOUNTERS.length}</strong></div>
               <div className="challenge-list">
                 {STORY_ENCOUNTERS.map((encounter) => {
-                  const unlocked = profile.totalReviews >= encounter.threshold
+                  const unlocked = isStoryThresholdUnlocked(profile, encounter.threshold)
                   const completed = Boolean(profile.storyChoices[encounter.id])
                   const character = STORY_CHARACTERS.find((item) => item.id === encounter.characterId)
-                  return <article className={`${unlocked ? '' : 'locked'} ${completed ? 'completed' : ''}`} key={encounter.id}><span>{character && <CharacterPortrait character={character} pose={character.role === 'rival' ? 'challenge' : 'idle'} />}</span><div><small>{character?.name || '未知来客'} · {encounter.threshold} 题</small><strong>{encounter.title}</strong><p>{completed ? '抉择已完成，羁绊与奖励已结算' : unlocked ? '回到人物页进入当前剧情，作出你的选择' : `还需完成 ${encounter.threshold - profile.totalReviews} 题`}</p></div>{completed ? <Check size={18} /> : unlocked ? <ChevronRight size={18} /> : <LockKeyhole size={16} />}</article>
+                  return <article className={`${unlocked ? '' : 'locked'} ${completed ? 'completed' : ''}`} key={encounter.id}><span>{character && <CharacterPortrait character={character} pose={character.role === 'rival' ? 'challenge' : 'idle'} />}</span><div><small>{character?.name || '未知来客'} · 掌握力 {encounter.threshold}</small><strong>{encounter.title}</strong><p>{completed ? '抉择已完成，羁绊与奖励已结算' : unlocked ? '回到人物页进入当前剧情，作出你的选择' : `还差 ${encounter.threshold - story.masteryPower} 掌握力`}</p></div>{completed ? <Check size={18} /> : unlocked ? <ChevronRight size={18} /> : <LockKeyhole size={16} />}</article>
                 })}
               </div>
             </section>

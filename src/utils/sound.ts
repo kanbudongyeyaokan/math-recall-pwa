@@ -30,6 +30,7 @@ export type SoundEffect =
   | 'purchase'
   | 'equip'
   | 'mission-open'
+  | 'battle-start'
   | 'sound-on'
   | 'sound-off'
 
@@ -152,6 +153,7 @@ export const SOUND_PATTERNS: Readonly<Record<SoundEffect, readonly ToneSpec[]>> 
   purchase: [tone(988, 0, 100, 0.032, 'triangle', 1319, -0.18), tone(1568, 80, 120, 0.035, 'sine', undefined, 0.18), tone(2093, 170, 210, 0.027)],
   equip: [tone(196, 0, 170, 0.036, 'triangle', 294), tone(587, 80, 190, 0.032, 'sine', 784, -0.16), tone(1175, 205, 210, 0.025, 'triangle', undefined, 0.16)],
   'mission-open': [tone(262, 0, 140, 0.028, 'triangle', 330, -0.16), tone(523, 85, 160, 0.03, 'sine', 659, 0.16), tone(988, 190, 210, 0.022)],
+  'battle-start': [tone(98, 0, 420, 0.048, 'sawtooth', 147, -0.18), tone(196, 180, 360, 0.04, 'triangle', 294, 0.18), tone(587, 430, 260, 0.034, 'square', 784)],
   'sound-on': [tone(392, 0, 110, 0.035, 'triangle', undefined, -0.1), tone(587, 85, 180, 0.04, 'sine', undefined, 0.1)],
   'sound-off': [tone(440, 0, 120, 0.03, 'triangle', 330, 0.1), tone(220, 85, 150, 0.022, 'sine', undefined, -0.1)]
 }
@@ -160,6 +162,7 @@ export const SOUND_TEXTURES: Readonly<Partial<Record<SoundEffect, readonly Noise
   correct: [noise(0, 95, 0.026, 190, 'lowpass'), noise(110, 210, 0.012, 3800, 'highpass', 0.12)],
   wrong: [noise(0, 155, 0.028, 150, 'lowpass')],
   reveal: [noise(25, 330, 0.01, 2500, 'highpass')],
+  'battle-start': [noise(0, 260, 0.035, 180, 'lowpass'), noise(390, 240, 0.018, 3200, 'bandpass')],
   'card-drop': [noise(0, 300, 0.024, 1700, 'bandpass', -0.16)],
   technique: [noise(0, 420, 0.014, 620, 'bandpass')],
   'star-up': [noise(30, 650, 0.018, 1900, 'bandpass')],

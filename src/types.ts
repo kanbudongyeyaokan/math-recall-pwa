@@ -79,6 +79,53 @@ export interface ReviewLog {
   techniqueMasteryGained?: number
 }
 
+export interface BossVictory {
+  lectureId: string
+  bossId: string
+  bestScore: number
+  victories: number
+  lastDefeatedAt: number
+}
+
+export type PracticeSessionMode = 'practice' | 'boss' | 'single'
+
+export interface PracticeSessionSelection {
+  lectureId: string
+  sectionId?: string
+  role: 'all' | 'concept' | 'example' | 'choice' | 'exercise'
+  label: string
+  mode?: 'practice' | 'boss'
+}
+
+export interface PracticeSessionAnswer {
+  problemId: string
+  thinking: boolean
+  revealed: boolean
+  selectedOptionIds: string[]
+  choiceSubmitted: boolean
+  expandedSectionIds: string[]
+}
+
+export interface PracticeSessionOutcome {
+  problemId: string
+  rating: ReviewRating
+  isCorrect?: boolean
+}
+
+export interface ActivePracticeSession {
+  version: 1
+  id: string
+  mode: PracticeSessionMode
+  requestedId?: string
+  selection?: PracticeSessionSelection
+  queueIds: string[]
+  queueIndex: number
+  answer: PracticeSessionAnswer
+  outcomes: PracticeSessionOutcome[]
+  startedAt: number
+  updatedAt: number
+}
+
 export interface RewardCard {
   id: string
   problemId: string
@@ -112,6 +159,10 @@ export interface PlayerProfile {
   techniqueMastery: Record<string, number>
   storyChoices: Record<string, string>
   characterBonds: Record<string, number>
+  masteredProblemIds: string[]
+  correctedProblemIds: string[]
+  bossVictories: Record<string, BossVictory>
+  bossAttempts: number
   avatarImageId?: string
 }
 
