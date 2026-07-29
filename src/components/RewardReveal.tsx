@@ -3,6 +3,7 @@ import type { PlayerProfile, RewardCard } from '../types'
 import type { RealmProgress } from '../domain/gamification'
 import type { TechniqueResolution } from '../domain/cultivation'
 import { getCharacter } from '../domain/story'
+import { CharacterPortrait } from './CharacterPortrait'
 import type { CharacterVoiceCue } from '../utils/voice'
 import { CultivatorScene } from './CultivatorScene'
 import { SpiritStoneIcon } from './GameCollectibleArt'
@@ -58,7 +59,7 @@ export function RewardReveal({ card, xp, intervalDays, advanced, realmBreakthrou
         <p className="personal-encouragement">{encouragement}</p>
         {voiceCue && voiceCharacter && (
           <div className={`reward-voice voice-${voiceCue.tone}`}>
-            <img src={voiceCharacter.portrait} alt="" />
+            <CharacterPortrait character={voiceCharacter} pose={voiceCue.tone === 'challenge' ? 'challenge' : 'victory'} />
             <div><small><AudioLines size={13} />{voiceCue.speaker} · {voiceCue.toneLabel}</small><p>“{voiceCue.text}”</p></div>
             <button type="button" onClick={onReplayVoice} aria-label={`重播${voiceCue.speaker}语音`} title="重播角色语音"><Volume2 size={18} /></button>
           </div>

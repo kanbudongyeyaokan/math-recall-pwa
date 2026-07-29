@@ -2,6 +2,7 @@ import type { PlayerProfile } from '../types'
 
 export type StoryRole = 'family' | 'mentor' | 'rival' | 'friend' | 'classmate' | 'romance' | 'stranger' | 'protagonist'
 export type RomanceRouteId = 'chen-yanjun' | 'medusa' | 'xiaoyixian'
+export type CharacterPose = 'idle' | 'speaking' | 'victory' | 'challenge'
 
 export interface StoryCharacter {
   id: string
@@ -15,6 +16,7 @@ export interface StoryCharacter {
   quote: string
   relationship: string
   portrait: string
+  portraits?: Partial<Record<CharacterPose, string>>
   unlockAt: number
 }
 
@@ -43,6 +45,12 @@ export interface RomanceRoute {
 }
 
 const characterPortrait = (filename: string) => `${import.meta.env.BASE_URL}characters/${filename}`
+const characterVariants = (characterId: string): Record<CharacterPose, string> => ({
+  idle: characterPortrait(`variants/${characterId}-idle.webp`),
+  speaking: characterPortrait(`variants/${characterId}-speaking.webp`),
+  victory: characterPortrait(`variants/${characterId}-victory.webp`),
+  challenge: characterPortrait(`variants/${characterId}-challenge.webp`)
+})
 
 export const STORY_CHARACTERS: StoryCharacter[] = [
   {
@@ -52,7 +60,7 @@ export const STORY_CHARACTERS: StoryCharacter[] = [
     motivation: '考入上海交通大学，让父母拥有更从容的生活，也让自己拥有选择未来的底气。',
     firstMeeting: '故事从书桌前的第一道题开始。那个仍会害怕失败的年轻人，决定先把今天做完。',
     quote: '质疑可以很响，但我的下一步会更扎实。',
-    relationship: '这就是你正在塑造的自己。', portrait: characterPortrait('hero-standard.webp')
+    relationship: '这就是你正在塑造的自己。', portrait: characterPortrait('hero-standard.webp'), portraits: characterVariants('he-yaokun')
   },
   {
     id: 'he-xinping', name: '何新平', role: 'family', title: '父亲', unlockAt: 0,
@@ -97,7 +105,7 @@ export const STORY_CHARACTERS: StoryCharacter[] = [
     motivation: '始终占据所有可见榜单的第一名，并让追赶者先被自己的焦虑击败。',
     firstMeeting: '他把一叠超量题单放在何耀焜桌前，笑着问：“你的交大目标，能撑过今晚吗？”',
     quote: '做不完这份量，就别谈和我竞争。',
-    relationship: '试图用数量打乱你节奏的宿敌；你的稳定正在让他重新估量你。', portrait: characterPortrait('rival-zeng-yuxin.webp')
+    relationship: '试图用数量打乱你节奏的宿敌；你的稳定正在让他重新估量你。', portrait: characterPortrait('rival-zeng-yuxin.webp'), portraits: characterVariants('zeng-yuxin')
   },
   {
     id: 'xu-tang', name: '许棠', role: 'friend', title: '节奏规划师', unlockAt: 14,
@@ -115,7 +123,7 @@ export const STORY_CHARACTERS: StoryCharacter[] = [
     motivation: '进入理想的研究平台，继续做严谨而有现实价值的数学建模；也想找到能尊重彼此目标的同行者。',
     firstMeeting: '天台观测室里，她指出何耀焜证明中的隐藏条件。何耀焜没有辩解，而是坐下从定义补到最后一行。',
     quote: '我喜欢的不是你永远答对，而是你肯把缺口补到底。',
-    relationship: '最深情缘。你们从补全证明开始，逐步成为低谷中仍能彼此说真话的同行者。', portrait: characterPortrait('romance-chen-yanjun.webp')
+    relationship: '最深情缘。你们从补全证明开始，逐步成为低谷中仍能彼此说真话的同行者。', portrait: characterPortrait('romance-chen-yanjun.webp'), portraits: characterVariants('chen-yanjun')
   },
   {
     id: 'yuan-yue', name: '袁越', role: 'rival', title: '速解榜首', unlockAt: 32,
@@ -124,7 +132,7 @@ export const STORY_CHARACTERS: StoryCharacter[] = [
     motivation: '守住速解榜首，并证明考场只承认最后的分数和时间。',
     firstMeeting: '数列速解板前，他在何耀焜写完第二步时已经交卷。',
     quote: '完整很好，但考场不会替你暂停计时。',
-    relationship: '逼你提升速度的宿敌；完整性和速度之间的较量仍未结束。', portrait: characterPortrait('rival-yuan-yue.webp')
+    relationship: '逼你提升速度的宿敌；完整性和速度之间的较量仍未结束。', portrait: characterPortrait('rival-yuan-yue.webp'), portraits: characterVariants('yuan-yue')
   },
   {
     id: 'gu-yanzhou', name: '顾砚舟', role: 'friend', title: '多解搭档', unlockAt: 45,
@@ -142,7 +150,7 @@ export const STORY_CHARACTERS: StoryCharacter[] = [
     motivation: '建立不被噪声操控的训练秩序，并找到能在压力下独立决策的盟友。',
     firstMeeting: '榜单争议最激烈时，她合上终端：“你可以回应挑衅，但先告诉我这会提高哪项能力。”',
     quote: '真正的强者决定战场，而不是被战场决定。',
-    relationship: '强势情缘与战略盟友；并肩的前提是各自都能站稳。', portrait: characterPortrait('romance-medusa.webp')
+    relationship: '强势情缘与战略盟友；并肩的前提是各自都能站稳。', portrait: characterPortrait('romance-medusa.webp'), portraits: characterVariants('medusa')
   },
   {
     id: 'jiang-nan', name: '江楠', role: 'classmate', title: '错题卡高手', unlockAt: 108,
@@ -169,7 +177,7 @@ export const STORY_CHARACTERS: StoryCharacter[] = [
     motivation: '控制训练营的话语权，让所有人的发挥都成为巩固自己位置的素材。',
     firstMeeting: '一次模拟考后，他把何耀焜的失分截图放上大屏，故意省略了后续复盘。',
     quote: '大家只会记住排名，不会替你解释过程。',
-    relationship: '试图用评价拉垮你的宿敌；你正在用持续结果夺回叙事权。', portrait: characterPortrait('rival-chen-ruibin.webp')
+    relationship: '试图用评价拉垮你的宿敌；你正在用持续结果夺回叙事权。', portrait: characterPortrait('rival-chen-ruibin.webp'), portraits: characterVariants('chen-ruibin')
   },
   {
     id: 'xiaoyixian', name: '小医仙', role: 'romance', title: '恢复研究者', unlockAt: 168,
@@ -178,7 +186,61 @@ export const STORY_CHARACTERS: StoryCharacter[] = [
     motivation: '让更多人以可持续方式抵达目标，也守住自己的药学研究道路。',
     firstMeeting: '何耀焜连续训练后手抖，她按停计时器，开出的第一张“药方”是睡足七小时。',
     quote: '休息不是退出战斗，是让明天的你仍有能力出手。',
-    relationship: '温柔坚定的情缘与恢复搭档；尊重边界才会走得更近。', portrait: characterPortrait('romance-xiaoyixian.webp')
+    relationship: '温柔坚定的情缘与恢复搭档；尊重边界才会走得更近。', portrait: characterPortrait('romance-xiaoyixian.webp'), portraits: characterVariants('xiaoyixian')
+  },
+  {
+    id: 'lin-jianyue', name: '林见月', role: 'classmate', title: '反例收集者', unlockAt: 52,
+    summary: '总能用一个恰到好处的反例拆穿错误逆命题。',
+    backstory: '她曾经把定理结论背得滚瓜烂熟，却在变式中不断丢分，于是开始为每个常见误判建立反例册。她的提问不尖刻，却往往直指逻辑缺口。',
+    motivation: '把“听起来正确”训练成“经得起条件检查”，并完成自己的数学教育研究。',
+    firstMeeting: '她在讨论桌上写下一个分段函数，只问：“你刚才那句话，遇到它还成立吗？”',
+    quote: '记住结论不难，知道它为什么不能反过来才是真功夫。',
+    relationship: '帮你守住定义边界的同学，也是反例训练的固定搭档。', portrait: characterPortrait('romance-lin-jianyue.webp')
+  },
+  {
+    id: 'shen-li', name: '沈砺', role: 'rival', title: '定义背诵王', unlockAt: 64,
+    summary: '能飞快复述定理，却轻视条件与反例的真正作用。',
+    backstory: '记忆力出众，习惯在讨论开始前抢先背完结论。他并非没有实力，只是太依赖熟练感，把能复述误当成能迁移。',
+    motivation: '用最短时间覆盖最多结论，在所有知识竞答中保持第一。',
+    firstMeeting: '他一口气背完中值定理，却在何耀焜追问闭区间条件时皱起眉。',
+    quote: '能背出来就够用了，考场哪有时间追究每个条件？',
+    relationship: '逼你把“会背”升级为“会用、会辨”的新对手。', portrait: characterPortrait('rival-shen-li.webp')
+  },
+  {
+    id: 'su-wanqiao', name: '苏晚桥', role: 'classmate', title: '图像直觉师', unlockAt: 102,
+    summary: '擅长把抽象式子翻译成曲线、面积与变化趋势。',
+    backstory: '她早期计算并不快，却能敏锐看出函数图像的整体结构。后来她把图像直觉和严格推导结合，形成一套先判断范围、再精算答案的方法。',
+    motivation: '让抽象数学变得可观察，同时证明直觉也必须接受推导校验。',
+    firstMeeting: '面对一页积分式，她先画出正负面积，准确指出答案不可能为负。',
+    quote: '先看见答案应该长什么样，再让计算把它证明出来。',
+    relationship: '负责用图像和数量级复核结果的同学。', portrait: characterPortrait('romance-su-wanqiao.webp')
+  },
+  {
+    id: 'pei-shenxing', name: '裴慎行', role: 'rival', title: '模板执行官', unlockAt: 114,
+    summary: '解题步骤极整齐，却排斥任何不在模板里的新入口。',
+    backstory: '他靠高度标准化的笔记长期稳定高分，也因此把陌生方法看成风险。面对变化题时，他会用更强硬的语气掩盖路径失效后的迟疑。',
+    motivation: '证明一套固定模板足以覆盖所有考场，并把训练营统一成自己的步骤。',
+    firstMeeting: '他给何耀焜的多解答案打了叉：“标准答案只需要一条路。”',
+    quote: '考场要的是可复制步骤，不是你的灵感实验。',
+    relationship: '让你学会在稳定模板与结构理解之间取舍的对手。', portrait: characterPortrait('rival-pei-shenxing.webp')
+  },
+  {
+    id: 'tang-zhixia', name: '唐知夏', role: 'friend', title: '限时策略师', unlockAt: 198,
+    summary: '能在时间、分值与风险之间做清醒取舍。',
+    backstory: '她曾因死磕一道压轴题丢掉整张卷子的节奏，从此研究考场决策。她不鼓励轻易放弃，而是要求每一次坚持都有收益依据。',
+    motivation: '建立一套压力下仍能执行的取舍系统，让真实能力完整转化为分数。',
+    firstMeeting: '模拟考剩十五分钟，她按住何耀焜准备重算的手：“先拿回后面两道确定分。”',
+    quote: '强者不是什么都做，而是知道此刻最该拿下什么。',
+    relationship: '帮助你把能力转化为考场结果的可靠益友。', portrait: characterPortrait('romance-tang-zhixia.webp')
+  },
+  {
+    id: 'han-che', name: '韩澈', role: 'rival', title: '沉默压迫者', unlockAt: 224,
+    summary: '从不公开挑衅，只用连续高分制造无声压力。',
+    backstory: '他寡言、自律、几乎不展示训练过程，却总在榜单前列出现。与其他宿敌不同，他不试图操纵谁，只相信落后的理由没有价值。',
+    motivation: '以绝对稳定完成整个备考周期，不给任何人追近的窗口。',
+    firstMeeting: '空教室里，两人同时交卷。韩澈只看了一眼计时器：“下一次别慢这三分钟。”',
+    quote: '解释不会改变分差，下一场会。',
+    relationship: '不靠喧闹也能逼出你稳定性的强劲对手。', portrait: characterPortrait('rival-han-che.webp')
   },
   {
     id: 'liang-shu', name: '梁叔', role: 'stranger', title: '夜班铁路工', unlockAt: 200,
@@ -239,9 +301,19 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '完成第一次一题多解。'
   },
   {
+    id: 'counterexample-book', threshold: 52, act: '第七幕 · 支线', title: '逆命题的裂缝', location: '定理讨论桌', speaker: '林见月', portraitId: 'lin-jianyue', role: 'classmate',
+    dialogue: ['林见月推来一页反例：你说“偏导存在就可微”，那这个函数为什么在原点失败？', '何耀焜重新圈出条件：从今天起，每背一个结论，我都要知道它能不能反过来。'],
+    objective: '完成一组定义与结论辨析题。'
+  },
+  {
     id: 'yuxin-overtime', threshold: 58, act: '第八幕', title: '凌晨两点的截图', location: '训练群榜单', speaker: '曾宇鑫', portraitId: 'zeng-yuxin', role: 'rival',
     dialogue: ['群里弹出曾宇鑫凌晨两点的第七次打卡。他故意点名：何耀焜，睡得这么早，还想追谁？', '何耀焜关掉消息：明天的清醒也是训练资源。我要赢的是考场，不是熬夜截图。'],
     objective: '守住自己的训练计划，不被无效比较带走。'
+  },
+  {
+    id: 'definition-duel', threshold: 64, act: '第八幕 · 支线', title: '会背不等于会用', location: '定义擂台', speaker: '沈砺', portraitId: 'shen-li', role: 'rival',
+    dialogue: ['沈砺背完定理便要落笔。何耀焜指着区间端点：条件少了一个，结论就不属于你。', '沈砺收起笑意：那就下一轮见。何耀焜：下一轮，我还会带着反例来。'],
+    objective: '在结论题中连续辨对 5 个成立条件。'
   },
   {
     id: 'yanjun-night-study', threshold: 72, act: '第九幕', title: '深夜并肩训练', location: '闭馆前的长桌', speaker: '陈彦君', portraitId: 'chen-yanjun', role: 'romance',
@@ -259,9 +331,19 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '解锁情缘「女王盟约」。'
   },
   {
+    id: 'graph-sense', threshold: 102, act: '第十一幕 · 支线', title: '先看见答案的形状', location: '函数图像室', speaker: '苏晚桥', portraitId: 'su-wanqiao', role: 'classmate',
+    dialogue: ['苏晚桥画出积分区域：式子很长，但面积不会说谎。你算出的负数，第一眼就该被拦住。', '何耀焜把草图留在解答旁：直觉负责报警，推导负责定案。'],
+    objective: '用图像或范围检查一道积分题。'
+  },
+  {
     id: 'mistake-cards', threshold: 108, act: '第十二幕', title: '错题不是判决书', location: '教学楼台阶', speaker: '江楠', portraitId: 'jiang-nan', role: 'classmate',
     dialogue: ['你看，我这盒彩卡全是错题。它们不是黑历史，是已经交过学费的情报。', '她抽出一张递来：写下触发条件。下次再见到它，先认出它，再打赢它。'],
     objective: '累计完成 108 道题。'
+  },
+  {
+    id: 'template-boundary', threshold: 114, act: '第十二幕 · 支线', title: '模板之外', location: '标准解答审查室', speaker: '裴慎行', portraitId: 'pei-shenxing', role: 'rival',
+    dialogue: ['裴慎行划掉第二种解法：考场只需要标准步骤。何耀焜把两条路线的适用条件并排写下：模板能保底，理解才能应变。', '裴慎行盯着那道变式沉默了几秒：下一次，我会让你的灵感没有入口。'],
+    objective: '比较两种方法的适用边界。'
   },
   {
     id: 'ruibin-ranking', threshold: 120, act: '第十三幕', title: '被截断的成绩单', location: '模拟赛大屏', speaker: '陈睿斌', portraitId: 'chen-ruibin', role: 'rival',
@@ -289,6 +371,11 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     objective: '与陈彦君进入知己阶段。'
   },
   {
+    id: 'exam-triage', threshold: 198, act: '第十七幕 · 支线', title: '先拿回确定分', location: '限时模拟考场', speaker: '唐知夏', portraitId: 'tang-zhixia', role: 'friend',
+    dialogue: ['唐知夏敲了敲剩余时间：坚持不是在一道题上证明倔强，是让整张卷子交出最高收益。', '何耀焜暂时标记难题，先拿回后面的确定分。回头时，他仍有完整的八分钟。'],
+    objective: '完成一次限时训练并执行跳题回收策略。'
+  },
+  {
     id: 'medusa-strategy', threshold: 205, act: '第十八幕', title: '把噪声变成情报', location: '策略沙盘室', speaker: '美杜莎', portraitId: 'medusa', role: 'romance',
     dialogue: ['美杜莎把三名宿敌的动作拆成数量、速度和舆论三列：别恨他们，利用他们暴露你的短板。', '她抬眼：你不需要赢下每次口舌，只要让每次压力都为最终战服务。'],
     objective: '针对一个真实短板完成专项训练。'
@@ -297,6 +384,11 @@ export const STORY_CHAPTERS: StoryChapter[] = [
     id: 'dawn-run', threshold: 218, act: '第十九幕', title: '天亮前的一圈', location: '校园操场', speaker: '陈野', portraitId: 'chen-ye', role: 'friend',
     dialogue: ['冲刺不是每天把自己练废。真正可怕的是，别人休息后还能回来，你也能。', '跑完这一圈去做二重积分。慢一点没关系，别让节奏断掉。'],
     objective: '让连续做题达到 3 天。'
+  },
+  {
+    id: 'silent-pressure', threshold: 224, act: '第十九幕 · 支线', title: '无声的三分钟', location: '空教室计时场', speaker: '韩澈', portraitId: 'han-che', role: 'rival',
+    dialogue: ['韩澈把两张满分卷放在一起，只看了眼计时器：你比我慢三分钟。', '何耀焜收好答卷：那就把这三分钟拆成每一道题的选择。下一场，我会更完整，也会更快。'],
+    objective: '在不丢步骤的前提下缩短一次完成时间。'
   },
   {
     id: 'mock-failure', threshold: 230, act: '第二十幕', title: '模拟考坠落', location: '空教室', speaker: '周守元', portraitId: 'zhou-shouyuan', role: 'mentor',
@@ -332,6 +424,10 @@ export const STORY_CHAPTERS: StoryChapter[] = [
 
 export function getCharacter(characterId: string) {
   return STORY_CHARACTERS.find((character) => character.id === characterId) || STORY_CHARACTERS[0]
+}
+
+export function getCharacterPortrait(character: StoryCharacter, pose: CharacterPose = 'idle') {
+  return character.portraits?.[pose] || character.portraits?.idle || character.portrait
 }
 
 export function getRomanceRouteStatus(route: RomanceRoute, totalReviews: number) {

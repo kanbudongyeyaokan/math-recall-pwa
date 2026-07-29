@@ -1,6 +1,7 @@
 import type { Problem, ProblemKind, QuestionFormat } from '../types'
+import { foundationConclusionSeeds } from './foundationConclusionSeeds'
 
-interface SeedInput {
+export interface SeedInput {
   kind: ProblemKind
   title: string
   statement: string
@@ -12,6 +13,7 @@ interface SeedInput {
   options?: string[]
   correctOptionIds?: string[]
   solutionMethods?: { title: string; content: string }[]
+  source?: string
 }
 
 const legacyAlternateMethods: Record<string, { title: string; content: string }> = {
@@ -554,6 +556,8 @@ const originalSeeds: SeedInput[] = [
   }
 ]
 
+originalSeeds.push(...foundationConclusionSeeds)
+
 export function makeSeedProblems(now = Date.now()): Problem[] {
   return originalSeeds.map((seed, index) => {
     const optionIds = ['A', 'B', 'C', 'D', 'E', 'F']
@@ -579,7 +583,7 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
       options: (seed.options || []).map((text, optionIndex) => ({ id: optionIds[optionIndex], text })),
       correctOptionIds: seed.correctOptionIds || [],
       solutionMethods: methods.map((method, methodIndex) => ({ id: `method-${methodIndex + 1}`, ...method })),
-      source: '斗破数学 · 考纲原创同型',
+      source: seed.source || '斗破数学 · 考纲原创同型',
       page: '',
       createdAt: now - (originalSeeds.length - index) * 1000,
       updatedAt: now - (originalSeeds.length - index) * 1000,
@@ -587,7 +591,7 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
       intervalIndex: -1,
       reviewCount: 0,
       isSeed: true,
-      seedVersion: 2
+      seedVersion: 3
     }
   })
 }

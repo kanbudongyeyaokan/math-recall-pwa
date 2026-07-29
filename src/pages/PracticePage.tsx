@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, BookOpenCheck, Check, FileUp, Filter, Library, Route, Sigma } from 'lucide-react'
+import { ArrowRight, BookOpenCheck, Check, FileUp, Filter, Library, Route, Sigma, Zap } from 'lucide-react'
 import { db } from '../db'
 import {
   CALCULUS_LECTURES,
@@ -13,6 +13,7 @@ import {
   type PracticeSelection
 } from '../domain/curriculum'
 import { getPracticeCycleProgress, getPracticeCycleSettingKey, type PracticeCycleState } from '../domain/practiceCycle'
+import { playSound } from '../utils/sound'
 
 interface PracticePageProps {
   onStart: (selection: PracticeSelection) => void
@@ -32,6 +33,8 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
   const [lectureId, setLectureId] = useState('lecture-01')
   const [role, setRole] = useState<PracticeRole>('all')
   const [sectionId, setSectionId] = useState<string>()
+  const lastTouchRef = useRef<{ lectureId: string; at: number }>()
+  const startLockRef = useRef(0)
   const cycleRecord = useLiveQuery(() => db.settings.get(getPracticeCycleSettingKey(lectureId)), [lectureId])
 
   const selectedLecture = CALCULUS_LECTURES.find((lecture) => lecture.id === lectureId) || CALCULUS_LECTURES[0]
@@ -77,6 +80,34 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
     })
   }
 
+  function startLectureDirect(nextLectureId: string) {
+    const now = Date.now()
+    if (now - startLockRef.current < 800) return
+    const lecture = CALCULUS_LECTURES.find((item) => item.id === nextLectureId)
+    if (!lecture || !problems.some((problem) => getProblemLectureIds(problem).includes(nextLectureId))) return
+    startLockRef.current = now
+    playSound('focus')
+    navigator.vibrate?.(18)
+    onStart({
+      lectureId: nextLectureId,
+      role: 'all',
+      label: `第 ${lecture.number} 讲 · 整讲混合`
+    })
+  }
+
+  function handleLecturePointerUp(event: PointerEvent<HTMLButtonElement>, nextLectureId: string) {
+    if (event.pointerType !== 'touch') return
+    const now = Date.now()
+    const last = lastTouchRef.current
+    if (last?.lectureId === nextLectureId && now - last.at <= 360) {
+      event.preventDefault()
+      lastTouchRef.current = undefined
+      startLectureDirect(nextLectureId)
+      return
+    }
+    lastTouchRef.current = { lectureId: nextLectureId, at: now }
+  }
+
   return (
     <main className="page practice-page">
       <header className="practice-map-header">
@@ -104,10 +135,18 @@ export function PracticePage({ onStart, onOpenProfile, onOpenLibrary }: Practice
           const count = lectureCounts.get(lecture.id) || 0
           const active = lecture.id === lectureId
           return (
-            <button type="button" className={active ? 'lecture-node active' : 'lecture-node'} onClick={() => chooseLecture(lecture.id)} key={lecture.id}>
+            <button
+              type="button"
+              className={active ? 'lecture-node active' : 'lecture-node'}
+              onClick={() => chooseLecture(lecture.id)}
+              onDoubleClick={(event) => { event.preventDefault(); startLectureDirect(lecture.id) }}
+              onPointerUp={(event) => handleLecturePointerUp(event, lecture.id)}
+              key={lecture.id}
+            >
               <span className="lecture-number">{String(lecture.number).padStart(2, '0')}</span>
               <span><strong>{lecture.shortTitle}</strong><small>{lecture.region}</small></span>
               <b>{count} 题</b>
+              {!!count && <span className="lecture-quick-icon" title="双击直接开始本讲" aria-hidden="true"><Zap size={13} /></span>}
               {active && <Check size={16} />}
             </button>
           )

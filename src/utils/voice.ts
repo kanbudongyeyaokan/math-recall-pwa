@@ -29,6 +29,25 @@ export interface SpeakCharacterOptions {
   onEnd?: () => void
 }
 
+export interface CharacterVoiceProfile {
+  characterId: string
+  characterName: string
+  rate: number
+  pitch: number
+  voiceName?: string
+  voiceLanguage?: string
+  localService?: boolean
+}
+
+export interface VoiceDiagnostics {
+  engineSupported: boolean
+  voicesLoaded: boolean
+  chineseVoiceCount: number
+  localChineseVoiceCount: number
+  networkChineseVoiceCount: number
+  profiles: CharacterVoiceProfile[]
+}
+
 interface VoicePersona {
   rate: number
   pitch: number
@@ -69,26 +88,36 @@ const PERSONA_OVERRIDES: Record<string, Partial<VoicePersona>> = {
   'chen-ruibin': { rate: 1.02, pitch: 0.9 },
   'chen-yanjun': { rate: 0.91, pitch: 1.04, voiceOffset: 2 },
   medusa: { rate: 0.86, pitch: 0.98, voiceOffset: 3 },
-  xiaoyixian: { rate: 0.89, pitch: 1.09, voiceOffset: 4 }
+  xiaoyixian: { rate: 0.89, pitch: 1.09, voiceOffset: 4 },
+  'lin-jianyue': { rate: 0.97, pitch: 1.06, voiceOffset: 5 },
+  'shen-li': { rate: 1.08, pitch: 0.96, voiceOffset: 6 },
+  'su-wanqiao': { rate: 0.94, pitch: 1.1, voiceOffset: 7 },
+  'pei-shenxing': { rate: 0.92, pitch: 0.88, voiceOffset: 8 },
+  'tang-zhixia': { rate: 1.01, pitch: 1.02, voiceOffset: 9 },
+  'han-che': { rate: 0.84, pitch: 0.8, voiceOffset: 10 }
 }
 
 const REVIEW_SPEAKERS: Record<ReviewRating, readonly ReviewSpeaker[]> = {
   again: [
     { id: 'he-yaokun', unlockAt: 0 }, { id: 'zhong-shanyan', unlockAt: 0 }, { id: 'he-xinping', unlockAt: 0 },
     { id: 'zhou-shouyuan', unlockAt: 1 }, { id: 'zeng-yuxin', unlockAt: 8 }, { id: 'chen-yanjun', unlockAt: 22 },
-    { id: 'medusa', unlockAt: 95 }, { id: 'xiaoyixian', unlockAt: 168 }
+    { id: 'lin-jianyue', unlockAt: 52 }, { id: 'shen-li', unlockAt: 64 }, { id: 'medusa', unlockAt: 95 },
+    { id: 'pei-shenxing', unlockAt: 114 }, { id: 'xiaoyixian', unlockAt: 168 }, { id: 'tang-zhixia', unlockAt: 198 }, { id: 'han-che', unlockAt: 224 }
   ],
   hint: [
     { id: 'zhou-shouyuan', unlockAt: 1 }, { id: 'he-yaokun', unlockAt: 0 }, { id: 'xu-tang', unlockAt: 14 },
-    { id: 'chen-yanjun', unlockAt: 22 }, { id: 'chen-yanjun', unlockAt: 22 }
+    { id: 'chen-yanjun', unlockAt: 22 }, { id: 'chen-yanjun', unlockAt: 22 }, { id: 'lin-jianyue', unlockAt: 52 },
+    { id: 'su-wanqiao', unlockAt: 102 }, { id: 'tang-zhixia', unlockAt: 198 }
   ],
   independent: [
     { id: 'he-yaokun', unlockAt: 0 }, { id: 'he-xinping', unlockAt: 0 }, { id: 'chen-yanjun', unlockAt: 22 },
-    { id: 'chen-yanjun', unlockAt: 22 }, { id: 'yuan-yue', unlockAt: 32 }, { id: 'medusa', unlockAt: 95 }
+    { id: 'chen-yanjun', unlockAt: 22 }, { id: 'yuan-yue', unlockAt: 32 }, { id: 'lin-jianyue', unlockAt: 52 },
+    { id: 'su-wanqiao', unlockAt: 102 }, { id: 'medusa', unlockAt: 95 }, { id: 'tang-zhixia', unlockAt: 198 }, { id: 'han-che', unlockAt: 224 }
   ],
   multiple: [
     { id: 'zhou-shouyuan', unlockAt: 1 }, { id: 'he-yaokun', unlockAt: 0 }, { id: 'chen-yanjun', unlockAt: 22 },
-    { id: 'chen-yanjun', unlockAt: 22 }, { id: 'chen-yanjun', unlockAt: 22 }, { id: 'medusa', unlockAt: 95 }
+    { id: 'chen-yanjun', unlockAt: 22 }, { id: 'chen-yanjun', unlockAt: 22 }, { id: 'lin-jianyue', unlockAt: 52 },
+    { id: 'pei-shenxing', unlockAt: 114 }, { id: 'medusa', unlockAt: 95 }, { id: 'tang-zhixia', unlockAt: 198 }, { id: 'han-che', unlockAt: 224 }
   ]
 }
 
@@ -156,6 +185,34 @@ const VOICE_LINES: Record<string, Partial<Record<VoiceMoment, readonly string[]>
     independent: ['做得很好。现在松开肩膀，呼吸一下，再决定是否继续。'],
     star: ['进步已经留下来了。别用透支，破坏你刚刚建立的节奏。'],
     realm: ['新境界需要新的承载力。训练、睡眠和恢复，一个都不能少。']
+  },
+  'lin-jianyue': {
+    again: ['先别背答案。找一个反例，看看你刚才漏掉了哪个条件。'],
+    hint: ['顺着定义往回走，结论的边界就在那里。'],
+    independent: ['条件和逆命题都分清了。这次不是记住，是理解了。']
+  },
+  'shen-li': {
+    again: ['连结论都没守住？下一轮定义擂台，我可不会等你。'],
+    independent: ['这次条件记得够全。别以为我会一直输在反例上。']
+  },
+  'su-wanqiao': {
+    again: ['先画一眼图像。答案的符号和范围，已经在提醒你了。'],
+    hint: ['直觉负责找到方向，接下来用推导把它坐实。'],
+    independent: ['计算和图像对上了，这个答案站得很稳。']
+  },
+  'pei-shenxing': {
+    again: ['模板入口都没认出来，你的多解只会让步骤更乱。'],
+    multiple: ['两条路都闭合了。但考场上，你最好知道哪条更值得走。']
+  },
+  'tang-zhixia': {
+    again: ['这题先标记。把确定分拿完，再回来解决它。'],
+    independent: ['判断准确，时间也守住了。能力终于完整变成了分数。'],
+    multiple: ['方法很多，选择此刻收益最高的一条，才是考场策略。']
+  },
+  'han-che': {
+    again: ['解释不会改变分差。记住错因，下一场拿回来。'],
+    independent: ['步骤完整。下一次，再快一点。'],
+    multiple: ['能多解不错。现在把最稳的路线练成反应。']
   }
 }
 
@@ -223,13 +280,25 @@ export function normalizeSpeechText(text: string) {
 
 function getPersona(characterId: string): VoicePersona {
   const character = getCharacter(characterId)
-  return { ...ROLE_PERSONAS[character.role], ...PERSONA_OVERRIDES[characterId] }
+  const base = ROLE_PERSONAS[character.role]
+  const variation = ((hashText(characterId) % 9) - 4) * 0.012
+  return {
+    ...base,
+    rate: Math.min(1.16, Math.max(0.82, base.rate + variation)),
+    pitch: Math.min(1.16, Math.max(0.78, base.pitch - variation * 1.4)),
+    ...PERSONA_OVERRIDES[characterId]
+  }
+}
+
+function getChineseVoices() {
+  if (!hasCharacterVoiceSupport()) return []
+  return window.speechSynthesis.getVoices()
+    .filter((voice) => /^zh([_-]|$)/i.test(voice.lang))
+    .sort((a, b) => Number(b.localService) - Number(a.localService) || a.name.localeCompare(b.name))
 }
 
 function chooseVoice(characterId: string) {
-  const voices = window.speechSynthesis.getVoices()
-    .filter((voice) => /^zh([_-]|$)/i.test(voice.lang))
-    .sort((a, b) => Number(b.localService) - Number(a.localService) || a.name.localeCompare(b.name))
+  const voices = getChineseVoices()
   if (!voices.length) return undefined
   const persona = getPersona(characterId)
   return voices[(hashText(characterId) + persona.voiceOffset) % voices.length]
@@ -237,6 +306,50 @@ function chooseVoice(characterId: string) {
 
 export function hasCharacterVoiceSupport() {
   return typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined'
+}
+
+export function getCharacterVoiceProfile(characterId: string): CharacterVoiceProfile {
+  const character = getCharacter(characterId)
+  const persona = getPersona(characterId)
+  const voice = hasCharacterVoiceSupport() ? chooseVoice(characterId) : undefined
+  return {
+    characterId,
+    characterName: character.name,
+    rate: persona.rate,
+    pitch: persona.pitch,
+    voiceName: voice?.name,
+    voiceLanguage: voice?.lang,
+    localService: voice?.localService
+  }
+}
+
+export function getVoiceDiagnostics(characterIds: readonly string[] = []): VoiceDiagnostics {
+  const engineSupported = hasCharacterVoiceSupport()
+  if (!engineSupported) {
+    return { engineSupported: false, voicesLoaded: false, chineseVoiceCount: 0, localChineseVoiceCount: 0, networkChineseVoiceCount: 0, profiles: [] }
+  }
+  const allVoices = window.speechSynthesis.getVoices()
+  const chineseVoices = getChineseVoices()
+  const localChineseVoiceCount = chineseVoices.filter((voice) => voice.localService).length
+  return {
+    engineSupported: true,
+    voicesLoaded: allVoices.length > 0,
+    chineseVoiceCount: chineseVoices.length,
+    localChineseVoiceCount,
+    networkChineseVoiceCount: chineseVoices.length - localChineseVoiceCount,
+    profiles: characterIds.map(getCharacterVoiceProfile)
+  }
+}
+
+export function subscribeToVoiceAvailability(callback: () => void) {
+  if (!hasCharacterVoiceSupport()) return () => undefined
+  const synthesis = window.speechSynthesis
+  const timer = window.setTimeout(callback, 250)
+  synthesis.addEventListener?.('voiceschanged', callback)
+  return () => {
+    window.clearTimeout(timer)
+    synthesis.removeEventListener?.('voiceschanged', callback)
+  }
 }
 
 export function stopCharacterVoice() {

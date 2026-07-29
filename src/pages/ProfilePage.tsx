@@ -24,13 +24,14 @@ import {
 import { db, defaultProfile, equipShopItem, equipTechnique, purchaseShopItem, requestPersistentStorage, restoreLatestSnapshot, saveImage } from '../db'
 import { CULTIVATION_TECHNIQUES, getTechniqueProgress } from '../domain/cultivation'
 import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamification'
+import { getCharacter } from '../domain/story'
 import type { ShopItem, ShopItemCategory, StoragePersistenceState } from '../types'
 import { downloadBackup, restoreBackup } from '../utils/backup'
 import { PlayerAvatar } from '../components/PlayerAvatar'
 import { AudioSettingsControls } from '../components/AudioSettingsControls'
 import { ShopItemArt, SpiritStoneIcon, TitleBadgeArt } from '../components/GameCollectibleArt'
 import { getAudioPreferences, playSound, saveAudioPreferences, type AudioPreferences } from '../utils/sound'
-import { getStoryVoiceCue, hasCharacterVoiceSupport, speakCharacterVoice, stopCharacterVoice } from '../utils/voice'
+import { getStoryVoiceCue, getVoiceDiagnostics, hasCharacterVoiceSupport, speakCharacterVoice, stopCharacterVoice, subscribeToVoiceAvailability } from '../utils/voice'
 
 interface ProfilePageProps {
   canInstall: boolean
@@ -50,6 +51,14 @@ const shopCategories: { id: ShopItemCategory; label: string }[] = [
   { id: 'accessory', label: '配饰' },
   { id: 'companion', label: '灵体' }
 ]
+const voiceSampleCharacterIds = ['he-yaokun', 'chen-yanjun', 'zeng-yuxin', 'yuan-yue', 'chen-ruibin', 'medusa', 'xiaoyixian']
+
+function getVoiceSetupPath() {
+  const agent = navigator.userAgent
+  if (/Android/i.test(agent)) return '安卓：系统设置 → 语言与输入法 → 文字转语音输出 → 安装或更新 Speech Services → 下载中文语音。'
+  if (/iPhone|iPad|iPod/i.test(agent)) return 'iPhone：设置 → 辅助功能 → 朗读内容 → 声音 → 中文 → 下载一种声音。'
+  return 'Windows：设置 → 时间和语言 → 语音 → 管理声音 → 添加中文语音包。'
+}
 
 export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onCheckUpdate, appVersion, notify }: ProfilePageProps) {
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
@@ -65,6 +74,7 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
   const [shopCategory, setShopCategory] = useState<ShopItemCategory>('outfit')
   const [storage, setStorage] = useState<{ usage: number; quota: number }>()
   const [audioPreferences, setAudioPreferences] = useState(getAudioPreferences)
+  const [voiceDiagnostics, setVoiceDiagnostics] = useState(() => getVoiceDiagnostics(voiceSampleCharacterIds))
   const realm = getRealmProgress(profile.xp)
   const titleStatuses = getTitleStatuses(profile)
   const persistence = persistenceRecord?.value as StoragePersistenceState | undefined
@@ -111,6 +121,10 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
       setStorage({ usage: estimate.usage || 0, quota: estimate.quota || 0 })
     }).catch(() => undefined)
   }, [imageCount])
+
+  useEffect(() => subscribeToVoiceAvailability(() => {
+    setVoiceDiagnostics(getVoiceDiagnostics(voiceSampleCharacterIds))
+  }), [])
 
   async function chooseTitle(title: string) {
     await db.profiles.update('player', { selectedTitle: title })
@@ -349,7 +363,29 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
           onPreviewVoice={previewCharacterVoice}
           idPrefix="profile-audio"
         />
-        <p className="section-note">语音只播报短鼓励和剧情台词，不会朗读题目或提前透露答案。完全离线朗读需要手机已安装普通话语音包。</p>
+        <div className={`voice-engine-status ${voiceDiagnostics.chineseVoiceCount ? 'ready' : 'needs-voice'}`}>
+          <Smartphone size={19} />
+          <div>
+            <strong>{!voiceDiagnostics.engineSupported ? '当前浏览器不提供语音引擎' : voiceDiagnostics.chineseVoiceCount ? `已识别 ${voiceDiagnostics.chineseVoiceCount} 套中文音色` : voiceDiagnostics.voicesLoaded ? '语音引擎可用，但没有中文音色' : '正在等待系统加载语音包'}</strong>
+            <small>{voiceDiagnostics.chineseVoiceCount ? `${voiceDiagnostics.localChineseVoiceCount} 套可离线 · ${voiceDiagnostics.networkChineseVoiceCount} 套需联网；同音色角色仍有独立语速与音高。` : getVoiceSetupPath()}</small>
+          </div>
+        </div>
+        {voiceDiagnostics.engineSupported && (
+          <div className="voice-cast-samples" aria-label="核心角色声线试听">
+            {voiceDiagnostics.profiles.map((voiceProfile) => {
+              const character = getCharacter(voiceProfile.characterId)
+              const unlocked = profile.totalReviews >= character.unlockAt
+              return (
+                <button type="button" disabled={!unlocked || !audioPreferences.voiceEnabled} onClick={() => speakCharacterVoice(getStoryVoiceCue(character.id, character.quote))} key={character.id}>
+                  <span>{character.name.slice(0, 1)}</span>
+                  <strong>{unlocked ? character.name : `${character.unlockAt}题`}</strong>
+                  <small>{unlocked ? voiceProfile.voiceName || `${voiceProfile.rate.toFixed(2)}x · 音高 ${voiceProfile.pitch.toFixed(2)}` : '尚未相遇'}</small>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <p className="section-note">语音只播报短鼓励和剧情台词，不会朗读题目或提前透露答案。人物志中每位已解锁角色都可播放自己的台词。</p>
       </section>
 
       <section className="section-block persistence-section">

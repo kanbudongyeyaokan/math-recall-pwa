@@ -27,9 +27,11 @@ import {
   ROMANCE_ROUTES,
   STORY_CHARACTERS,
   type RomanceRouteId,
+  type CharacterPose,
   type StoryCharacter,
   type StoryRole
 } from '../domain/story'
+import { CharacterPortrait } from './CharacterPortrait'
 import type { PlayerProfile } from '../types'
 import { getAudioPreferences, playSound } from '../utils/sound'
 import { getStoryVoiceCue, speakCharacterVoice, stopCharacterVoice } from '../utils/voice'
@@ -60,6 +62,7 @@ interface ArchiveProps {
 
 function CharacterArchive({ character, profile, activeRouteId, onClose }: ArchiveProps) {
   const [speaking, setSpeaking] = useState(false)
+  const [pose, setPose] = useState<CharacterPose>('idle')
   const bondPoints = profile.characterBonds[character.id] || 0
   const route = ROMANCE_ROUTES.find((candidate) => candidate.id === character.id)
   const routeStatus = route ? getRomanceRouteStatus(route, profile.totalReviews) : undefined
@@ -106,7 +109,7 @@ function CharacterArchive({ character, profile, activeRouteId, onClose }: Archiv
           <X size={21} />
         </button>
         <div className="character-archive-visual">
-          <img src={character.portrait} alt={`${character.name}人物原画`} />
+          <CharacterPortrait character={character} pose={speaking ? 'speaking' : pose} alt={`${character.name}人物镜头`} />
           <div className="character-archive-vignette" />
           <div className="character-archive-identity">
             <span>{roleLabel[character.role]}档案</span>
@@ -116,6 +119,18 @@ function CharacterArchive({ character, profile, activeRouteId, onClose }: Archiv
         </div>
 
         <div className="character-archive-body">
+          {character.portraits && (
+            <div className="character-pose-selector" role="group" aria-label={`${character.name}角色镜头`}>
+              {([
+                ['idle', '待机'],
+                ['speaking', '对白'],
+                ['victory', '鼓励'],
+                ['challenge', '对峙']
+              ] as const).map(([nextPose, label]) => (
+                <button type="button" className={pose === nextPose ? 'active' : ''} onClick={() => { setPose(nextPose); playSound('character-open') }} key={nextPose}>{label}</button>
+              ))}
+            </div>
+          )}
           <div className="character-current-relation">
             <HeartHandshake size={18} />
             <div><small>当前关系</small><strong>{currentRelation}</strong></div>
@@ -160,6 +175,8 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
   const [speaking, setSpeaking] = useState(false)
   const [encounterReply, setEncounterReply] = useState<{ title: string; reply: string; bondTargetId: string; bondGain: number; coinReward: number }>()
   const currentCharacter = getCharacter(progress.current.portraitId)
+  const dialogueCharacter = getCharacter(getDialogueCharacterId(progress.current.dialogue[lineIndex], currentCharacter.id))
+  const dialoguePose: CharacterPose = speaking ? 'speaking' : dialogueCharacter.role === 'rival' ? 'challenge' : 'idle'
   const activeRouteId = routeSetting?.value as RomanceRouteId | undefined
   const activeRoute = ROMANCE_ROUTES.find((route) => route.id === activeRouteId)
   const pendingEncounter = getPendingEncounter(profile)
@@ -232,13 +249,13 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
           <h2 id="story-title">{progress.current.title}</h2>
           <p><MapPin size={14} />{progress.current.location}</p>
         </div>
-        <button className="story-speaker" type="button" onClick={() => openCharacter(currentCharacter)} aria-label={`查看${currentCharacter.name}人物档案`}>
-          <span className="story-portrait speaking-portrait">
-            <img src={currentCharacter.portrait} alt="" />
+        <button className="story-speaker" type="button" onClick={() => openCharacter(dialogueCharacter)} aria-label={`查看${dialogueCharacter.name}人物档案`}>
+          <span className={`story-portrait speaking-portrait ${speaking ? 'is-speaking' : ''}`}>
+            <CharacterPortrait character={dialogueCharacter} pose={dialoguePose} />
             <i aria-hidden="true" />
           </span>
-          <strong>{progress.current.speaker}</strong>
-          <small>{roleLabel[progress.current.role]} · 点开档案</small>
+          <strong>{dialogueCharacter.name}</strong>
+          <small>{roleLabel[dialogueCharacter.role]} · 点开档案</small>
         </button>
       </div>
       <blockquote className="story-dialogue" key={`${progress.current.id}-${lineIndex}`}>
@@ -284,7 +301,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
 
       {showRoster && (
         <div className="story-roster" aria-label="已相遇人物">
-          {STORY_CHARACTERS.map((character) => {
+          {[...STORY_CHARACTERS].sort((left, right) => left.unlockAt - right.unlockAt).map((character) => {
             const unlocked = profile.totalReviews >= character.unlockAt
             const bonds = profile.characterBonds[character.id] || 0
             return (
@@ -297,7 +314,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
                 key={character.id}
               >
                 <span className="roster-portrait">
-                  <img src={character.portrait} alt="" />
+                  <CharacterPortrait character={character} pose={character.role === 'rival' ? 'challenge' : 'idle'} />
                   {!unlocked && <LockKeyhole size={16} />}
                   {unlocked && <i aria-hidden="true" />}
                 </span>
@@ -332,7 +349,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
                   }}
                   key={route.id}
                 >
-                  <img src={character.portrait} alt="" />
+                  <CharacterPortrait character={character} pose="idle" />
                   <span><strong>{unlocked ? route.name : `${route.unlockAt} 题`}</strong><small>{unlocked ? `${route.routeName} · ${status.label}` : '尚未相遇'}</small></span>
                   {active && <HeartHandshake size={16} />}
                 </button>
