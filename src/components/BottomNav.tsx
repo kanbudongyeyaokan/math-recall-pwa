@@ -1,6 +1,6 @@
-import { House, Library, Plus, Sigma, TentTree } from 'lucide-react'
+import { House, Library, Map, Sigma, TentTree } from 'lucide-react'
 
-export type Screen = 'home' | 'practice' | 'review' | 'library' | 'form' | 'profile'
+export type Screen = 'home' | 'practice' | 'review' | 'world' | 'library' | 'form' | 'profile'
 
 interface BottomNavProps {
   active: Screen
@@ -10,7 +10,7 @@ interface BottomNavProps {
 const items = [
   { id: 'home' as const, label: '首页', Icon: House },
   { id: 'practice' as const, label: '做题', Icon: Sigma },
-  { id: 'form' as const, label: '新增', Icon: Plus, prominent: true },
+  { id: 'world' as const, label: '斗界', Icon: Map, prominent: true },
   { id: 'library' as const, label: '题库', Icon: Library },
   { id: 'profile' as const, label: '洞府', Icon: TentTree }
 ]

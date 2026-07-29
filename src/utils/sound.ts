@@ -25,14 +25,23 @@ export type SoundEffect =
   | 'story-next'
   | 'story-choice'
   | 'character-open'
+  | 'world-open'
+  | 'market-open'
+  | 'purchase'
+  | 'equip'
+  | 'mission-open'
   | 'sound-on'
   | 'sound-off'
 
+export type MusicScene = 'journey' | 'focus' | 'market' | 'battle'
+
 export interface AudioPreferences {
   soundEnabled: boolean
+  musicEnabled: boolean
   voiceEnabled: boolean
   autoVoice: boolean
   soundVolume: number
+  musicVolume: number
   voiceVolume: number
   voiceRate: number
 }
@@ -138,6 +147,11 @@ export const SOUND_PATTERNS: Readonly<Record<SoundEffect, readonly ToneSpec[]>> 
   'story-next': [tone(260, 0, 85, 0.019, 'triangle', 330, -0.22), tone(520, 55, 120, 0.021, 'sine', 620, 0.18)],
   'story-choice': [tone(196, 0, 210, 0.032, 'triangle', 294), tone(392, 90, 180, 0.034, 'sine', undefined, -0.16), tone(587, 180, 240, 0.038, 'sine', undefined, 0.16)],
   'character-open': [tone(294, 0, 150, 0.022, 'sine', 392, -0.14), tone(587, 75, 210, 0.027, 'triangle', 784, 0.14)],
+  'world-open': [tone(147, 0, 260, 0.03, 'sine', 220, -0.18), tone(440, 90, 220, 0.029, 'triangle', 659, 0.16), tone(880, 230, 280, 0.022)],
+  'market-open': [tone(392, 0, 90, 0.025, 'triangle', 523, -0.2), tone(784, 62, 120, 0.026, 'sine', 1047, 0.2)],
+  purchase: [tone(988, 0, 100, 0.032, 'triangle', 1319, -0.18), tone(1568, 80, 120, 0.035, 'sine', undefined, 0.18), tone(2093, 170, 210, 0.027)],
+  equip: [tone(196, 0, 170, 0.036, 'triangle', 294), tone(587, 80, 190, 0.032, 'sine', 784, -0.16), tone(1175, 205, 210, 0.025, 'triangle', undefined, 0.16)],
+  'mission-open': [tone(262, 0, 140, 0.028, 'triangle', 330, -0.16), tone(523, 85, 160, 0.03, 'sine', 659, 0.16), tone(988, 190, 210, 0.022)],
   'sound-on': [tone(392, 0, 110, 0.035, 'triangle', undefined, -0.1), tone(587, 85, 180, 0.04, 'sine', undefined, 0.1)],
   'sound-off': [tone(440, 0, 120, 0.03, 'triangle', 330, 0.1), tone(220, 85, 150, 0.022, 'sine', undefined, -0.1)]
 }
@@ -167,9 +181,11 @@ export const RATING_SOUND: Readonly<Record<ReviewRating, SoundEffect>> = {
 
 export const DEFAULT_AUDIO_PREFERENCES: AudioPreferences = {
   soundEnabled: true,
+  musicEnabled: true,
   voiceEnabled: true,
   autoVoice: true,
   soundVolume: 0.78,
+  musicVolume: 0.2,
   voiceVolume: 0.82,
   voiceRate: 1
 }
@@ -179,6 +195,12 @@ const AUDIO_PREFERENCES_KEY = 'doupo-math-audio-preferences-v2'
 export const AUDIO_PREFERENCES_EVENT = 'doupo-audio-preferences-changed'
 let audioContext: AudioContext | undefined
 let outputNode: GainNode | undefined
+let musicOutputNode: GainNode | undefined
+let musicScene: MusicScene = 'journey'
+let activeMusicScene: MusicScene | undefined
+let musicTimer: number | undefined
+let musicSources: OscillatorNode[] = []
+let musicRestartToken = 0
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
@@ -194,9 +216,11 @@ function booleanValue(value: unknown, fallback: boolean) {
 function normalizePreferences(value?: Partial<AudioPreferences>): AudioPreferences {
   return {
     soundEnabled: booleanValue(value?.soundEnabled, DEFAULT_AUDIO_PREFERENCES.soundEnabled),
+    musicEnabled: booleanValue(value?.musicEnabled, DEFAULT_AUDIO_PREFERENCES.musicEnabled),
     voiceEnabled: booleanValue(value?.voiceEnabled, DEFAULT_AUDIO_PREFERENCES.voiceEnabled),
     autoVoice: booleanValue(value?.autoVoice, DEFAULT_AUDIO_PREFERENCES.autoVoice),
     soundVolume: clamp(finiteNumber(value?.soundVolume, DEFAULT_AUDIO_PREFERENCES.soundVolume), 0, 1),
+    musicVolume: clamp(finiteNumber(value?.musicVolume, DEFAULT_AUDIO_PREFERENCES.musicVolume), 0, 0.6),
     voiceVolume: clamp(finiteNumber(value?.voiceVolume, DEFAULT_AUDIO_PREFERENCES.voiceVolume), 0, 1),
     voiceRate: clamp(finiteNumber(value?.voiceRate, DEFAULT_AUDIO_PREFERENCES.voiceRate), 0.8, 1.2)
   }
@@ -226,6 +250,11 @@ export function saveAudioPreferences(patch: Partial<AudioPreferences>): AudioPre
     }
   }
   if (audioContext && outputNode) outputNode.gain.setTargetAtTime(0.72 * next.soundVolume, audioContext.currentTime, 0.02)
+  if (audioContext && musicOutputNode) {
+    musicOutputNode.gain.setTargetAtTime(next.musicEnabled ? next.musicVolume : 0.0001, audioContext.currentTime, 0.08)
+    if (!next.musicEnabled) stopMusicSources()
+    else if (!document.hidden) void resumeBackgroundMusic()
+  }
   return next
 }
 
@@ -268,10 +297,150 @@ function ensureAudioGraph() {
     compressor.release.value = 0.18
     outputNode = audioContext.createGain()
     outputNode.gain.value = 0.72 * getAudioPreferences().soundVolume
+    musicOutputNode = audioContext.createGain()
+    musicOutputNode.gain.value = 0.0001
     outputNode.connect(compressor)
+    musicOutputNode.connect(compressor)
     compressor.connect(audioContext.destination)
   }
   return { context: audioContext, output: outputNode! }
+}
+
+interface MusicSceneSpec {
+  tempo: number
+  steps: readonly (readonly number[])[]
+  bass: readonly number[]
+  wave: OscillatorType
+}
+
+export const MUSIC_SCENES: Readonly<Record<MusicScene, MusicSceneSpec>> = {
+  journey: {
+    tempo: 66,
+    steps: [[220, 329.63], [246.94, 369.99], [196, 293.66], [220, 329.63], [261.63, 392], [246.94, 369.99], [220, 329.63], [196, 293.66]],
+    bass: [110, 123.47, 98, 110],
+    wave: 'sine'
+  },
+  focus: {
+    tempo: 58,
+    steps: [[196], [293.66], [220], [329.63], [174.61], [261.63], [196], [293.66]],
+    bass: [98, 110, 87.31, 98],
+    wave: 'triangle'
+  },
+  market: {
+    tempo: 82,
+    steps: [[293.66, 440], [329.63], [392, 493.88], [329.63], [261.63, 392], [329.63], [440, 523.25], [392]],
+    bass: [146.83, 164.81, 130.81, 146.83],
+    wave: 'triangle'
+  },
+  battle: {
+    tempo: 92,
+    steps: [[220], [220, 329.63], [246.94], [261.63, 392], [196], [220, 329.63], [174.61], [196, 293.66]],
+    bass: [55, 61.74, 49, 55],
+    wave: 'sawtooth'
+  }
+}
+
+function stopMusicSources() {
+  if (musicTimer !== undefined && typeof window !== 'undefined') window.clearTimeout(musicTimer)
+  musicTimer = undefined
+  musicSources.forEach((source) => {
+    try { source.stop() } catch { /* Source may already have ended. */ }
+  })
+  musicSources = []
+  activeMusicScene = undefined
+}
+
+function scheduleMusicPass(context: AudioContext, output: AudioNode, scene: MusicScene) {
+  const spec = MUSIC_SCENES[scene]
+  const beat = 60 / spec.tempo
+  const origin = context.currentTime + 0.06
+  const loopDuration = spec.steps.length * beat
+  const sources: OscillatorNode[] = []
+
+  spec.steps.forEach((chord, index) => {
+    chord.forEach((frequency, noteIndex) => {
+      const oscillator = context.createOscillator()
+      const envelope = context.createGain()
+      const filter = context.createBiquadFilter()
+      const start = origin + index * beat
+      const end = start + beat * 0.76
+      oscillator.type = spec.wave
+      oscillator.frequency.value = frequency
+      filter.type = 'lowpass'
+      filter.frequency.value = scene === 'focus' ? 760 : scene === 'battle' ? 980 : 1350
+      envelope.gain.setValueAtTime(0.0001, start)
+      envelope.gain.exponentialRampToValueAtTime(scene === 'focus' ? 0.018 : 0.024 / (noteIndex + 1), start + 0.035)
+      envelope.gain.exponentialRampToValueAtTime(0.0001, end)
+      oscillator.connect(filter)
+      filter.connect(envelope)
+      connectWithPan(context, envelope, output, noteIndex ? 0.18 : -0.12)
+      oscillator.start(start)
+      oscillator.stop(end + 0.03)
+      sources.push(oscillator)
+    })
+  })
+
+  spec.bass.forEach((frequency, index) => {
+    const oscillator = context.createOscillator()
+    const envelope = context.createGain()
+    const start = origin + index * beat * 2
+    const end = start + beat * 1.55
+    oscillator.type = 'sine'
+    oscillator.frequency.value = frequency
+    envelope.gain.setValueAtTime(0.0001, start)
+    envelope.gain.exponentialRampToValueAtTime(scene === 'battle' ? 0.032 : 0.021, start + 0.04)
+    envelope.gain.exponentialRampToValueAtTime(0.0001, end)
+    oscillator.connect(envelope)
+    envelope.connect(output)
+    oscillator.start(start)
+    oscillator.stop(end + 0.03)
+    sources.push(oscillator)
+  })
+
+  musicSources = sources
+  activeMusicScene = scene
+  const token = musicRestartToken
+  musicTimer = window.setTimeout(() => {
+    if (token !== musicRestartToken || document.hidden || !getAudioPreferences().musicEnabled) return
+    scheduleMusicPass(context, output, scene)
+  }, Math.max(250, (loopDuration - 0.12) * 1000))
+}
+
+export function setBackgroundMusicScene(scene: MusicScene) {
+  musicScene = scene
+  if (!audioContext || !musicOutputNode || activeMusicScene === scene) return
+  musicRestartToken += 1
+  musicOutputNode.gain.setTargetAtTime(0.0001, audioContext.currentTime, 0.08)
+  window.setTimeout(() => {
+    stopMusicSources()
+    void resumeBackgroundMusic()
+  }, 180)
+}
+
+export async function resumeBackgroundMusic() {
+  if (typeof document === 'undefined' || document.hidden || !getAudioPreferences().musicEnabled) return false
+  const graph = ensureAudioGraph()
+  if (!graph || !musicOutputNode) return false
+  try {
+    if (graph.context.state === 'suspended') await graph.context.resume()
+    if (!activeMusicScene) {
+      musicRestartToken += 1
+      scheduleMusicPass(graph.context, musicOutputNode, musicScene)
+    }
+    musicOutputNode.gain.setTargetAtTime(getAudioPreferences().musicVolume, graph.context.currentTime, 0.18)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function pauseBackgroundMusic() {
+  musicRestartToken += 1
+  const token = musicRestartToken
+  if (audioContext && musicOutputNode) musicOutputNode.gain.setTargetAtTime(0.0001, audioContext.currentTime, 0.08)
+  window.setTimeout(() => {
+    if (token === musicRestartToken) stopMusicSources()
+  }, 180)
 }
 
 function connectWithPan(context: AudioContext, input: AudioNode, output: AudioNode, pan: number) {

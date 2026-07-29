@@ -11,6 +11,8 @@ import { PracticePage } from './pages/PracticePage'
 import { ProblemFormPage } from './pages/ProblemFormPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ReviewPage } from './pages/ReviewPage'
+import { WorldPage } from './pages/WorldPage'
+import { pauseBackgroundMusic, resumeBackgroundMusic, setBackgroundMusicScene } from './utils/sound'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -103,6 +105,29 @@ export default function App() {
     return () => window.clearTimeout(timer)
   }, [toast])
 
+  useEffect(() => {
+    const scene = screen === 'review' || screen === 'practice'
+      ? 'focus'
+      : screen === 'world'
+        ? 'journey'
+        : 'journey'
+    setBackgroundMusicScene(scene)
+  }, [screen])
+
+  useEffect(() => {
+    const unlockAudio = () => resumeBackgroundMusic()
+    const syncVisibility = () => document.visibilityState === 'hidden' ? pauseBackgroundMusic() : resumeBackgroundMusic()
+    window.addEventListener('pointerdown', unlockAudio, { once: true })
+    window.addEventListener('keydown', unlockAudio, { once: true })
+    document.addEventListener('visibilitychange', syncVisibility)
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio)
+      window.removeEventListener('keydown', unlockAudio)
+      document.removeEventListener('visibilitychange', syncVisibility)
+      pauseBackgroundMusic()
+    }
+  }, [])
+
   function navigate(next: Screen) {
     if (next === 'form') setEditId(undefined)
     if (next === 'practice') {
@@ -183,9 +208,10 @@ export default function App() {
       {screen === 'home' && <HomePage online={online} onOpenPractice={() => navigate('practice')} onStartProblem={(id, selection) => openReview(id, selection)} onAdd={() => navigate('form')} onInstall={() => setShowInstallGuide(true)} />}
       {screen === 'practice' && <PracticePage onStart={(selection) => openReview(undefined, selection)} onOpenLibrary={() => navigate('library')} />}
       {screen === 'review' && <ReviewPage requestedId={reviewId} selection={practiceSelection} onBack={() => navigate(practiceSelection ? 'practice' : 'library')} onComplete={() => navigate('practice')} />}
+      {screen === 'world' && <WorldPage notify={setToast} onPractice={() => navigate('practice')} />}
       {screen === 'library' && <LibraryPage onAdd={() => navigate('form')} onEdit={openEdit} onReview={openReview} notify={setToast} />}
       {screen === 'form' && <ProblemFormPage editId={editId} onBack={() => navigate(editId ? 'library' : 'home')} onSaved={(message) => { setToast(message); navigate('library') }} />}
-      {screen === 'profile' && <ProfilePage canInstall={!!installPrompt} isStandalone={isStandalone} isWechat={isWechat} onInstall={installApp} onCheckUpdate={checkForAppUpdate} appVersion={__APP_VERSION__} notify={setToast} />}
+      {screen === 'profile' && <ProfilePage canInstall={!!installPrompt} isStandalone={isStandalone} isWechat={isWechat} onInstall={installApp} onCheckUpdate={checkForAppUpdate} onOpenWorld={() => navigate('world')} appVersion={__APP_VERSION__} notify={setToast} />}
       <BottomNav active={screen} onNavigate={navigate} />
       {showInstallGuide && <InstallGuide canInstall={!!installPrompt} isWechat={isWechat} onInstall={installApp} onClose={() => setShowInstallGuide(false)} />}
       {toast && (

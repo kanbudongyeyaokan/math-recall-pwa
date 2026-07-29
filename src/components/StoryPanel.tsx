@@ -36,7 +36,7 @@ import type { PlayerProfile } from '../types'
 import { getAudioPreferences, playSound } from '../utils/sound'
 import { getStoryVoiceCue, speakCharacterVoice, stopCharacterVoice } from '../utils/voice'
 
-const roleLabel: Record<StoryRole, string> = {
+export const STORY_ROLE_LABELS: Record<StoryRole, string> = {
   family: '家人',
   mentor: '引路人',
   rival: '宿敌',
@@ -60,7 +60,7 @@ interface ArchiveProps {
   onClose: () => void
 }
 
-function CharacterArchive({ character, profile, activeRouteId, onClose }: ArchiveProps) {
+export function CharacterArchive({ character, profile, activeRouteId, onClose }: ArchiveProps) {
   const [speaking, setSpeaking] = useState(false)
   const [pose, setPose] = useState<CharacterPose>('idle')
   const bondPoints = profile.characterBonds[character.id] || 0
@@ -112,7 +112,7 @@ function CharacterArchive({ character, profile, activeRouteId, onClose }: Archiv
           <CharacterPortrait character={character} pose={speaking ? 'speaking' : pose} alt={`${character.name}人物镜头`} />
           <div className="character-archive-vignette" />
           <div className="character-archive-identity">
-            <span>{roleLabel[character.role]}档案</span>
+            <span>{STORY_ROLE_LABELS[character.role]}档案</span>
             <h2 id="character-archive-title">{character.name}</h2>
             <p>{character.title}</p>
           </div>
@@ -245,7 +245,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
     <section className={`story-panel story-${progress.current.role}`} aria-labelledby="story-title">
       <div className="story-heading">
         <div>
-          <span className="story-act"><Swords size={14} />{progress.current.act} · {roleLabel[progress.current.role]}</span>
+          <span className="story-act"><Swords size={14} />{progress.current.act} · {STORY_ROLE_LABELS[progress.current.role]}</span>
           <h2 id="story-title">{progress.current.title}</h2>
           <p><MapPin size={14} />{progress.current.location}</p>
         </div>
@@ -255,7 +255,7 @@ export function StoryPanel({ profile }: { profile: PlayerProfile }) {
             <i aria-hidden="true" />
           </span>
           <strong>{dialogueCharacter.name}</strong>
-          <small>{roleLabel[dialogueCharacter.role]} · 点开档案</small>
+          <small>{STORY_ROLE_LABELS[dialogueCharacter.role]} · 点开档案</small>
         </button>
       </div>
       <blockquote className="story-dialogue" key={`${progress.current.id}-${lineIndex}`}>

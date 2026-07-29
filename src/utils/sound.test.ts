@@ -4,6 +4,7 @@ import {
   getAudioPreferences,
   getSoundPatternDuration,
   getSoundSequenceDuration,
+  MUSIC_SCENES,
   RATING_SOUND,
   saveAudioPreferences,
   SOUND_PATTERNS,
@@ -66,13 +67,19 @@ describe('做题分层音效', () => {
   it('按百分比保存音效与语音音量，并能在重新读取时恢复', () => {
     const { localStorage } = mockBrowserStorage()
 
-    saveAudioPreferences({ soundVolume: 0.37, voiceVolume: 0.64, voiceRate: 1.1 })
+    saveAudioPreferences({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1 })
 
-    expect(getAudioPreferences()).toMatchObject({ soundVolume: 0.37, voiceVolume: 0.64, voiceRate: 1.1 })
+    expect(getAudioPreferences()).toMatchObject({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1 })
     expect(localStorage.setItem).toHaveBeenCalledWith(
       'doupo-math-audio-preferences-v2',
       expect.stringContaining('"soundVolume":0.37')
     )
+  })
+
+  it('四个页面场景均有不同节奏的原创循环音型', () => {
+    expect(Object.keys(MUSIC_SCENES)).toEqual(['journey', 'focus', 'market', 'battle'])
+    expect(new Set(Object.values(MUSIC_SCENES).map((scene) => scene.tempo)).size).toBe(4)
+    expect(Object.values(MUSIC_SCENES).every((scene) => scene.steps.length >= 8 && scene.bass.length >= 4)).toBe(true)
   })
 
   it('旧设置中的越界和无效音量会被安全归一化', () => {
@@ -80,6 +87,7 @@ describe('做题分层音效', () => {
     values.set('doupo-math-audio-preferences-v2', JSON.stringify({
       soundVolume: 2,
       voiceVolume: 'invalid',
+      musicVolume: 2,
       voiceRate: 0.2,
       soundEnabled: 'false'
     }))
@@ -87,6 +95,7 @@ describe('做题分层音效', () => {
     expect(getAudioPreferences()).toMatchObject({
       soundVolume: 1,
       voiceVolume: DEFAULT_AUDIO_PREFERENCES.voiceVolume,
+      musicVolume: 0.6,
       voiceRate: 0.8,
       soundEnabled: DEFAULT_AUDIO_PREFERENCES.soundEnabled
     })

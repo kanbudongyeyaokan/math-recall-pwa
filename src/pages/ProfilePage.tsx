@@ -4,32 +4,25 @@ import {
   AudioLines,
   ArchiveRestore,
   Camera,
-  Check,
   CheckCircle2,
   CloudOff,
   Database,
   Download,
   HardDrive,
-  Layers3,
-  LockKeyhole,
+  Map,
   RefreshCcw,
   RefreshCw,
-  ScrollText,
   ShieldCheck,
-  ShoppingBag,
   Smartphone,
-  Sparkles,
   Upload
 } from 'lucide-react'
-import { db, defaultProfile, equipShopItem, equipTechnique, purchaseShopItem, requestPersistentStorage, restoreLatestSnapshot, saveImage } from '../db'
-import { CULTIVATION_TECHNIQUES, getTechniqueProgress } from '../domain/cultivation'
-import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamification'
+import { db, defaultProfile, requestPersistentStorage, restoreLatestSnapshot, saveImage } from '../db'
+import { getRealmProgress } from '../domain/gamification'
 import { getCharacter } from '../domain/story'
-import type { ShopItem, ShopItemCategory, StoragePersistenceState } from '../types'
+import type { StoragePersistenceState } from '../types'
 import { downloadBackup, restoreBackup } from '../utils/backup'
 import { PlayerAvatar } from '../components/PlayerAvatar'
 import { AudioSettingsControls } from '../components/AudioSettingsControls'
-import { ShopItemArt, SpiritStoneIcon, TitleBadgeArt } from '../components/GameCollectibleArt'
 import { getAudioPreferences, playSound, saveAudioPreferences, type AudioPreferences } from '../utils/sound'
 import { getStoryVoiceCue, getVoiceDiagnostics, hasCharacterVoiceSupport, speakCharacterVoice, stopCharacterVoice, subscribeToVoiceAvailability } from '../utils/voice'
 
@@ -39,18 +32,11 @@ interface ProfilePageProps {
   isWechat: boolean
   onInstall: () => Promise<void>
   onCheckUpdate: () => Promise<void>
+  onOpenWorld: () => void
   appVersion: string
   notify: (message: string) => void
 }
 
-const rarityLabel = { common: '普通', rare: '稀有', epic: '史诗', legendary: '传奇' }
-const shopCategories: { id: ShopItemCategory; label: string }[] = [
-  { id: 'outfit', label: '战衣' },
-  { id: 'aura', label: '气息' },
-  { id: 'weapon', label: '武器' },
-  { id: 'accessory', label: '配饰' },
-  { id: 'companion', label: '灵体' }
-]
 const voiceSampleCharacterIds = ['he-yaokun', 'chen-yanjun', 'zeng-yuxin', 'yuan-yue', 'chen-ruibin', 'medusa', 'xiaoyixian']
 
 function getVoiceSetupPath() {
@@ -60,10 +46,8 @@ function getVoiceSetupPath() {
   return 'Windows：设置 → 时间和语言 → 语音 → 管理声音 → 添加中文语音包。'
 }
 
-export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onCheckUpdate, appVersion, notify }: ProfilePageProps) {
+export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onCheckUpdate, onOpenWorld, appVersion, notify }: ProfilePageProps) {
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
-  const rewards = useLiveQuery(() => db.rewards.orderBy('earnedAt').reverse().limit(20).toArray(), [], [])
-  const rewardCount = useLiveQuery(() => db.rewards.count(), [], 0)
   const problemCount = useLiveQuery(() => db.problems.count(), [], 0)
   const imageCount = useLiveQuery(() => db.images.count(), [], 0)
   const persistenceRecord = useLiveQuery(() => db.settings.get('storage-persistence'))
@@ -71,12 +55,10 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
   const latestSnapshot = useLiveQuery(() => db.snapshots.orderBy('createdAt').last())
   const [replaceExisting, setReplaceExisting] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [shopCategory, setShopCategory] = useState<ShopItemCategory>('outfit')
   const [storage, setStorage] = useState<{ usage: number; quota: number }>()
   const [audioPreferences, setAudioPreferences] = useState(getAudioPreferences)
   const [voiceDiagnostics, setVoiceDiagnostics] = useState(() => getVoiceDiagnostics(voiceSampleCharacterIds))
   const realm = getRealmProgress(profile.xp)
-  const titleStatuses = getTitleStatuses(profile)
   const persistence = persistenceRecord?.value as StoragePersistenceState | undefined
   const lastBackup = lastBackupRecord?.value as string | undefined
   const voiceSupported = hasCharacterVoiceSupport()
@@ -108,14 +90,6 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
     speakCharacterVoice(getStoryVoiceCue(characterId, text), { delayMs: 430 })
   }
 
-  function isEquipped(item: ShopItem) {
-    return item.id === profile.equippedOutfitId
-      || item.id === profile.equippedAuraId
-      || item.id === profile.equippedWeaponId
-      || item.id === profile.equippedAccessoryId
-      || item.id === profile.activeCompanionId
-  }
-
   useEffect(() => {
     navigator.storage?.estimate().then((estimate) => {
       setStorage({ usage: estimate.usage || 0, quota: estimate.quota || 0 })
@@ -125,21 +99,6 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
   useEffect(() => subscribeToVoiceAvailability(() => {
     setVoiceDiagnostics(getVoiceDiagnostics(voiceSampleCharacterIds))
   }), [])
-
-  async function chooseTitle(title: string) {
-    await db.profiles.update('player', { selectedTitle: title })
-    notify(`已佩戴称号：${title}`)
-  }
-
-  async function chooseTechnique(techniqueId: string) {
-    try {
-      const next = await equipTechnique(techniqueId)
-      const technique = CULTIVATION_TECHNIQUES.find((item) => item.id === next.activeTechniqueId)
-      notify(`已运转功法：${technique?.name}`)
-    } catch (error) {
-      notify(error instanceof Error ? error.message : '功法装备失败')
-    }
-  }
 
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -164,20 +123,6 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
     await db.profiles.update('player', { avatarImageId: undefined })
     if (previousId) await db.images.delete(previousId)
     notify('已切换回专属修炼形象')
-  }
-
-  async function handleShopItem(item: ShopItem) {
-    const owned = profile.ownedItemIds.includes(item.id)
-    try {
-      if (!owned) {
-        if (!window.confirm(`花费 ${item.price} 灵石购买“${item.name}”吗？`)) return
-        await purchaseShopItem(item.id)
-      }
-      await equipShopItem(item.id)
-      notify(owned ? `已装备：${item.name}` : `购买成功并装备：${item.name}`)
-    } catch (error) {
-      notify(error instanceof Error ? error.message : '操作失败')
-    }
   }
 
   async function exportData() {
@@ -254,89 +199,18 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
         <div className="mini-stat"><span><strong>{profile.multipleSolutionReviews}</strong><small>多解完成</small></span></div>
       </section>
 
-      <section className="section-block technique-section">
-        <div className="section-heading"><div><p className="eyebrow"><ScrollText size={14} /> 功法阁</p><h2>选择本轮修炼加成</h2></div></div>
-        <div className="technique-list">
-          {CULTIVATION_TECHNIQUES.map((technique) => {
-            const unlocked = technique.unlocked(profile)
-            const active = profile.activeTechniqueId === technique.id
-            const progress = getTechniqueProgress(profile.techniqueMastery[technique.id] || 0)
-            return (
-              <button type="button" className={`technique-item ${active ? 'active' : ''} ${unlocked ? '' : 'locked'}`} disabled={!unlocked} onClick={() => chooseTechnique(technique.id)} key={technique.id}>
-                <span className="technique-seal">{unlocked ? progress.level : <LockKeyhole size={16} />}</span>
-                <span><strong>{technique.name}<small>{technique.school}</small></strong><p>{technique.description}</p><em>{unlocked ? `${technique.triggerLabel} · 熟练度 ${progress.mastery}${progress.nextLevelAt ? `/${progress.nextLevelAt}` : ' · 圆满'}` : technique.unlockLabel}</em></span>
-                <b>{active ? '运转中' : unlocked ? '装备' : '未解锁'}</b>
-              </button>
-            )
-          })}
-        </div>
+      <section className="world-handoff">
+        <Map size={24} />
+        <div><p className="eyebrow">玩法已迁入斗界</p><h2>人物、坊市、任务都在独立入口</h2><p>从底部中间的“斗界”进入，查看羁绊、购买装备、切换功法和领取称号。</p></div>
+        <button type="button" className="button button-accent" onClick={onOpenWorld}>进入斗界</button>
       </section>
 
-      <section className="section-block avatar-section">
-        <div className="section-heading">
-          <div><p className="eyebrow"><ShoppingBag size={14} /> 个人形象与坊市</p><h2>做题赚灵石，装扮何耀焜</h2></div>
-          <strong className="coin-balance"><SpiritStoneIcon size="sm" /> {profile.coins}</strong>
-        </div>
+      <section className="section-block avatar-settings-section">
+        <div className="section-heading"><div><p className="eyebrow"><Camera size={14} /> 个人形象</p><h2>头像设置</h2></div></div>
         <div className="avatar-actions">
           <label className={`button button-secondary ${busy ? 'disabled' : ''}`}><Camera size={17} />上传本人头像<input type="file" accept="image/*" onChange={uploadAvatar} disabled={busy} /></label>
           {profile.avatarImageId && <button type="button" className="button button-secondary" onClick={removeAvatar} disabled={busy}>使用修炼形象</button>}
         </div>
-        <div className="shop-category-tabs" role="tablist" aria-label="坊市分类">
-          {shopCategories.map((category) => (
-            <button type="button" role="tab" aria-selected={shopCategory === category.id} className={shopCategory === category.id ? 'active' : ''} onClick={() => setShopCategory(category.id)} key={category.id}>
-              {category.label}<small>{SHOP_ITEMS.filter((item) => item.category === category.id).length}</small>
-            </button>
-          ))}
-        </div>
-        <div className="shop-list">
-          {SHOP_ITEMS.filter((item) => item.category === shopCategory).map((item) => {
-            const owned = profile.ownedItemIds.includes(item.id)
-            const equipped = isEquipped(item)
-            return (
-              <button type="button" className={`shop-item ${equipped ? 'equipped' : ''}`} key={item.id} onClick={() => handleShopItem(item)}>
-                <ShopItemArt item={item} />
-                <span className="shop-item-copy"><strong>{item.name}</strong><small>{item.description}</small></span>
-                <b>{equipped ? '装备中' : owned ? '装备' : <><SpiritStoneIcon size="sm" />{item.price} 灵石</>}</b>
-              </button>
-            )
-          })}
-        </div>
-        <p className="section-note">每道题每天首次完成会结算灵石；选择题答对另有奖励，同题反复点击不会重复结算。</p>
-      </section>
-
-      <section className="section-block title-section">
-        <div className="section-heading"><div><p className="eyebrow"><Sparkles size={14} /> 称号库</p><h2>用真实做题解锁</h2></div></div>
-        <div className="title-list">
-          {titleStatuses.map((title, index) => (
-            <button
-              type="button"
-              key={title.name}
-              className={`${profile.selectedTitle === title.name ? 'selected' : ''} ${title.isUnlocked ? '' : 'locked'}`}
-              onClick={() => title.isUnlocked && chooseTitle(title.name)}
-              disabled={!title.isUnlocked}
-            >
-              <TitleBadgeArt title={title.name} index={index} locked={!title.isUnlocked} />
-              <span><strong>{title.name}</strong><small>{title.isUnlocked ? '已解锁' : title.requirement}</small></span>
-              {profile.selectedTitle === title.name ? <Check size={16} /> : !title.isUnlocked ? <LockKeyhole size={15} /> : null}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="section-block collection-section">
-        <div className="section-heading"><div><p className="eyebrow"><Layers3 size={14} /> 知识卡收藏</p><h2>最近获得</h2></div><strong>{rewardCount}</strong></div>
-        {rewards.length ? (
-          <div className="reward-collection">
-            {rewards.map((reward) => (
-              <article className={`collection-card rarity-${reward.rarity}`} key={reward.id}>
-                <div><Layers3 size={22} /></div>
-                <span>{rarityLabel[reward.rarity]}</span>
-                <h3>{reward.name}</h3>
-                <p>{reward.description}</p>
-              </article>
-            ))}
-          </div>
-        ) : <p className="section-note">完成第一道题，就会掉落第一张知识卡。</p>}
       </section>
 
       <section className="section-block audio-settings-section">

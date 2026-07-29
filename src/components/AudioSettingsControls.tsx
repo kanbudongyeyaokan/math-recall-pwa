@@ -1,4 +1,4 @@
-import { AudioLines, Minus, Plus, Volume2 } from 'lucide-react'
+import { AudioLines, Minus, Music2, Plus, Volume2 } from 'lucide-react'
 import type { AudioPreferences } from '../utils/sound'
 
 interface AudioSettingsControlsProps {
@@ -12,22 +12,22 @@ interface AudioSettingsControlsProps {
 }
 
 const AUDIO_PRESETS = [
-  { id: 'quiet', label: '静音', soundVolume: 0, voiceVolume: 0 },
-  { id: 'comfortable', label: '舒适', soundVolume: 0.55, voiceVolume: 0.65 },
-  { id: 'strong', label: '强劲', soundVolume: 0.9, voiceVolume: 0.95 }
+  { id: 'quiet', label: '安静', soundVolume: 0, musicVolume: 0, voiceVolume: 0 },
+  { id: 'comfortable', label: '舒适', soundVolume: 0.55, musicVolume: 0.16, voiceVolume: 0.65 },
+  { id: 'strong', label: '沉浸', soundVolume: 0.9, musicVolume: 0.28, voiceVolume: 0.95 }
 ] as const
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 export function AudioSettingsControls({ preferences, voiceSupported, onChange, onPreviewSound, onPreviewVoice, idPrefix, compact = false }: AudioSettingsControlsProps) {
-  const selectedPreset = AUDIO_PRESETS.find((preset) => preset.soundVolume === preferences.soundVolume && preset.voiceVolume === preferences.voiceVolume)?.id
+  const selectedPreset = AUDIO_PRESETS.find((preset) => preset.soundVolume === preferences.soundVolume && preset.musicVolume === preferences.musicVolume && preset.voiceVolume === preferences.voiceVolume)?.id
 
-  function updateVolume(key: 'soundVolume' | 'voiceVolume', value: number) {
-    onChange({ [key]: clamp(Math.round(value), 0, 100) / 100 })
+  function updateVolume(key: 'soundVolume' | 'musicVolume' | 'voiceVolume', value: number, max = 100) {
+    onChange({ [key]: clamp(Math.round(value), 0, max) / 100 })
   }
 
   function choosePreset(preset: (typeof AUDIO_PRESETS)[number]) {
-    onChange({ soundVolume: preset.soundVolume, voiceVolume: preset.voiceVolume })
+    onChange({ soundVolume: preset.soundVolume, musicVolume: preset.musicVolume, voiceVolume: preset.voiceVolume })
     if (preset.soundVolume > 0 && preferences.soundEnabled) window.setTimeout(onPreviewSound, 30)
   }
 
@@ -37,6 +37,20 @@ export function AudioSettingsControls({ preferences, voiceSupported, onChange, o
         {AUDIO_PRESETS.map((preset) => (
           <button type="button" className={selectedPreset === preset.id ? 'active' : ''} aria-pressed={selectedPreset === preset.id} onClick={() => choosePreset(preset)} key={preset.id}>{preset.label}</button>
         ))}
+      </div>
+
+      <label className="audio-music-toggle">
+        <span><Music2 size={17} /><span><strong>场景背景音乐</strong><small>原创循环配乐，做题时自动降低存在感</small></span></span>
+        <input type="checkbox" role="switch" checked={preferences.musicEnabled} onChange={(event) => onChange({ musicEnabled: event.target.checked })} />
+      </label>
+
+      <div className="audio-control-row">
+        <div className="audio-control-label"><Music2 size={17} /><label htmlFor={`${idPrefix}-music-volume`}>音乐音量</label><output>{Math.round(preferences.musicVolume * 100)}%</output></div>
+        <div className="audio-stepper">
+          <button type="button" onClick={() => updateVolume('musicVolume', preferences.musicVolume * 100 - 2, 60)} disabled={!preferences.musicEnabled || preferences.musicVolume <= 0} aria-label="降低背景音乐音量"><Minus size={17} /></button>
+          <input id={`${idPrefix}-music-volume`} type="range" min="0" max="60" step="1" value={Math.round(preferences.musicVolume * 100)} onChange={(event) => updateVolume('musicVolume', Number(event.target.value), 60)} disabled={!preferences.musicEnabled} aria-label="背景音乐音量" />
+          <button type="button" onClick={() => updateVolume('musicVolume', preferences.musicVolume * 100 + 2, 60)} disabled={!preferences.musicEnabled || preferences.musicVolume >= 0.6} aria-label="提高背景音乐音量"><Plus size={17} /></button>
+        </div>
       </div>
 
       <div className="audio-control-row">
