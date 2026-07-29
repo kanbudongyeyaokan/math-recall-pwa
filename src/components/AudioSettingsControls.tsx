@@ -1,5 +1,5 @@
-import { AudioLines, Minus, Music2, Plus, Volume2 } from 'lucide-react'
-import type { AudioPreferences } from '../utils/sound'
+import { AudioLines, Disc3, Minus, Music2, Plus, Volume2 } from 'lucide-react'
+import { MUSIC_TRACK_OPTIONS, type AudioPreferences, type MusicSelection } from '../utils/sound'
 
 interface AudioSettingsControlsProps {
   preferences: AudioPreferences
@@ -23,6 +23,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 export function AudioSettingsControls({ preferences, voiceSupported, onChange, onPreviewSound, onPreviewMusic, onPreviewVoice, idPrefix, compact = false }: AudioSettingsControlsProps) {
   const selectedPreset = AUDIO_PRESETS.find((preset) => preset.soundVolume === preferences.soundVolume && preset.musicVolume === preferences.musicVolume && preset.voiceVolume === preferences.voiceVolume)?.id
+  const selectedTrack = MUSIC_TRACK_OPTIONS.find((track) => track.id === preferences.musicTrackId)
 
   function updateVolume(key: 'soundVolume' | 'musicVolume' | 'voiceVolume', value: number, max = 100) {
     onChange({ [key]: clamp(Math.round(value), 0, max) / 100 })
@@ -31,6 +32,11 @@ export function AudioSettingsControls({ preferences, voiceSupported, onChange, o
   function choosePreset(preset: (typeof AUDIO_PRESETS)[number]) {
     onChange({ soundVolume: preset.soundVolume, musicVolume: preset.musicVolume, voiceVolume: preset.voiceVolume })
     if (preset.soundVolume > 0 && preferences.soundEnabled) window.setTimeout(onPreviewSound, 30)
+  }
+
+  function chooseMusicTrack(value: MusicSelection) {
+    onChange({ musicTrackId: value })
+    if (preferences.musicEnabled && preferences.musicVolume > 0) window.setTimeout(onPreviewMusic, 220)
   }
 
   return (
@@ -42,9 +48,18 @@ export function AudioSettingsControls({ preferences, voiceSupported, onChange, o
       </div>
 
       <label className="audio-music-toggle">
-        <span><Music2 size={17} /><span><strong>场景背景音乐</strong><small>七套原创主题随首页、做题、剧情、坊市与 Boss 自动切换</small></span></span>
+        <span><Music2 size={17} /><span><strong>场景背景音乐</strong><small>12 首原创循环，可随场景自动换曲或固定播放</small></span></span>
         <input type="checkbox" role="switch" checked={preferences.musicEnabled} onChange={(event) => onChange({ musicEnabled: event.target.checked })} />
       </label>
+
+      <div className="music-track-selector">
+        <div className="audio-control-label"><Disc3 size={17} /><label htmlFor={`${idPrefix}-music-track`}>背景音乐曲目</label><output>{preferences.musicTrackId === 'auto' ? '自动' : '固定'}</output></div>
+        <select id={`${idPrefix}-music-track`} value={preferences.musicTrackId} onChange={(event) => chooseMusicTrack(event.target.value as MusicSelection)} disabled={!preferences.musicEnabled} aria-describedby={`${idPrefix}-music-track-description`}>
+          <option value="auto">自动随当前场景切换</option>
+          {MUSIC_TRACK_OPTIONS.map((track) => <option value={track.id} key={track.id}>{track.title}</option>)}
+        </select>
+        <small id={`${idPrefix}-music-track-description`}>{selectedTrack?.description || '首页、做题、剧情、商城、挑战和复盘会自动使用不同主题。'}</small>
+      </div>
 
       <div className="audio-control-row">
         <div className="audio-control-label"><Music2 size={17} /><label htmlFor={`${idPrefix}-music-volume`}>音乐音量</label><output>{Math.round(preferences.musicVolume * 100)}%</output></div>
@@ -85,7 +100,7 @@ export function AudioSettingsControls({ preferences, voiceSupported, onChange, o
       )}
 
       <div className="audio-preview-row">
-        <button type="button" onClick={onPreviewMusic} disabled={!preferences.musicEnabled || preferences.musicVolume <= 0}><Music2 size={16} />试听音乐</button>
+        <button type="button" onClick={onPreviewMusic} disabled={!preferences.musicEnabled || preferences.musicVolume <= 0}><Music2 size={16} />试听当前</button>
         <button type="button" onClick={onPreviewSound} disabled={!preferences.soundEnabled || preferences.soundVolume <= 0}><Volume2 size={16} />试听音效</button>
         <button type="button" onClick={onPreviewVoice} disabled={!preferences.voiceEnabled || !voiceSupported || preferences.voiceVolume <= 0}><AudioLines size={16} />试听语音</button>
       </div>

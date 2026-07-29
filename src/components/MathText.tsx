@@ -1,11 +1,13 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Maximize2, Minus, Plus, X } from 'lucide-react'
+import { BookOpenCheck, Lightbulb, Maximize2, Minus, Plus, ShieldAlert, X } from 'lucide-react'
 import { BlockMath, InlineMath } from 'react-katex'
+import { splitTheoremReferences, type TheoremKnowledgeEntry } from '../data/theoremKnowledge'
 
 interface MathTextProps {
   text: string
   className?: string
+  enableTheoremLinks?: boolean
 }
 
 const MATH_DELIMITER = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g
@@ -63,9 +65,71 @@ function FormulaViewer({ formula, onClose }: FormulaViewerProps) {
   )
 }
 
-export function MathText({ text, className = '' }: MathTextProps) {
+interface TheoremReferenceViewerProps {
+  theorem: TheoremKnowledgeEntry
+  onClose: () => void
+}
+
+function TheoremReferenceViewer({ theorem, onClose }: TheoremReferenceViewerProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeButtonRef.current?.focus()
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [onClose])
+
+  return (
+    <div className="theorem-viewer-backdrop" role="dialog" aria-modal="true" aria-labelledby="theorem-viewer-title" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <article className="theorem-viewer">
+        <header>
+          <div><span>{theorem.category} · 定理讲解</span><h2 id="theorem-viewer-title">{theorem.name}</h2></div>
+          <button ref={closeButtonRef} type="button" className="icon-button" onClick={onClose} aria-label={`关闭${theorem.name}讲解`}><X size={20} /></button>
+        </header>
+        <div className="theorem-viewer-body">
+          <MathText className="theorem-summary" text={theorem.summary} enableTheoremLinks={false} />
+          <section>
+            <h3><BookOpenCheck size={17} />适用条件</h3>
+            <ol>{theorem.conditions.map((condition, index) => <li key={index}><MathText text={condition} enableTheoremLinks={false} /></li>)}</ol>
+          </section>
+          <section>
+            <h3>标准结论</h3>
+            <MathText text={theorem.conclusion} enableTheoremLinks={false} />
+            {theorem.formulas.map((formula, index) => <MathText text={'$$' + formula + '$$'} enableTheoremLinks={false} key={index} />)}
+          </section>
+          <section className="theorem-intuition">
+            <h3><Lightbulb size={17} />怎么理解</h3>
+            <MathText text={theorem.intuition} enableTheoremLinks={false} />
+          </section>
+          <section className="theorem-traps">
+            <h3><ShieldAlert size={17} />使用边界</h3>
+            <ul>{theorem.traps.map((trap, index) => <li key={index}><MathText text={trap} enableTheoremLinks={false} /></li>)}</ul>
+          </section>
+          <section>
+            <h3>最小例子</h3>
+            <MathText text={theorem.example} enableTheoremLinks={false} />
+          </section>
+        </div>
+      </article>
+    </div>
+  )
+}
+
+export function MathText({ text, className = '', enableTheoremLinks = true }: MathTextProps) {
   const [activeFormula, setActiveFormula] = useState<string>()
+  const [activeTheorem, setActiveTheorem] = useState<TheoremKnowledgeEntry>()
   const formulaTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const theoremTriggerRef = useRef<HTMLButtonElement | null>(null)
   const parts = text.split(MATH_DELIMITER)
 
   function openFormula(formula: string, trigger: HTMLButtonElement) {
@@ -76,6 +140,16 @@ export function MathText({ text, className = '' }: MathTextProps) {
   function closeFormula() {
     setActiveFormula(undefined)
     window.requestAnimationFrame(() => formulaTriggerRef.current?.focus())
+  }
+
+  function openTheorem(theorem: TheoremKnowledgeEntry, trigger: HTMLButtonElement) {
+    theoremTriggerRef.current = trigger
+    setActiveTheorem(theorem)
+  }
+
+  function closeTheorem() {
+    setActiveTheorem(undefined)
+    window.requestAnimationFrame(() => theoremTriggerRef.current?.focus())
   }
 
   return (
@@ -102,10 +176,26 @@ export function MathText({ text, className = '' }: MathTextProps) {
               </span>
             )
           }
-          return <Fragment key={index}>{part}</Fragment>
+          if (!enableTheoremLinks) return <Fragment key={index}>{part}</Fragment>
+          return (
+            <Fragment key={index}>
+              {splitTheoremReferences(part).map((segment, segmentIndex) => segment.type === 'theorem' && segment.theorem ? (
+                <button
+                  type="button"
+                  className="theorem-reference"
+                  onClick={(event) => { event.stopPropagation(); openTheorem(segment.theorem!, event.currentTarget) }}
+                  aria-label={`查看“${segment.theorem.name}”讲解`}
+                  key={segmentIndex}
+                >
+                  <BookOpenCheck size={12} aria-hidden="true" />{segment.text}
+                </button>
+              ) : <Fragment key={segmentIndex}>{segment.text}</Fragment>)}
+            </Fragment>
+          )
         })}
       </div>
       {activeFormula && typeof document !== 'undefined' && createPortal(<FormulaViewer formula={activeFormula} onClose={closeFormula} />, document.body)}
+      {activeTheorem && typeof document !== 'undefined' && createPortal(<TheoremReferenceViewer theorem={activeTheorem} onClose={closeTheorem} />, document.body)}
     </>
   )
 }

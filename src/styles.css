@@ -311,6 +311,32 @@ h1, h2, h3, p { margin-top: 0; }
 .formula-viewer > header span { color: #9a3431; font-size: .58rem; font-weight: 900; }
 .formula-viewer > header strong { margin-top: 2px; font-size: .78rem; }
 .formula-viewer-canvas { min-height: 210px; max-height: calc(100dvh - 180px); display: flex; align-items: center; overflow: auto; padding: 28px 22px; background: #f4f5f1; overscroll-behavior: contain; }
+.theorem-reference { display: inline-flex; align-items: center; gap: 3px; margin: 0 2px; padding: 0 2px; vertical-align: baseline; color: #285f58; background: transparent; border: 0; border-bottom: 1px dotted #4f8e84; border-radius: 0; font: inherit; font-weight: 800; line-height: inherit; cursor: pointer; transition: color 180ms ease, border-color 180ms ease, background-color 180ms ease; }
+.theorem-reference:hover { color: #174940; background: #e8f4f0; border-bottom-color: #174940; }
+.theorem-reference:focus-visible { outline: 2px solid #2f786d; outline-offset: 2px; }
+.theorem-reference svg { flex: 0 0 auto; }
+.theorem-viewer-backdrop { position: fixed; z-index: 190; inset: 0; display: grid; align-items: end; justify-items: center; padding: 10px; background: rgba(8,13,11,.78); backdrop-filter: blur(6px); }
+.theorem-viewer { width: min(100%, 640px); max-height: calc(100dvh - 20px); display: grid; grid-template-rows: auto minmax(0,1fr); overflow: hidden; color: #26312c; background: #fbfbf8; border: 1px solid #cdd6d1; border-radius: 8px; box-shadow: 0 24px 80px rgba(0,0,0,.42); animation: install-sheet-in .24s ease both; }
+.theorem-viewer > header { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; background: #edf4f0; border-bottom: 1px solid #d4dfd9; }
+.theorem-viewer > header span { display: block; color: #547067; font-size: .58rem; font-weight: 850; }
+.theorem-viewer > header h2 { margin: 3px 0 0; font-size: 1rem; letter-spacing: 0; }
+.theorem-viewer-body { overflow-y: auto; overscroll-behavior: contain; }
+.theorem-viewer-body > .theorem-summary { padding: 16px 15px; color: #1f4f47; background: #f0f8f5; font-size: .83rem; font-weight: 700; line-height: 1.75; }
+.theorem-viewer-body > section { padding: 15px; border-top: 1px solid #e0e5e1; }
+.theorem-viewer-body h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 9px; color: #394941; font-size: .72rem; letter-spacing: 0; }
+.theorem-viewer-body ol, .theorem-viewer-body ul { display: grid; gap: 7px; margin: 0; padding-left: 21px; }
+.theorem-viewer-body li { padding-left: 2px; color: #4e5b55; font-size: .73rem; line-height: 1.65; }
+.theorem-viewer-body li .math-text { display: inline; }
+.theorem-viewer-body section > .math-text { color: #46534d; font-size: .76rem; line-height: 1.72; }
+.theorem-viewer-body .math-block-shell { margin: 10px 0 0; }
+.theorem-viewer-body .theorem-intuition { background: #f5f8ed; }
+.theorem-viewer-body .theorem-intuition h3 { color: #61752d; }
+.theorem-viewer-body .theorem-traps { background: #fff5f1; }
+.theorem-viewer-body .theorem-traps h3 { color: #9a4840; }
+@media (min-width: 680px) {
+  .theorem-viewer-backdrop { align-items: center; padding: 24px; }
+  .theorem-viewer { max-height: min(760px, calc(100dvh - 48px)); }
+}
 .formula-viewer-canvas > div { width: max-content; min-width: 100%; transform-origin: left center; }
 .formula-viewer-canvas .katex-display { width: max-content; min-width: 100%; margin: 0; text-align: left; }
 .formula-viewer-canvas .katex-display > .katex { text-align: left; }
@@ -504,6 +530,11 @@ h1, h2, h3, p { margin-top: 0; }
 .audio-preset-row button { min-height: 36px; color: #626c66; background: transparent; border: 0; border-radius: 6px; font-size: .64rem; font-weight: 850; }
 .audio-preset-row button.active { color: #fff; background: #303a35; box-shadow: 0 2px 8px rgba(35,46,40,.18); }
 .audio-control-row { display: grid; gap: 6px; }
+.music-track-selector { display: grid; gap: 6px; padding: 11px; background: #f4f6f3; border: 1px solid #d9dfda; border-radius: 7px; }
+.music-track-selector select { width: 100%; min-height: 44px; padding: 0 38px 0 11px; color: #2f3d36; background: #fff; border: 1px solid #cdd5d0; border-radius: 7px; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
+.music-track-selector select:focus-visible { outline: 2px solid #34766d; outline-offset: 2px; }
+.music-track-selector select:disabled { opacity: .45; cursor: default; }
+.music-track-selector > small { color: #6f7c75; font-size: .58rem; line-height: 1.45; }
 .audio-control-label { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 6px; color: #4c5751; }
 .audio-control-label svg { color: #9e3431; }
 .audio-control-label label { font-size: .65rem; font-weight: 850; }

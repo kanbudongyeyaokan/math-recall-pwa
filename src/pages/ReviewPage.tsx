@@ -818,7 +818,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
                   disabled={choiceSubmitted}
                   aria-pressed={selected}
                 >
-                  <span>{option.id}</span><MathText className="choice-option-text" text={option.text} />
+                  <span>{option.id}</span><MathText className="choice-option-text" text={option.text} enableTheoremLinks={false} />
                   {correct && <CheckCircle2 size={18} />}
                   {incorrect && <CircleX size={18} />}
                 </button>

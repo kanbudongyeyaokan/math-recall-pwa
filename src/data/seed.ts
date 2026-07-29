@@ -547,7 +547,28 @@ const originalSeeds: SeedInput[] = [
 
 originalSeeds.push(...foundationConclusionSeeds)
 
-export const DEPRECATED_SEED_IDS = ['seed-56', 'seed-65'] as const
+export const LOW_CLARITY_SEED_IDS = [
+  'zy27-c01-equivalent-audit',
+  'zy27-c02-epsilon-n-audit',
+  'zy27-c03-derivative-definition-audit',
+  'zy27-c04-chain-audit',
+  'zy27-c05-monotone-audit',
+  'zy27-c06-rolle-audit',
+  'zy27-c07-related-sphere-audit',
+  'zy27-c08-antiderivative-audit',
+  'zy27-c09-partial-fraction-audit',
+  'zy27-c10-area-audit',
+  'zy27-c11-reflection-identity-audit',
+  'zy27-c12-work-audit',
+  'zy27-c13-differentiable-audit',
+  'zy27-c14-order-audit',
+  'zy27-c15-separable-audit',
+  'zy27-c16-necessary-audit',
+  'zy27-c17-plane-audit',
+  'zy27-c18-line-first-audit'
+] as const
+
+export const DEPRECATED_SEED_IDS = ['seed-56', 'seed-65', ...LOW_CLARITY_SEED_IDS] as const
 
 const allSeeds = [...originalSeeds, ...curatedQuestionSeeds]
 
@@ -599,7 +620,7 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
       intervalIndex: -1,
       reviewCount: 0,
       isSeed: true,
-      seedVersion: 5
+      seedVersion: 6
     }
   }).filter((problem) => !DEPRECATED_SEED_IDS.includes(problem.id as typeof DEPRECATED_SEED_IDS[number]))
 }

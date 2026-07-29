@@ -68,7 +68,7 @@ export function buildPointSeeds(
         correctOptionIds: [correctOptionId],
         solutionMethods: [
           { title: '路线一 · 正向定理核对', content: `原理是 ${point.principle}。${correctOptionId} 同时保留条件“${point.conditions}”和结论“${point.conclusion}”，因此成立。` },
-          { title: '路线二 · 反例优先排除', content: `B 删除全部条件，D 把充分关系强行倒置；C 对应典型误区：${point.misconception}。所以只能选 A。` }
+          { title: '路线二 · 反例优先排除', content: `其余三项分别删除必要条件、落入典型误区“${point.misconception}”，或把正向结论擅自倒置。逐项排除后，应选 ${correctOptionId}。` }
         ],
         source,
         page,
@@ -78,11 +78,11 @@ export function buildPointSeeds(
         id: `${idPrefix}-${point.id}-audit`,
         kind: 'problem',
         title: `${point.title}：错解审判`,
-        statement: `某同学在一道相关题中写道：“${point.misconception}”请指出逻辑缺口，并给出可靠的订正流程。`,
+        statement: `某解答采用了以下做法：“${point.misconception}”请说明这一步为什么不可靠，并写出可以直接执行的订正顺序。`,
         tags: [...tags, '错解辨析', '证明题'],
         coreMethod: `先判断错误发生在对象、条件、推理方向还是计算步骤，再用 ${point.principle} 重建论证。`,
         mistakes: `只说“答案错了”而不指出缺失条件；订正必须写出能够复用的判断顺序。`,
-        answerText: `原说法不能成立。订正时先核对：${point.conditions}；再调用 ${point.principle}，得到：${point.conclusion}。若条件不足，应停在“不能确定”，并用边界情形或反例说明。`,
+        answerText: `该做法不可靠。订正时先核对：${point.conditions}；再调用 ${point.principle}，得到：${point.conclusion}。若条件不足，应停在“不能确定”，并用边界情形或反例说明。`,
         solutionMethods: [
           { title: '路线一 · 定位最早错误', content: `从原解第一步开始检查，最先需要确认的是：${point.conditions}。只有这些条件都满足，才能使用 ${point.principle} 并写出 ${point.conclusion}。` },
           { title: '路线二 · 边界反证', content: `暂时撤掉被忽略的条件，检查零点、端点、退化参数或不连续点。常见误判“${point.misconception}”会在这些边界处暴露，因此原推理不能直接通过。` }

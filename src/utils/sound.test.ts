@@ -7,7 +7,10 @@ import {
   getSoundOutputGain,
   getSoundSequenceDuration,
   MUSIC_SCENES,
+  MUSIC_TRACK_OPTIONS,
+  MUSIC_TRACKS,
   RATING_SOUND,
+  resolveMusicTrack,
   saveAudioPreferences,
   SOUND_PATTERNS,
   SOUND_TEXTURES
@@ -69,9 +72,9 @@ describe('做题分层音效', () => {
   it('按百分比保存音效与语音音量，并能在重新读取时恢复', () => {
     const { localStorage } = mockBrowserStorage()
 
-    saveAudioPreferences({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1 })
+    saveAudioPreferences({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1, musicTrackId: 'rain' })
 
-    expect(getAudioPreferences()).toMatchObject({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1 })
+    expect(getAudioPreferences()).toMatchObject({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1, musicTrackId: 'rain' })
     expect(localStorage.setItem).toHaveBeenCalledWith(
       'doupo-math-audio-preferences-v2',
       expect.stringContaining('"soundVolume":0.37')
@@ -84,6 +87,15 @@ describe('做题分层音效', () => {
     expect(Object.values(MUSIC_SCENES).every((scene) => (
       scene.steps.length >= 8 && scene.bass.length >= 4 && scene.accent.length >= 8
     ))).toBe(true)
+  })
+
+  it('提供十二首可切换曲目，并保留随场景自动换曲', () => {
+    expect(Object.keys(MUSIC_TRACKS)).toHaveLength(12)
+    expect(MUSIC_TRACK_OPTIONS).toHaveLength(12)
+    expect(new Set(MUSIC_TRACK_OPTIONS.map((track) => track.title)).size).toBe(12)
+    expect(new Set(Object.values(MUSIC_TRACKS).map((track) => track.tempo)).size).toBe(12)
+    expect(resolveMusicTrack('battle', 'auto')).toBe('battle')
+    expect(resolveMusicTrack('battle', 'starlight')).toBe('starlight')
   })
 
   it('最大音量使用增益补偿并保持零音量近似静音', () => {
@@ -111,6 +123,7 @@ describe('做题分层音效', () => {
       soundVolume: 2,
       voiceVolume: 'invalid',
       musicVolume: 2,
+      musicTrackId: 'missing-track',
       voiceRate: 0.2,
       soundEnabled: 'false'
     }))
@@ -119,6 +132,7 @@ describe('做题分层音效', () => {
       soundVolume: 1,
       voiceVolume: DEFAULT_AUDIO_PREFERENCES.voiceVolume,
       musicVolume: 1,
+      musicTrackId: 'auto',
       voiceRate: 0.8,
       soundEnabled: DEFAULT_AUDIO_PREFERENCES.soundEnabled
     })
