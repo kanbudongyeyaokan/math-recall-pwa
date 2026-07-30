@@ -38,7 +38,7 @@ export interface PracticeSelection {
 
 export const PRACTICE_ROLE_LABELS: Record<PracticeRole, string> = {
   all: '全部题目',
-  concept: '定义与判据',
+  concept: '已停用题型',
   example: '经典例题',
   choice: '选择题',
   exercise: '课后训练'

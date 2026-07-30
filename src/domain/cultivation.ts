@@ -6,7 +6,9 @@ export interface CultivationTechnique {
   id: string
   name: string
   school: string
+  attribute: string
   description: string
+  lore: string
   triggerLabel: string
   trigger: TechniqueTrigger
   unlockLabel: string
@@ -14,6 +16,8 @@ export interface CultivationTechnique {
   baseXpBonus: number
   baseCoinBonus: number
 }
+
+export const TECHNIQUE_STAGE_NAMES = ['初窥', '融会', '贯通', '化境', '圆满'] as const
 
 export interface TechniqueResolution {
   technique: CultivationTechnique
@@ -30,37 +34,49 @@ export interface TechniqueResolution {
 export const CULTIVATION_TECHNIQUES: readonly CultivationTechnique[] = [
   {
     id: 'definition-heart', name: '基础锻体诀', school: '根基功法',
+    attribute: '根骨',
     description: '从低难度经典题练稳计算入口、条件检查和基础通法。',
+    lore: '何耀焜踏入修炼路时得到的第一卷心法。它不追求炫目的招式，只要求每一步都能写清、算准、验回。',
     triggerLabel: '完成难度 1～2 的基础题', trigger: 'foundation', unlockLabel: '初始解锁', unlocked: () => true,
     baseXpBonus: 3, baseCoinBonus: 0
   },
   {
     id: 'question-eye', name: '题眼观想', school: '洞察功法',
+    attribute: '洞察',
     description: '从选项反推条件，迅速捕捉题眼与反例。',
+    lore: '传自试卷边缘的一缕观想法。先看结构，再看数字；先找限制，再落笔计算。',
     triggerLabel: '选择题判断正确', trigger: 'choice-correct', unlockLabel: '选择题答对 5 次',
     unlocked: (profile) => profile.correctChoiceReviews >= 5, baseXpBonus: 2, baseCoinBonus: 2
   },
   {
     id: 'error-reforge', name: '错因回火诀', school: '淬炼功法',
+    attribute: '韧性',
     description: '诚实标记不会与提示后会，把失误炼成下一次的入口。',
+    lore: '失手留下的不是污点，而是尚未淬透的材料。每次准确定位错因，火候便更深一分。',
     triggerLabel: '自评不会或提示后会', trigger: 'recovery', unlockLabel: '累计完成 10 题',
     unlocked: (profile) => profile.totalReviews >= 10, baseXpBonus: 4, baseCoinBonus: 1
   },
   {
     id: 'closed-loop', name: '闭环独行步', school: '实战功法',
+    attribute: '稳定',
     description: '入口、变形、条件与验算全部独立闭合，奖励稳定输出。',
+    lore: '在无人提醒的考场上仍能走完整条推导链，才算真正掌握。此步法专炼独立闭环。',
     triggerLabel: '自评独立完成', trigger: 'independent', unlockLabel: '独立完成 10 次',
     unlocked: (profile) => profile.independentReviews >= 10, baseXpBonus: 5, baseCoinBonus: 1
   },
   {
     id: 'many-paths', name: '多解归一功', school: '宗师功法',
+    attribute: '推演',
     description: '比较不同解法的结构、代价和适用范围，让一题真正成为一类题。',
+    lore: '不同道路在题目深处汇合。修至高重，见一题便能辨认数条路径及其代价。',
     triggerLabel: '自评能够多解', trigger: 'multiple', unlockLabel: '能够多解 5 次',
     unlocked: (profile) => profile.multipleSolutionReviews >= 5, baseXpBonus: 7, baseCoinBonus: 3
   },
   {
     id: 'jiaoda-cloud', name: '交大凌云诀', school: '终局功法',
+    attribute: '决胜',
     description: '为冲刺阶段准备的全局心法，稳定完成高质量题目时凝聚额外斗气。',
+    lore: '从无数个安静做题的时刻凝成。目标不是一时爆发，而是在真正的难题前仍能稳稳推进。',
     triggerLabel: '独立完成或能够多解', trigger: 'advanced', unlockLabel: '累计完成 150 题',
     unlocked: (profile) => profile.totalReviews >= 150, baseXpBonus: 8, baseCoinBonus: 3
   }
@@ -91,6 +107,22 @@ export function getTechniqueProgress(mastery: number) {
   }
 }
 
+export function getTechniqueStageName(level: number) {
+  return TECHNIQUE_STAGE_NAMES[Math.max(0, Math.min(TECHNIQUE_STAGE_NAMES.length - 1, level - 1))]
+}
+
+export function getTechniqueEffect(technique: CultivationTechnique, level: number) {
+  const safeLevel = Math.max(1, Math.min(5, level))
+  const levelBonus = safeLevel - 1
+  const xpBonus = technique.baseXpBonus + levelBonus
+  const coinBonus = technique.baseCoinBonus + Math.floor(levelBonus / 2)
+  return {
+    xpBonus,
+    coinBonus,
+    label: `触发后额外 +${xpBonus} 经验${coinBonus ? `、+${coinBonus} 灵石` : ''}`
+  }
+}
+
 function matchesTrigger(trigger: TechniqueTrigger, problem: Problem, rating: ReviewRating, isCorrect?: boolean) {
   if (trigger === 'foundation') return problem.kind === 'problem' && (problem.difficulty || 2) <= 2
   if (trigger === 'choice-correct') return problem.questionFormat !== 'open' && isCorrect === true
@@ -108,12 +140,12 @@ export function resolveTechnique(profile: PlayerProfile, problem: Problem, ratin
   const triggered = matchesTrigger(technique.trigger, problem, rating, isCorrect)
   const masteryGained = triggered ? 1 : 0
   const nextMastery = previousMastery + masteryGained
-  const levelBonus = previousLevel - 1
+  const effect = getTechniqueEffect(technique, previousLevel)
   return {
     technique,
     triggered,
-    xpBonus: triggered ? technique.baseXpBonus + levelBonus : 0,
-    coinBonus: triggered ? technique.baseCoinBonus + Math.floor(levelBonus / 2) : 0,
+    xpBonus: triggered ? effect.xpBonus : 0,
+    coinBonus: triggered ? effect.coinBonus : 0,
     masteryGained,
     previousMastery,
     nextMastery,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Award,
+  Backpack,
   BarChart3,
   BookOpenCheck,
   Check,
@@ -17,6 +18,7 @@ import {
   Shield,
   ShoppingBag,
   Sparkles,
+  Store,
   Swords,
   Target,
   TrendingUp,
@@ -29,11 +31,11 @@ import { ShopItemArt, SpiritStoneIcon, TitleBadgeArt } from '../components/GameC
 import { PlayerAvatar } from '../components/PlayerAvatar'
 import { CharacterArchive, getCharacterOpenEffect, STORY_ROLE_LABELS, StoryPanel } from '../components/StoryPanel'
 import { db, defaultProfile, equipShopItem, equipTechnique, purchaseShopItem, refreshRivalCompetitionState } from '../db'
-import { CULTIVATION_TECHNIQUES, getTechniqueProgress } from '../domain/cultivation'
+import { CULTIVATION_TECHNIQUES, getTechniqueEffect, getTechniqueProgress, getTechniqueStageName } from '../domain/cultivation'
 import { CALCULUS_LECTURES, type PracticeSelection } from '../domain/curriculum'
 import { createDuelChallengeId, DUEL_TIME_MS } from '../domain/duel'
 import { getBondStatus, STORY_ENCOUNTERS } from '../domain/encounters'
-import { getRealmProgress, getTitleStatuses, SHOP_ITEMS } from '../domain/gamification'
+import { getRealmProgress, getTitleStatuses, SHOP_ITEMS, type TitleCategory } from '../domain/gamification'
 import {
   getCompetitionRows,
   getCompetitionUpdatedLabel,
@@ -96,6 +98,15 @@ const shopCategories: { id: 'all' | ShopItemCategory; label: string }[] = [
   { id: 'companion', label: '灵体' }
 ]
 
+const titleCategories: { id: 'all' | TitleCategory; label: string }[] = [
+  { id: 'all', label: '全部' },
+  { id: '征途', label: '征途' },
+  { id: '掌握', label: '掌握' },
+  { id: '连胜', label: '连胜' },
+  { id: '挑战', label: '挑战' },
+  { id: '境界', label: '境界' }
+]
+
 const slotLabels: Record<ShopItemCategory, string> = {
   outfit: '战衣',
   aura: '气息',
@@ -134,14 +145,22 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
   const [selectedCharacter, setSelectedCharacter] = useState<StoryCharacter>()
   const [duelCharacter, setDuelCharacter] = useState<StoryCharacter>()
   const [shopCategory, setShopCategory] = useState<'all' | ShopItemCategory>('all')
-  const [ownedOnly, setOwnedOnly] = useState(false)
+  const [marketView, setMarketView] = useState<'market' | 'inventory'>('market')
   const [selectedItem, setSelectedItem] = useState<ShopItem>()
   const [purchaseBurst, setPurchaseBurst] = useState(false)
   const [missionView, setMissionView] = useState<MissionView>('story')
+  const [selectedTechniqueId, setSelectedTechniqueId] = useState<string>()
+  const [titleCategory, setTitleCategory] = useState<'all' | TitleCategory>('all')
+  const [selectedTitleId, setSelectedTitleId] = useState<string>()
   const [showAllChapters, setShowAllChapters] = useState(false)
   const realm = getRealmProgress(profile.xp)
   const story = getStoryProgress(profile)
   const titleStatuses = getTitleStatuses(profile)
+  const selectedTechnique = CULTIVATION_TECHNIQUES.find((technique) => technique.id === selectedTechniqueId)
+  const selectedTechniqueProgress = selectedTechnique ? getTechniqueProgress(profile.techniqueMastery[selectedTechnique.id] || 0) : undefined
+  const selectedTechniqueEffect = selectedTechnique && selectedTechniqueProgress ? getTechniqueEffect(selectedTechnique, selectedTechniqueProgress.level) : undefined
+  const selectedTechniqueNextEffect = selectedTechnique && selectedTechniqueProgress && selectedTechniqueProgress.level < 5 ? getTechniqueEffect(selectedTechnique, selectedTechniqueProgress.level + 1) : undefined
+  const selectedTitleStatus = titleStatuses.find((title) => title.id === selectedTitleId)
   const activeRouteId = routeSetting?.value as RomanceRouteId | undefined
   const rivalState = useMemo(
     () => normalizeRivalCompetitionState(rivalSetting?.value as Partial<RivalCompetitionState> | undefined, profile),
@@ -162,8 +181,9 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
 
   const visibleShopItems = useMemo(() => SHOP_ITEMS.filter((item) => (
     (shopCategory === 'all' || item.category === shopCategory)
-      && (!ownedOnly || profile.ownedItemIds.includes(item.id))
-  )), [ownedOnly, profile.ownedItemIds, shopCategory])
+      && (marketView === 'market' || profile.ownedItemIds.includes(item.id))
+  )), [marketView, profile.ownedItemIds, shopCategory])
+  const visibleTitles = titleStatuses.filter((title) => titleCategory === 'all' || title.category === titleCategory)
 
   useEffect(() => {
     const scene = tab === 'market'
@@ -258,6 +278,7 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
       const technique = CULTIVATION_TECHNIQUES.find((item) => item.id === next.activeTechniqueId)
       playSound('equip')
       notify(`已运转功法：${technique?.name}`)
+      setSelectedTechniqueId(undefined)
     } catch (error) {
       notify(error instanceof Error ? error.message : '功法装备失败')
     }
@@ -267,6 +288,7 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
     await db.profiles.update('player', { selectedTitle: title })
     playSound('equip')
     notify(`已佩戴称号：${title}`)
+    setSelectedTitleId(undefined)
   }
 
   return (
@@ -398,18 +420,23 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
 
       {tab === 'market' && (
         <div className="world-content market-world">
+          <nav className="market-view-tabs" aria-label="坊市与背包">
+            <button type="button" className={marketView === 'market' ? 'active' : ''} onClick={() => { setMarketView('market'); playSound('market-open') }}><Store size={17} /><span><strong>坊市</strong><small>购买新物品</small></span></button>
+            <button type="button" className={marketView === 'inventory' ? 'active' : ''} onClick={() => { setMarketView('inventory'); playSound('equip') }}><Backpack size={17} /><span><strong>背包</strong><small>{profile.ownedItemIds.length}/{SHOP_ITEMS.length} 件藏品</small></span></button>
+          </nav>
+
           <section className="equipment-strip" aria-label="当前装备">
-            <div className="world-section-heading"><div><p className="eyebrow"><Shield size={14} /> 当前装束</p><h2>何耀焜的装备栏</h2></div><strong><SpiritStoneIcon size="sm" /> {profile.coins}</strong></div>
+            <div className="world-section-heading"><div><p className="eyebrow"><Shield size={14} /> 当前装束</p><h2>何耀焜的五槽装备</h2></div><strong><SpiritStoneIcon size="sm" /> {profile.coins}</strong></div>
             <div className="equipment-slots">
               {(Object.keys(slotLabels) as ShopItemCategory[]).map((category) => {
                 const item = equipmentFor(category)
-                return <button type="button" onClick={() => item && setSelectedItem(item)} key={category}><small>{slotLabels[category]}</small><strong>{item?.name || '未装备'}</strong></button>
+                return <button type="button" className={item ? 'filled' : ''} onClick={() => item && setSelectedItem(item)} key={category}>{item && <ShopItemArt item={item} />}<span><small>{slotLabels[category]}</small><strong>{item?.name || '未装备'}</strong></span></button>
               })}
             </div>
           </section>
 
           <section className="world-section market-catalogue">
-            <div className="world-section-heading"><div><p className="eyebrow"><ShoppingBag size={14} /> 黑角坊市</p><h2>用做题所得换取装扮</h2></div><label className="owned-filter"><input type="checkbox" checked={ownedOnly} onChange={(event) => setOwnedOnly(event.target.checked)} /><span>仅已拥有</span></label></div>
+            <div className="world-section-heading"><div><p className="eyebrow">{marketView === 'market' ? <><ShoppingBag size={14} /> 黑角坊市</> : <><Backpack size={14} /> 修炼背包</>}</p><h2>{marketView === 'market' ? '用做题所得换取装扮' : '选择已拥有物品，随时换装'}</h2></div><strong>{marketView === 'market' ? `${SHOP_ITEMS.length - profile.ownedItemIds.length} 件待收集` : `${Math.round(profile.ownedItemIds.length / SHOP_ITEMS.length * 100)}%`}</strong></div>
             <div className="horizontal-filters shop-world-filters" role="tablist" aria-label="商品分类">
               {shopCategories.map((category) => <button type="button" role="tab" aria-selected={shopCategory === category.id} className={shopCategory === category.id ? 'active' : ''} onClick={() => setShopCategory(category.id)} key={category.id}>{category.label}</button>)}
             </div>
@@ -421,11 +448,12 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
                   <button type="button" className={`world-shop-item ${equipped ? 'equipped' : ''}`} onClick={() => { playSound('market-open'); setSelectedItem(item) }} key={item.id}>
                     <ShopItemArt item={item} />
                     <span><small>{slotLabels[item.category]}{equipped ? ' · 使用中' : ''}</small><strong>{item.name}</strong></span>
-                    <b>{owned ? <><PackageCheck size={14} /> 已拥有</> : <><SpiritStoneIcon size="sm" /> {item.price}</>}</b>
+                    <b>{equipped ? <><Check size={14} /> 已装备</> : owned ? <><PackageCheck size={14} /> 可装备</> : <><SpiritStoneIcon size="sm" /> {item.price}</>}</b>
                   </button>
                 )
               })}
             </div>
+            {!visibleShopItems.length && <div className="empty-inline"><Backpack size={18} />这个分类还没有已拥有物品。</div>}
           </section>
         </div>
       )}
@@ -470,13 +498,13 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
 
           {missionView === 'technique' && (
             <section className="world-section mission-list-section">
-              <div className="world-section-heading"><div><p className="eyebrow"><ScrollText size={14} /> 功法阁</p><h2>选择本轮做题加成</h2></div></div>
+              <div className="world-section-heading"><div><p className="eyebrow"><ScrollText size={14} /> 功法阁</p><h2>修炼一门主动功法</h2></div><strong>{CULTIVATION_TECHNIQUES.filter((technique) => technique.unlocked(profile)).length}/{CULTIVATION_TECHNIQUES.length}</strong></div>
               <div className="technique-world-list">
                 {CULTIVATION_TECHNIQUES.map((technique) => {
                   const unlocked = technique.unlocked(profile)
                   const active = profile.activeTechniqueId === technique.id
                   const progress = getTechniqueProgress(profile.techniqueMastery[technique.id] || 0)
-                  return <button type="button" className={`${active ? 'active' : ''} ${unlocked ? '' : 'locked'}`} disabled={!unlocked} onClick={() => chooseTechnique(technique.id)} key={technique.id}><span>{unlocked ? progress.level : <LockKeyhole size={16} />}</span><div><small>{technique.school}</small><strong>{technique.name}</strong><p>{technique.description}</p><em>{unlocked ? `熟练度 ${progress.mastery}${progress.nextLevelAt ? `/${progress.nextLevelAt}` : ' · 圆满'}` : technique.unlockLabel}</em></div><b>{active ? '运转中' : unlocked ? '装备' : '未解锁'}</b></button>
+                  return <button type="button" className={`${active ? 'active' : ''} ${unlocked ? '' : 'locked'}`} onClick={() => { setSelectedTechniqueId(technique.id); playSound('chapter-open') }} key={technique.id}><span>{unlocked ? progress.level : <LockKeyhole size={16} />}</span><div><small>{technique.school} · {technique.attribute}</small><strong>{technique.name}</strong><p>{technique.description}</p><div className="technique-card-progress"><i style={{ width: `${progress.percent}%` }} /></div><em>{unlocked ? `${progress.level} 重 · ${getTechniqueStageName(progress.level)} · 熟练度 ${progress.mastery}${progress.nextLevelAt ? `/${progress.nextLevelAt}` : ''}` : technique.unlockLabel}</em></div><b>{active ? '运转中' : '详情'}</b></button>
                 })}
               </div>
             </section>
@@ -485,8 +513,15 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
           {missionView === 'honor' && (
             <section className="world-section mission-list-section">
               <div className="world-section-heading"><div><p className="eyebrow"><Award size={14} /> 荣誉殿</p><h2>称号与知识卡</h2></div><strong>{titleStatuses.filter((title) => title.isUnlocked).length}/{titleStatuses.length}</strong></div>
+              <div className="equipped-title-banner"><TitleBadgeArt title={profile.selectedTitle} index={Math.max(0, titleStatuses.findIndex((title) => title.name === profile.selectedTitle))} tier={titleStatuses.find((title) => title.name === profile.selectedTitle)?.tier} /><span><small>当前佩戴</small><strong>{profile.selectedTitle}</strong><em>{titleStatuses.find((title) => title.name === profile.selectedTitle)?.story}</em></span></div>
+              <div className="horizontal-filters title-filters" role="tablist" aria-label="称号分类">
+                {titleCategories.map((category) => <button type="button" role="tab" aria-selected={titleCategory === category.id} className={titleCategory === category.id ? 'active' : ''} onClick={() => setTitleCategory(category.id)} key={category.id}>{category.label}</button>)}
+              </div>
               <div className="world-title-grid">
-                {titleStatuses.map((title, index) => <button type="button" className={`${title.isUnlocked ? '' : 'locked'} ${profile.selectedTitle === title.name ? 'selected' : ''}`} disabled={!title.isUnlocked} onClick={() => chooseTitle(title.name)} key={title.name}><TitleBadgeArt title={title.name} index={index} locked={!title.isUnlocked} /><span><strong>{title.name}</strong><small>{title.isUnlocked ? profile.selectedTitle === title.name ? '当前佩戴' : '点击佩戴' : title.requirement}</small></span></button>)}
+                {visibleTitles.map((title) => {
+                  const index = titleStatuses.findIndex((candidate) => candidate.id === title.id)
+                  return <button type="button" className={`${title.isUnlocked ? '' : 'locked'} ${profile.selectedTitle === title.name ? 'selected' : ''}`} onClick={() => { setSelectedTitleId(title.id); playSound(title.isUnlocked ? 'chapter-open' : 'wrong') }} key={title.id}><TitleBadgeArt title={title.name} index={index} tier={title.tier} locked={!title.isUnlocked} /><span><small>{title.tier} · {title.category}</small><strong>{title.name}</strong><div className="title-progress"><i style={{ width: `${title.progressPercent}%` }} /></div><em>{title.isUnlocked ? profile.selectedTitle === title.name ? '当前佩戴' : '已解锁' : `${Math.min(title.current, title.target)}/${title.target}`}</em></span></button>
+                })}
               </div>
               <div className="reward-vault-heading"><Sparkles size={17} /><div><strong>最近获得的知识卡</strong><small>每次真实完成，都留下可见战利品</small></div></div>
               {rewards.length ? <div className="world-reward-strip">{rewards.map((reward) => <article className={`rarity-${reward.rarity}`} key={reward.id}><Gem size={21} /><small>{reward.rarity}</small><strong>{reward.name}</strong><p>{reward.description}</p></article>)}</div> : <div className="empty-inline"><BookOpenCheck size={18} />完成第一题后，第一张知识卡会在这里出现。</div>}
@@ -496,6 +531,40 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
       )}
 
       {selectedCharacter && <CharacterArchive character={selectedCharacter} profile={profile} activeRouteId={activeRouteId} onClose={() => setSelectedCharacter(undefined)} />}
+
+      {selectedTechnique && selectedTechniqueProgress && selectedTechniqueEffect && (
+        <div className="system-detail-backdrop" role="dialog" aria-modal="true" aria-labelledby="technique-detail-title" onMouseDown={(event) => event.target === event.currentTarget && setSelectedTechniqueId(undefined)}>
+          <section className="system-detail-sheet technique-detail-sheet">
+            <button type="button" className="shop-detail-close" onClick={() => setSelectedTechniqueId(undefined)} aria-label="关闭功法详情"><X size={20} /></button>
+            <div className="technique-detail-emblem"><ScrollText size={30} /><span>{selectedTechniqueProgress.level}</span></div>
+            <p className="eyebrow">{selectedTechnique.school} · {selectedTechnique.attribute}</p>
+            <h2 id="technique-detail-title">{selectedTechnique.name}</h2>
+            <strong className="system-rank">{selectedTechniqueProgress.level} 重 · {getTechniqueStageName(selectedTechniqueProgress.level)}</strong>
+            <p>{selectedTechnique.lore}</p>
+            <dl className="technique-detail-rules">
+              <div><dt>触发条件</dt><dd>{selectedTechnique.triggerLabel}</dd></div>
+              <div><dt>当前效果</dt><dd>{selectedTechniqueEffect.label}</dd></div>
+              <div><dt>下一重</dt><dd>{selectedTechniqueNextEffect?.label || '功法已至圆满'}</dd></div>
+            </dl>
+            <div className="system-progress-block"><span><strong>熟练度 {selectedTechniqueProgress.mastery}</strong><small>{selectedTechniqueProgress.nextLevelAt ? `下一重 ${selectedTechniqueProgress.nextLevelAt}` : '圆满'}</small></span><div><i style={{ width: `${selectedTechniqueProgress.percent}%` }} /></div></div>
+            {selectedTechnique.unlocked(profile) ? <button type="button" className="button button-accent button-full" onClick={() => chooseTechnique(selectedTechnique.id)} disabled={profile.activeTechniqueId === selectedTechnique.id}><ScrollText size={18} />{profile.activeTechniqueId === selectedTechnique.id ? '正在运转' : '运转此功法'}</button> : <button type="button" className="button button-full" disabled><LockKeyhole size={18} />{selectedTechnique.unlockLabel}</button>}
+          </section>
+        </div>
+      )}
+
+      {selectedTitleStatus && (
+        <div className="system-detail-backdrop" role="dialog" aria-modal="true" aria-labelledby="title-detail-title" onMouseDown={(event) => event.target === event.currentTarget && setSelectedTitleId(undefined)}>
+          <section className="system-detail-sheet title-detail-sheet">
+            <button type="button" className="shop-detail-close" onClick={() => setSelectedTitleId(undefined)} aria-label="关闭称号详情"><X size={20} /></button>
+            <TitleBadgeArt title={selectedTitleStatus.name} index={titleStatuses.findIndex((title) => title.id === selectedTitleStatus.id)} tier={selectedTitleStatus.tier} locked={!selectedTitleStatus.isUnlocked} />
+            <p className="eyebrow">{selectedTitleStatus.tier} · {selectedTitleStatus.category}</p>
+            <h2 id="title-detail-title">{selectedTitleStatus.name}</h2>
+            <p>{selectedTitleStatus.story}</p>
+            <div className="title-detail-condition"><span>{selectedTitleStatus.requirement}</span><strong>{Math.min(selectedTitleStatus.current, selectedTitleStatus.target)}/{selectedTitleStatus.target}</strong><div><i style={{ width: `${selectedTitleStatus.progressPercent}%` }} /></div></div>
+            <button type="button" className="button button-accent button-full" disabled={!selectedTitleStatus.isUnlocked || profile.selectedTitle === selectedTitleStatus.name} onClick={() => chooseTitle(selectedTitleStatus.name)}>{!selectedTitleStatus.isUnlocked ? <><LockKeyhole size={18} />尚未解锁</> : profile.selectedTitle === selectedTitleStatus.name ? <><Check size={18} />当前佩戴</> : <><Award size={18} />佩戴称号</>}</button>
+          </section>
+        </div>
+      )}
 
       {duelCharacter && (
         <DuelChallengeModal
@@ -514,7 +583,7 @@ export function WorldPage({ notify, onPractice, onStartDuel }: WorldPageProps) {
           <section className={`shop-detail-sheet ${purchaseBurst ? 'purchase-success' : ''}`}>
             <button type="button" className="shop-detail-close" onClick={() => setSelectedItem(undefined)} aria-label="关闭商品详情"><X size={20} /></button>
             <div className="shop-detail-art"><ShopItemArt item={selectedItem} />{purchaseBurst && <span className="purchase-banner"><Sparkles size={22} />购入成功</span>}</div>
-            <small>{slotLabels[selectedItem.category]} · 黑角坊市</small>
+            <small>{slotLabels[selectedItem.category]} · {profile.ownedItemIds.includes(selectedItem.id) ? '修炼背包' : '黑角坊市'}</small>
             <h2 id="shop-detail-title">{selectedItem.name}</h2>
             <p>{selectedItem.description}</p>
             <div className="shop-detail-price"><Coins size={18} /><span>售价</span><strong><SpiritStoneIcon size="sm" /> {selectedItem.price} 灵石</strong></div>

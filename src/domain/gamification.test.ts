@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyStudyToProfile, calculateCoinReward, getEncouragement, getRealmAdvance, getRealmProgress, getUnlockedTitles } from './gamification'
+import { applyStudyToProfile, calculateCoinReward, getEncouragement, getRealmAdvance, getRealmProgress, getTitleStatuses, getUnlockedTitles } from './gamification'
 import type { PlayerProfile } from '../types'
 
 const profile: PlayerProfile = {
@@ -51,6 +51,7 @@ describe('斗气境界与奖励进度', () => {
     expect(next.coins).toBe(25)
     expect(getRealmProgress(next.xp).label).toBe('斗者 · 2 星')
     expect(getUnlockedTitles(next)).toEqual(expect.arrayContaining(['错因猎手', '极限破壁者', '定理守门人', '三日凝火']))
+    expect(getTitleStatuses(next).find((title) => title.name === '多解宗师')).toMatchObject({ current: 4, target: 5, progressPercent: 80, isUnlocked: false })
   })
 
   it('中断后从第一天重新开始', () => {

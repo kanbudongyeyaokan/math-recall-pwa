@@ -743,7 +743,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         <button type="button" className="icon-button" onClick={onBack} aria-label="退出本次做题"><ArrowLeft size={22} /></button>
         <div>
           <span>{queueLabel}</span>
-          <small>{problem.kind === 'concept' ? '定义与判据' : problem.questionFormat === 'open' ? '主观题' : problem.questionFormat === 'single-choice' ? '单选题' : '多选题'}</small>
+          <small>{problem.kind === 'concept' ? '已归档题型' : problem.questionFormat === 'open' ? '主观题' : problem.questionFormat === 'single-choice' ? '单选题' : '多选题'}</small>
         </div>
         <div className="review-header-actions">
           <button type="button" className="icon-button sound-toggle" onClick={() => setAudioOpen(true)} aria-label="打开音效和语音设置" aria-expanded={audioOpen} title="音效和语音设置">

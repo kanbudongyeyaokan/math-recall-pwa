@@ -62,12 +62,20 @@ export function SpiritStoneIcon({ size = 'md', className = '' }: { size?: 'sm' |
   )
 }
 
-export function TitleBadgeArt({ title, index, locked = false }: { title: string; index: number; locked?: boolean }) {
+const TITLE_TIER_CLASS: Record<string, string> = {
+  '凡品': 'bronze',
+  '玄品': 'jade',
+  '地品': 'crimson',
+  '天品': 'star',
+  '帝品': 'emperor'
+}
+
+export function TitleBadgeArt({ title, index, tier, locked = false }: { title: string; index: number; tier?: string; locked?: boolean }) {
   const Icon = TITLE_ICONS[index] || Award
-  const tier = index < 3 ? 'bronze' : index < 7 ? 'jade' : index < 11 ? 'crimson' : index < 15 ? 'star' : 'emperor'
+  const tierClass = tier ? TITLE_TIER_CLASS[tier] || 'bronze' : index < 3 ? 'bronze' : index < 7 ? 'jade' : index < 11 ? 'crimson' : index < 15 ? 'star' : 'emperor'
 
   return (
-    <span className={`title-badge-art tier-${tier} ${locked ? 'is-locked' : ''}`} role="img" aria-label={`${title}${locked ? '未解锁' : '称号徽章'}`}>
+    <span className={`title-badge-art tier-${tierClass} ${locked ? 'is-locked' : ''}`} role="img" aria-label={`${title}${locked ? '未解锁' : '称号徽章'}`}>
       <span><Icon size={22} strokeWidth={1.8} /></span>
       <i />
     </span>

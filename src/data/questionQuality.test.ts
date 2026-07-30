@@ -53,11 +53,10 @@ describe('题库质量审计 2.0', () => {
     expect(audited.qualityIssues).toContainEqual(expect.objectContaining({ code: 'answer-key-conflict' }))
   })
 
-  it('移除定义卡后精品池保持在 550 到 900 道且全部拥有学习元数据', () => {
+  it('清理派生模板后 192 道 PDF 精品题全部拥有学习元数据', () => {
     const seeds = makeSeedProblems(10)
     const summary = getQualitySummary(seeds)
-    expect(summary.verified).toBeGreaterThanOrEqual(550)
-    expect(summary.verified).toBeLessThanOrEqual(900)
+    expect(summary.verified).toBe(192)
     expect(seeds.every((item) => item.semanticClusterId && item.difficulty && item.estimatedMinutes && item.discrimination && item.prerequisites)).toBe(true)
   })
 })

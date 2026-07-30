@@ -12,7 +12,7 @@ export function getNewUnlockEvents(previous: PlayerProfile, next: PlayerProfile)
   const previousPower = getMasteryPower(previous)
   const nextPower = getMasteryPower(next)
   const achievements = TITLE_DEFINITIONS
-    .filter((title) => !title.unlocked(previous) && title.unlocked(next))
+    .filter((title) => title.progress(previous) < title.target && title.progress(next) >= title.target)
     .map((title) => ({
       id: `achievement:${title.name}`,
       kind: 'achievement' as const,

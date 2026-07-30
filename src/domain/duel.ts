@@ -36,7 +36,7 @@ export const DUEL_SCOPE_OPTIONS: readonly { id: DuelScope; label: string; descri
   { id: 'all', label: '全高数', description: '跨讲次随机抽取，检验综合反应。' },
   { id: 'lecture', label: '指定讲次', description: '锁定一讲，正面比拼当前训练成果。' },
   { id: 'weak', label: '薄弱题', description: '优先抽取尚未真正掌握的题。' },
-  { id: 'choice', label: '选择题速战', description: '只抽选择题，强调判断与速度。' }
+  { id: 'choice', label: '快速五题', description: '优先抽资料选择题，不足五道时由经典题补足。' }
 ] as const
 
 const MAIN_RIVAL_LINES: Record<string, Pick<DuelPresentation, 'invite' | 'playerVictory' | 'opponentVictory'>> = {
@@ -99,7 +99,10 @@ export function getDuelPresentation(characterId: string): DuelPresentation {
 function eligibleProblems(problems: readonly Problem[], profile: PlayerProfile, scope: DuelScope, lectureId?: string) {
   const calculus = problems.filter((problem) => isProblemEligibleForPractice(problem) && getProblemLectureIds(problem).length > 0)
   if (scope === 'lecture') return calculus.filter((problem) => getProblemLectureIds(problem).includes(lectureId || ''))
-  if (scope === 'choice') return calculus.filter((problem) => problem.questionFormat !== 'open' && problem.correctOptionIds.length > 0)
+  if (scope === 'choice') {
+    const choices = calculus.filter((problem) => problem.questionFormat !== 'open' && problem.correctOptionIds.length > 0)
+    return choices.length >= DUEL_QUESTION_COUNT ? choices : [...choices, ...calculus.filter((problem) => !choices.includes(problem))]
+  }
   if (scope === 'weak') {
     const mastered = new Set(profile.masteredProblemIds)
     const weak = calculus.filter((problem) => !mastered.has(problem.id))
@@ -128,17 +131,10 @@ export function buildDuelQueue(input: {
       if (id) selected.push(id)
     })
   } else {
-    const byLecture = new Map<string, string[]>()
-    pool.forEach((problem) => {
-      const lecture = getProblemLectureIds(problem)[0]
-      if (!lecture) return
-      byLecture.set(lecture, [...(byLecture.get(lecture) || []), problem.id])
-    })
-    shuffleProblemIds([...byLecture.keys()], seed).forEach((lecture, index) => {
-      if (selected.length >= DUEL_QUESTION_COUNT) return
-      const id = shuffleProblemIds(byLecture.get(lecture) || [], seed + index + 31)[0]
-      if (id) selected.push(id)
-    })
+    const choiceIds = candidates
+      .filter((problem) => problem.questionFormat !== 'open' && problem.correctOptionIds.length > 0)
+      .map((problem) => problem.id)
+    selected.push(...shuffleProblemIds(choiceIds, seed + 31).slice(0, DUEL_QUESTION_COUNT))
   }
 
   const remaining = pool.map((problem) => problem.id).filter((id) => !selected.includes(id))

@@ -273,6 +273,48 @@ describe('旧数据迁移归一化', () => {
     upgraded.close()
   })
 
+  it('升级到 v10 时归档全部内置定义、辨析和非 PDF 模板，保留正式应用题与作答历史', async () => {
+    const name = `pdf-only-migration-${crypto.randomUUID()}`
+    databases.push(name)
+    const legacyDb = new Dexie(name)
+    legacyDb.version(9).stores({
+      problems: 'id, kind, questionFormat, qualityStatus, difficulty, nextReviewAt, updatedAt, source, *tags, *prerequisites',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    })
+    await legacyDb.open()
+    const base = {
+      kind: 'problem', statement: '完整题面', source: '旧内置题', page: 'PDF 1', tags: ['高等数学'],
+      coreMethod: '完整方法', mistakes: '常见错误', answerText: '完整答案', questionFormat: 'open', options: [],
+      correctOptionIds: [], solutionMethods: [], createdAt: 1, updatedAt: 1, nextReviewAt: 1, intervalIndex: -1, reviewCount: 0,
+      isSeed: true
+    }
+    await legacyDb.table('problems').bulkPut([
+      { ...base, id: 'zy27-c01-limit-choice', title: '命题辨析' },
+      { ...base, id: 'zy27-c01-limit-audit', title: '错解审判' },
+      { ...base, id: 'dpm20-extra-application', title: '旧原创模板' },
+      { ...base, id: 'seed-01', title: '旧样例' },
+      { ...base, id: 'zy27-c01-limit-application', title: 'PDF 经典应用' },
+      { ...base, id: 'personal-concept', kind: 'concept', title: '个人卡片', isSeed: false }
+    ])
+    await legacyDb.table('reviews').add({ problemId: 'zy27-c01-limit-choice', rating: 'independent', reviewedAt: 1, nextReviewAt: 2, intervalIndex: 1, xpEarned: 10 })
+    legacyDb.close()
+
+    const upgraded = new MathRecallDatabase(name)
+    await upgraded.open()
+    for (const id of ['zy27-c01-limit-choice', 'zy27-c01-limit-audit', 'dpm20-extra-application', 'seed-01']) {
+      expect((await upgraded.problems.get(id))?.archived).toBe(true)
+    }
+    expect((await upgraded.problems.get('zy27-c01-limit-application'))?.archived).not.toBe(true)
+    expect((await upgraded.problems.get('personal-concept'))?.archived).not.toBe(true)
+    expect(await upgraded.reviews.where('problemId').equals('zy27-c01-limit-choice').count()).toBe(1)
+    upgraded.close()
+  })
+
   it('会话写入保留 12 个滚动恢复点、拒绝旧状态回写并可彻底清理', async () => {
     db.close()
     await db.delete()

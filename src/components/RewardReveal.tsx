@@ -1,7 +1,7 @@
 import { AudioLines, Crown, Layers3, ScrollText, Sparkles, Volume2, X, Zap } from 'lucide-react'
 import type { PlayerProfile, RewardCard, UnlockEvent } from '../types'
 import type { RealmProgress } from '../domain/gamification'
-import type { TechniqueResolution } from '../domain/cultivation'
+import { getTechniqueStageName, type TechniqueResolution } from '../domain/cultivation'
 import { getCharacter } from '../domain/story'
 import { CharacterPortrait } from './CharacterPortrait'
 import type { CharacterVoiceCue } from '../utils/voice'
@@ -86,7 +86,7 @@ export function RewardReveal({ card, xp, intervalDays, advanced, realmBreakthrou
           <div className="technique-bonuses">
             <span>额外经验 +{technique.xpBonus}</span>
             <span><SpiritStoneIcon size="sm" />额外灵石 +{technique.coinBonus}</span>
-            {technique.nextLevel > technique.previousLevel && <strong>功法升至 {technique.nextLevel} 重</strong>}
+            {technique.nextLevel > technique.previousLevel && <strong>功法升至 {technique.nextLevel} 重 · {getTechniqueStageName(technique.nextLevel)}</strong>}
           </div>
         )}
         <div className="reward-stats">

@@ -15,9 +15,10 @@ describe('主动五题挑战', () => {
     }
   })
 
-  it('选择题速战只抽可作答选择题，指定讲次不会越界', async () => {
+  it('快速五题优先抽可作答选择题并从 PDF 经典题补足，指定讲次不会越界', async () => {
     const choiceIds = buildDuelQueue({ problems, profile: defaultProfile, scope: 'choice', seed: 7 })
-    expect(choiceIds.every((id) => problems.find((problem) => problem.id === id)?.questionFormat !== 'open')).toBe(true)
+    const availableChoiceIds = new Set(problems.filter((problem) => problem.questionFormat !== 'open').map((problem) => problem.id))
+    expect([...availableChoiceIds].every((id) => choiceIds.includes(id))).toBe(true)
 
     const lectureIds = buildDuelQueue({ problems, profile: defaultProfile, scope: 'lecture', lectureId: 'lecture-18', seed: 7 })
     const { getProblemLectureIds } = await import('./curriculum')

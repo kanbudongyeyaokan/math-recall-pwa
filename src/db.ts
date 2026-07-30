@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import { DEPRECATED_SEED_IDS, makeSeedProblems } from './data/seed'
+import { DEPRECATED_SEED_IDS, isRetiredBuiltInProblem, makeSeedProblems } from './data/seed'
 import {
   auditProblemBank,
   enrichProblemQuality,
@@ -347,6 +347,19 @@ export class MathRecallDatabase extends Dexie {
         .filter((problem) => problem.isSeed === true)
         .modify({ archived: true, seedVersion: 8 })
     })
+    this.version(10).stores({
+      problems: 'id, kind, questionFormat, qualityStatus, difficulty, nextReviewAt, updatedAt, source, *tags, *prerequisites',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    }).upgrade(async (transaction) => {
+      await transaction.table<Problem>('problems')
+        .filter(isRetiredBuiltInProblem)
+        .modify({ archived: true, seedVersion: 10 })
+    })
   }
 }
 
@@ -387,6 +400,10 @@ export async function initializeDatabase() {
       .equals('concept')
       .filter((problem) => problem.isSeed === true && !problem.archived)
       .modify({ archived: true, seedVersion: 8 })
+
+    await db.problems
+      .filter((problem) => isRetiredBuiltInProblem(problem) && !problem.archived)
+      .modify({ archived: true, seedVersion: 10 })
 
     await db.problems
       .where('source')

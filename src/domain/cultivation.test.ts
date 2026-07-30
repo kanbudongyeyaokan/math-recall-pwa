@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { defaultProfile } from '../db'
 import type { Problem } from '../types'
-import { getTechniqueLevel, getTechniqueProgress, resolveTechnique } from './cultivation'
+import { getTechniqueEffect, getTechniqueLevel, getTechniqueProgress, getTechniqueStageName, resolveTechnique } from './cultivation'
 
 const problem: Problem = {
   id: 'p', kind: 'problem', title: '基础例题', statement: '', source: '', page: '', tags: [],
@@ -27,5 +27,7 @@ describe('功法触发与熟练度', () => {
   it('熟练度按五阶成长并给出区间进度', () => {
     expect([0, 10, 30, 60, 120].map(getTechniqueLevel)).toEqual([1, 2, 3, 4, 5])
     expect(getTechniqueProgress(20)).toMatchObject({ level: 2, percent: 50, nextLevelAt: 30 })
+    expect(getTechniqueStageName(4)).toBe('化境')
+    expect(getTechniqueEffect(resolveTechnique(defaultProfile, problem, 'independent', true).technique, 3)).toMatchObject({ xpBonus: 5, coinBonus: 1 })
   })
 })

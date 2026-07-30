@@ -568,7 +568,17 @@ export const LOW_CLARITY_SEED_IDS = [
 
 export const DEPRECATED_SEED_IDS = ['seed-56', 'seed-65', ...LOW_CLARITY_SEED_IDS] as const
 
-const allSeeds = [...originalSeeds, ...curatedQuestionSeeds].filter((seed) => seed.kind === 'problem')
+const allSeeds = curatedQuestionSeeds.filter((seed) => seed.kind === 'problem')
+
+export function isRetiredBuiltInProblem(problem: Pick<Problem, 'id' | 'kind' | 'title' | 'tags' | 'isSeed'>) {
+  if (!problem.isSeed) return false
+  return problem.kind === 'concept'
+    || /^seed-\d+$/.test(problem.id)
+    || /^(?:wzx27|dpm20)-/.test(problem.id)
+    || /-(?:choice|audit)$/.test(problem.id)
+    || /(?:命题辨析|错解审判|错解辨析)/.test(problem.title)
+    || problem.tags.some((tag) => tag === '定义' || tag === '定义与判据' || tag === '命题辨析' || tag === '错解辨析')
+}
 
 function normalizeMathTypography(text: string) {
   return text.replace(/″/g, "''").replace(/′/g, "'")
@@ -618,7 +628,7 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
       intervalIndex: -1,
       reviewCount: 0,
       isSeed: true,
-      seedVersion: 7
+      seedVersion: 10
     }
   }).filter((problem) => !DEPRECATED_SEED_IDS.includes(problem.id as typeof DEPRECATED_SEED_IDS[number]))
   return auditProblemBank(problems, now)

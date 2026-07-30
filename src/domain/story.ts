@@ -319,7 +319,7 @@ export const STORY_CHAPTERS: StoryChapter[] = [
   {
     id: 'counterexample-book', threshold: 52, act: '第七幕 · 支线', title: '逆命题的裂缝', location: '定理讨论桌', speaker: '林见月', portraitId: 'lin-jianyue', role: 'classmate',
     dialogue: ['林见月推来一页反例：你说“偏导存在就可微”，那这个函数为什么在原点失败？', '何耀焜重新圈出条件：从今天起，每背一个结论，我都要知道它能不能反过来。'],
-    objective: '完成一组定义与结论辨析题。'
+    objective: '完成一组来自资料例题与课后题的基础训练。'
   },
   {
     id: 'yuxin-overtime', threshold: 58, act: '第八幕', title: '凌晨两点的截图', location: '训练群榜单', speaker: '曾宇鑫', portraitId: 'zeng-yuxin', role: 'rival',

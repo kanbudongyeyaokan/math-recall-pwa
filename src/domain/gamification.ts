@@ -75,25 +75,42 @@ export function getRealmAdvance(previousXp: number, nextXp: number) {
   }
 }
 
-export const TITLE_DEFINITIONS = [
-  { name: '斗气化题', requirement: '开始修炼', unlocked: () => true },
-  { name: '焜火初燃', requirement: '完成第一道题', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 1 },
-  { name: '错因猎手', requirement: '完成 10 道题', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 10 },
-  { name: '极限破壁者', requirement: '独立完成 10 次', unlocked: (profile: PlayerProfile) => profile.independentReviews >= 10 },
-  { name: '定理守门人', requirement: '选择题答对 15 次', unlocked: (profile: PlayerProfile) => profile.correctChoiceReviews >= 15 },
-  { name: '多解宗师', requirement: '能够多解 5 次', unlocked: (profile: PlayerProfile) => profile.multipleSolutionReviews >= 5 },
-  { name: '三日凝火', requirement: '连续做题 3 天', unlocked: (profile: PlayerProfile) => profile.streak >= 3 },
-  { name: '七日燃灯', requirement: '连续做题 7 天', unlocked: (profile: PlayerProfile) => profile.streak >= 7 },
-  { name: '百炼题心', requirement: '完成 50 道题', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 50 },
-  { name: '百题问鼎', requirement: '完成 100 道题', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 100 },
-  { name: '三十讲巡猎者', requirement: '完成 150 道题', unlocked: (profile: PlayerProfile) => profile.totalReviews >= 150 },
-  { name: '高数玄关破阵者', requirement: '独立完成 100 次', unlocked: (profile: PlayerProfile) => profile.independentReviews >= 100 },
-  { name: '何氏万法阁主', requirement: '能够多解 30 次', unlocked: (profile: PlayerProfile) => profile.multipleSolutionReviews >= 30 },
-  { name: '九转破境人', requirement: '跨越 5 个大境界', unlocked: (profile: PlayerProfile) => profile.breakthroughCount >= 5 },
-  { name: '矩阵观星者', requirement: '抵达斗王', unlocked: (profile: PlayerProfile) => getRealmProgress(profile.xp).realmIndex >= 4 },
-  { name: '公式焚海', requirement: '抵达斗宗', unlocked: (profile: PlayerProfile) => getRealmProgress(profile.xp).realmIndex >= 6 },
-  { name: '定理裁决者', requirement: '抵达斗圣', unlocked: (profile: PlayerProfile) => getRealmProgress(profile.xp).realmIndex >= 8 },
-  { name: '万题归宗', requirement: '抵达斗帝', unlocked: (profile: PlayerProfile) => getRealmProgress(profile.xp).isPeak }
+export type TitleTier = '凡品' | '玄品' | '地品' | '天品' | '帝品'
+export type TitleCategory = '征途' | '掌握' | '连胜' | '挑战' | '境界'
+
+interface TitleDefinition {
+  id: string
+  name: string
+  tier: TitleTier
+  category: TitleCategory
+  requirement: string
+  story: string
+  target: number
+  progress: (profile: PlayerProfile) => number
+}
+
+export const TITLE_DEFINITIONS: readonly TitleDefinition[] = [
+  { id: 'first-step', name: '斗气化题', tier: '凡品', category: '征途', requirement: '开始修炼', story: '第一缕斗气并不耀眼，却标志着何耀焜真正开始把目标变成每天的行动。', target: 1, progress: () => 1 },
+  { id: 'first-flame', name: '焜火初燃', tier: '凡品', category: '征途', requirement: '完成第一道题', story: '第一题闭环完成，焜火在卷边亮起。往后的每一步，都从这次落笔开始。', target: 1, progress: (profile) => profile.totalReviews },
+  { id: 'error-hunter', name: '错因猎手', tier: '玄品', category: '掌握', requirement: '完成 10 道题', story: '不逃避错题的人，才有资格追踪真正的薄弱处。', target: 10, progress: (profile) => profile.totalReviews },
+  { id: 'limit-breaker', name: '极限破壁者', tier: '玄品', category: '掌握', requirement: '独立完成 10 次', story: '没有提示仍能找到入口，第一道真正的壁垒已经被你亲手击穿。', target: 10, progress: (profile) => profile.independentReviews },
+  { id: 'choice-sentinel', name: '定理守门人', tier: '玄品', category: '掌握', requirement: '选择题答对 15 次', story: '条件、范围和结论都逃不过你的检查，似是而非的选项止步于此。', target: 15, progress: (profile) => profile.correctChoiceReviews },
+  { id: 'many-path-master', name: '多解宗师', tier: '地品', category: '掌握', requirement: '能够多解 5 次', story: '答案只有一个，通往答案的道路却已在你眼前展开。', target: 5, progress: (profile) => profile.multipleSolutionReviews },
+  { id: 'three-day-flame', name: '三日凝火', tier: '凡品', category: '连胜', requirement: '连续做题 3 天', story: '三日不熄的火苗，证明行动正在越过一时兴起。', target: 3, progress: (profile) => profile.streak },
+  { id: 'seven-day-lamp', name: '七日燃灯', tier: '玄品', category: '连胜', requirement: '连续做题 7 天', story: '一周风雨未曾吹灭桌前的灯，稳定开始成为你的武器。', target: 7, progress: (profile) => profile.streak },
+  { id: 'fifty-forged', name: '百炼题心', tier: '地品', category: '征途', requirement: '完成 50 道题', story: '五十次完整思考，让躁动沉下去，让题心慢慢成形。', target: 50, progress: (profile) => profile.totalReviews },
+  { id: 'hundred-crown', name: '百题问鼎', tier: '地品', category: '征途', requirement: '完成 100 道题', story: '百题不是终点，而是你第一次拥有可被验证的长期积累。', target: 100, progress: (profile) => profile.totalReviews },
+  { id: 'thirty-lectures', name: '三十讲巡猎者', tier: '天品', category: '征途', requirement: '完成 150 道题', story: '你已经穿过高数主线的大部分关隘，陌生题型开始显露熟悉的骨架。', target: 150, progress: (profile) => profile.totalReviews },
+  { id: 'correction-reversal', name: '逆风翻盘者', tier: '地品', category: '掌握', requirement: '订正并掌握 10 道错题', story: '曾经击倒你的题，如今都成了脚下的台阶。', target: 10, progress: (profile) => profile.correctedProblemIds.length },
+  { id: 'boss-slayer', name: '十八关镇守者', tier: '天品', category: '挑战', requirement: '击败 3 名讲次 Boss', story: '关隘不再只是地图上的名字，三枚胜印已经刻入你的战绩。', target: 3, progress: (profile) => Object.keys(profile.bossVictories).length },
+  { id: 'duel-winner', name: '五题争锋客', tier: '玄品', category: '挑战', requirement: '赢下 3 场五题挑战', story: '计时与压迫都没能打乱你的推导，三场胜利证明你能在竞争中保持清醒。', target: 3, progress: (profile) => profile.duelWins },
+  { id: 'high-math-gate', name: '高数玄关破阵者', tier: '天品', category: '掌握', requirement: '独立完成 100 次', story: '一百次不借外力的闭环，让高数玄关真正向你敞开。', target: 100, progress: (profile) => profile.independentReviews },
+  { id: 'many-path-lord', name: '何氏万法阁主', tier: '天品', category: '掌握', requirement: '能够多解 30 次', story: '何耀焜以自己的方法谱系立阁，万法入卷，各有来路。', target: 30, progress: (profile) => profile.multipleSolutionReviews },
+  { id: 'nine-turns', name: '九转破境人', tier: '天品', category: '境界', requirement: '跨越 5 个大境界', story: '每次破境都来自真实完成。五次跨越之后，旧日的自己已在身后很远。', target: 5, progress: (profile) => profile.breakthroughCount },
+  { id: 'matrix-stargazer', name: '矩阵观星者', tier: '地品', category: '境界', requirement: '抵达斗王', story: '抵达斗王之时，矩阵如星图展开，结构开始代替蛮力。', target: 4, progress: (profile) => getRealmProgress(profile.xp).realmIndex },
+  { id: 'formula-sea', name: '公式焚海', tier: '天品', category: '境界', requirement: '抵达斗宗', story: '公式不再是零散记忆，它们在你的方法体系中汇成可调度的火海。', target: 6, progress: (profile) => getRealmProgress(profile.xp).realmIndex },
+  { id: 'theorem-judge', name: '定理裁决者', tier: '帝品', category: '境界', requirement: '抵达斗圣', story: '每一次使用定理，你都能说清条件、路径和边界。斗圣之名由此而来。', target: 8, progress: (profile) => getRealmProgress(profile.xp).realmIndex },
+  { id: 'all-methods', name: '万题归宗', tier: '帝品', category: '境界', requirement: '抵达斗帝', story: '千般题面终归结构，万种路径皆可验证。此称号只为走到巅峰的人亮起。', target: 9, progress: (profile) => getRealmProgress(profile.xp).isPeak ? 9 : getRealmProgress(profile.xp).realmIndex }
 ] as const
 
 export const SHOP_ITEMS: readonly ShopItem[] = [
@@ -107,7 +124,7 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
   { id: 'aura-lotus', name: '青莲光环', description: '连续修炼者的清醒之火', category: 'aura', price: 240, swatch: '#58c9b6' },
   { id: 'aura-crimson', name: '赤曜破阵焰', description: '攻克薄弱板块后燃起的赤焰', category: 'aura', price: 420, swatch: '#d44a3d' },
   { id: 'aura-emperor', name: '帝境金环', description: '为长期主义者保留的荣光', category: 'aura', price: 680, swatch: '#e3b64d' },
-  { id: 'weapon-scroll', name: '定义卷轴', description: '一切推导都从定义出发', category: 'weapon', price: 0, swatch: '#d7c79f' },
+  { id: 'weapon-scroll', name: '演算卷轴', description: '记录入口、变形与验算的完整推导', category: 'weapon', price: 0, swatch: '#d7c79f' },
   { id: 'weapon-ruler', name: '极限玄尺', description: '裁开趋近过程与误差边界', category: 'weapon', price: 90, swatch: '#78999c' },
   { id: 'weapon-compass', name: '多元星规', description: '看清区域、方向与变量关系', category: 'weapon', price: 210, swatch: '#4e8f9b' },
   { id: 'weapon-blade', name: '泰勒焜刃', description: '用局部展开劈开复杂极限', category: 'weapon', price: 420, swatch: '#cf6145' },
@@ -124,7 +141,15 @@ export const SHOP_ITEMS: readonly ShopItem[] = [
 ] as const
 
 export function getTitleStatuses(profile: PlayerProfile) {
-  return TITLE_DEFINITIONS.map((title) => ({ ...title, isUnlocked: title.unlocked(profile) }))
+  return TITLE_DEFINITIONS.map((title) => {
+    const current = Math.max(0, title.progress(profile))
+    return {
+      ...title,
+      current,
+      isUnlocked: current >= title.target,
+      progressPercent: Math.min(100, Math.round((current / title.target) * 100))
+    }
+  })
 }
 
 export function getUnlockedTitles(profile: PlayerProfile) {
@@ -211,7 +236,7 @@ export function getEncouragement(name: string, rating: ReviewRating, isCorrect?:
 const CARD_POOLS: Record<ReviewRating, readonly (readonly [string, string])[]> = {
   again: [
     ['错因余烬', '一次失手不是失败，它标出了下一次破局的位置。'],
-    ['定义碎晶', '回到定义，重新锻造最可靠的起点。']
+    ['错因碎晶', '定位最早失误，重新锻造最可靠的解题主线。']
   ],
   hint: [
     ['思路回响', '提示已经退场，留下的结构要变成自己的。'],

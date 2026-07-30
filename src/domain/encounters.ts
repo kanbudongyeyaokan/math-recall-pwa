@@ -83,7 +83,7 @@ export const STORY_ENCOUNTERS: readonly StoryEncounter[] = [
   {
     id: 'night-train', threshold: 105, characterId: 'chen-yanjun', title: '闭馆后的四十分钟', prompt: '回程只剩四十分钟安静时间，你和陈彦君决定怎样使用？',
     choices: [
-      choice('quiz', '互相口述定义与判据', '不用纸也能讲清楚，才是真的装进了脑子。', 'chen-yanjun'),
+      choice('quiz', '互相复盘解题主线', '不用看解析也能讲清入口、变形与验算，才是真的装进了脑子。', 'chen-yanjun'),
       choice('one-problem', '共同拆透一道经典题', '一题拆透，比匆忙翻十页更像抵达。', 'chen-yanjun')
     ]
   },
