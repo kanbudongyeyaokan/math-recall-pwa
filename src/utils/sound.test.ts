@@ -72,30 +72,27 @@ describe('做题分层音效', () => {
   it('按百分比保存音效与语音音量，并能在重新读取时恢复', () => {
     const { localStorage } = mockBrowserStorage()
 
-    saveAudioPreferences({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1, musicTrackId: 'rain' })
+    saveAudioPreferences({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1, musicTrackId: 'silent-watch' })
 
-    expect(getAudioPreferences()).toMatchObject({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1, musicTrackId: 'rain' })
+    expect(getAudioPreferences()).toMatchObject({ soundVolume: 0.37, musicEnabled: false, musicVolume: 0.24, voiceVolume: 0.64, voiceRate: 1.1, musicTrackId: 'silent-watch' })
     expect(localStorage.setItem).toHaveBeenCalledWith(
       'doupo-math-audio-preferences-v2',
       expect.stringContaining('"soundVolume":0.37')
     )
   })
 
-  it('七个页面场景均有不同节奏的原创循环音型', () => {
+  it('普通页面使用舒缓曲目，竞技场景自动切换紧张曲目', () => {
     expect(Object.keys(MUSIC_SCENES)).toEqual(['home', 'practice', 'focus', 'story', 'market', 'battle', 'resolve'])
-    expect(new Set(Object.values(MUSIC_SCENES).map((scene) => scene.tempo)).size).toBe(7)
-    expect(Object.values(MUSIC_SCENES).every((scene) => (
-      scene.steps.length >= 8 && scene.bass.length >= 4 && scene.accent.length >= 8
-    ))).toBe(true)
+    expect(MUSIC_SCENES.battle).toBe('silent-watch')
+    expect(Object.entries(MUSIC_SCENES).filter(([scene]) => scene !== 'battle').every(([, track]) => track === 'quietly-hopeful')).toBe(true)
   })
 
-  it('提供十二首可切换曲目，并保留随场景自动换曲', () => {
-    expect(Object.keys(MUSIC_TRACKS)).toHaveLength(12)
-    expect(MUSIC_TRACK_OPTIONS).toHaveLength(12)
-    expect(new Set(MUSIC_TRACK_OPTIONS.map((track) => track.title)).size).toBe(12)
-    expect(new Set(Object.values(MUSIC_TRACKS).map((track) => track.tempo)).size).toBe(12)
-    expect(resolveMusicTrack('battle', 'auto')).toBe('battle')
-    expect(resolveMusicTrack('battle', 'starlight')).toBe('starlight')
+  it('只提供两首真实音频并保留场景自动切换与固定播放', () => {
+    expect(Object.keys(MUSIC_TRACKS)).toEqual(['quietly-hopeful', 'silent-watch'])
+    expect(MUSIC_TRACK_OPTIONS).toHaveLength(2)
+    expect(Object.values(MUSIC_TRACKS).every((track) => track.file.endsWith('.mp3'))).toBe(true)
+    expect(resolveMusicTrack('battle', 'auto')).toBe('silent-watch')
+    expect(resolveMusicTrack('battle', 'quietly-hopeful')).toBe('quietly-hopeful')
   })
 
   it('最大音量使用增益补偿并保持零音量近似静音', () => {

@@ -10,7 +10,7 @@ export interface AdaptiveModeDefinition {
 }
 
 export const ADAPTIVE_MODES: AdaptiveModeDefinition[] = [
-  { id: 'foundation', name: '基础巩固', shortDescription: '先补定义、条件与低阶通法', queueSize: 8 },
+  { id: 'foundation', name: '基础巩固', shortDescription: '先练低难度例题与基础通法', queueSize: 8 },
   { id: 'weak', name: '薄弱突破', shortDescription: '优先错题、提示题与超时题型', queueSize: 8 },
   { id: 'mixed', name: '综合混练', shortDescription: '跨知识点交替，保持迁移能力', queueSize: 10 },
   { id: 'sprint', name: '模拟冲刺', shortDescription: '高区分度题组，检验独立完成', queueSize: 10 }
@@ -54,7 +54,7 @@ function getPriority(problem: Problem, reviews: readonly ReviewLog[], mode: Adap
 
 function preferredCandidates(problems: readonly Problem[], mode: AdaptivePracticeMode) {
   if (mode === 'foundation') {
-    const preferred = problems.filter((problem) => (problem.difficulty || 2) <= 2 || problem.kind === 'concept')
+    const preferred = problems.filter((problem) => (problem.difficulty || 2) <= 2)
     return preferred.length >= 4 ? preferred : [...problems]
   }
   if (mode === 'sprint') {

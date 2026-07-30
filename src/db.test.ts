@@ -239,6 +239,40 @@ describe('旧数据迁移归一化', () => {
     upgraded.close()
   })
 
+  it('升级到 v9 时归档内置定义卡但保留个人数据与历史记录', async () => {
+    const name = `definition-card-migration-${crypto.randomUUID()}`
+    databases.push(name)
+    const legacyDb = new Dexie(name)
+    legacyDb.version(8).stores({
+      problems: 'id, kind, questionFormat, qualityStatus, difficulty, nextReviewAt, updatedAt, source, *tags, *prerequisites',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    })
+    await legacyDb.open()
+    const concept = {
+      kind: 'concept', title: '旧定义卡', statement: '定义内容', source: '旧题库', page: '', tags: ['定义'],
+      coreMethod: '旧方法', mistakes: '', answerText: '旧答案', questionFormat: 'open', options: [], correctOptionIds: [],
+      solutionMethods: [], createdAt: 1, updatedAt: 1, nextReviewAt: 1, intervalIndex: -1, reviewCount: 0
+    }
+    await legacyDb.table('problems').bulkPut([
+      { ...concept, id: 'seed-concept', isSeed: true },
+      { ...concept, id: 'personal-concept', isSeed: false }
+    ])
+    await legacyDb.table('reviews').add({ problemId: 'seed-concept', rating: 'independent', reviewedAt: 1, nextReviewAt: 2, intervalIndex: 1, xpEarned: 10 })
+    legacyDb.close()
+
+    const upgraded = new MathRecallDatabase(name)
+    await upgraded.open()
+    expect((await upgraded.problems.get('seed-concept'))?.archived).toBe(true)
+    expect((await upgraded.problems.get('personal-concept'))?.archived).not.toBe(true)
+    expect(await upgraded.reviews.where('problemId').equals('seed-concept').count()).toBe(1)
+    upgraded.close()
+  })
+
   it('会话写入保留 12 个滚动恢复点、拒绝旧状态回写并可彻底清理', async () => {
     db.close()
     await db.delete()

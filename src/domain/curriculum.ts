@@ -225,9 +225,7 @@ export function getProblemRole(problem: Problem): PracticeRole {
   if (problem.questionFormat !== 'open' || text.includes('选择题')) return 'choice'
   if (problem.tags.includes('错解辨析')) return 'exercise'
   if (problem.tags.includes('经典例题')) return 'example'
-  if (problem.tags.includes('定义与判据')) return 'concept'
   if (text.includes('课后') || text.includes('训练')) return 'exercise'
-  if (problem.kind === 'concept' || text.includes('定义') || text.includes('判据')) return 'concept'
   return 'example'
 }
 

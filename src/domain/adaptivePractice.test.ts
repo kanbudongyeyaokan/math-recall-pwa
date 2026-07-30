@@ -5,7 +5,7 @@ import { buildAdaptiveQueue } from './adaptivePractice'
 function problem(id: string, tag: string, difficulty: 1 | 2 | 3 | 4 | 5): Problem {
   return {
     id,
-    kind: difficulty === 1 ? 'concept' : 'problem',
+    kind: 'problem',
     title: id,
     statement: `完整题面 ${id}`,
     source: '测试',

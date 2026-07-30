@@ -201,8 +201,8 @@ export function auditProblemBank(problems: readonly Problem[], auditedAt = Date.
   })
 }
 
-export function isProblemEligibleForPractice(problem: Pick<Problem, 'archived' | 'qualityStatus'>) {
-  return !problem.archived && problem.qualityStatus !== 'needs-review' && problem.qualityStatus !== 'excluded'
+export function isProblemEligibleForPractice(problem: Pick<Problem, 'kind' | 'archived' | 'qualityStatus'>) {
+  return problem.kind === 'problem' && !problem.archived && problem.qualityStatus !== 'needs-review' && problem.qualityStatus !== 'excluded'
 }
 
 export function getQualitySummary(problems: readonly Problem[]) {

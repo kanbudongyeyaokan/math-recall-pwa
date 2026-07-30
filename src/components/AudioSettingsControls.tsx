@@ -48,7 +48,7 @@ export function AudioSettingsControls({ preferences, voiceSupported, onChange, o
       </div>
 
       <label className="audio-music-toggle">
-        <span><Music2 size={17} /><span><strong>场景背景音乐</strong><small>12 首原创循环，可随场景自动换曲或固定播放</small></span></span>
+        <span><Music2 size={17} /><span><strong>场景背景音乐</strong><small>两首原创纯音乐，挑战时自动切换紧张曲目</small></span></span>
         <input type="checkbox" role="switch" checked={preferences.musicEnabled} onChange={(event) => onChange({ musicEnabled: event.target.checked })} />
       </label>
 
@@ -58,7 +58,7 @@ export function AudioSettingsControls({ preferences, voiceSupported, onChange, o
           <option value="auto">自动随当前场景切换</option>
           {MUSIC_TRACK_OPTIONS.map((track) => <option value={track.id} key={track.id}>{track.title}</option>)}
         </select>
-        <small id={`${idPrefix}-music-track-description`}>{selectedTrack?.description || '首页、做题、剧情、商城、挑战和复盘会自动使用不同主题。'}</small>
+        <small id={`${idPrefix}-music-track-description`}>{selectedTrack?.description || '普通场景播放 Quietly Hopeful，挑战时自动切换 The Silent Watch。'}</small>
       </div>
 
       <div className="audio-control-row">

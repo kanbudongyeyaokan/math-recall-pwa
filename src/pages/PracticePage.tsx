@@ -27,7 +27,7 @@ interface PracticePageProps {
   onOpenLibrary: () => void
 }
 
-const roles: PracticeRole[] = ['all', 'concept', 'example', 'choice', 'exercise']
+const roles: PracticeRole[] = ['all', 'example', 'choice', 'exercise']
 
 export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
   const problems = useLiveQuery(() => db.problems.filter(isProblemEligibleForPractice).toArray(), [], [])
@@ -200,7 +200,7 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
 
         <div className="lecture-section-list">
           <button type="button" className={!sectionId ? 'active' : ''} onClick={() => setSectionId(undefined)}>
-            <Filter size={17} /><span><strong>整讲混合</strong><small>定义、例题与训练交替</small></span>
+            <Filter size={17} /><span><strong>整讲混合</strong><small>例题、选择题与课后训练交替</small></span>
           </button>
           {selectedLecture.sections.map((section) => {
             const sectionProblems = lectureProblems.filter((problem) => getProblemSectionIds(problem, selectedLecture).includes(section.id))

@@ -332,6 +332,21 @@ export class MathRecallDatabase extends Dexie {
       const audited = auditProblemBank((await problems.toArray()).map(normalizeProblemRecord))
       if (audited.length) await problems.bulkPut(audited)
     })
+    this.version(9).stores({
+      problems: 'id, kind, questionFormat, qualityStatus, difficulty, nextReviewAt, updatedAt, source, *tags, *prerequisites',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    }).upgrade(async (transaction) => {
+      await transaction.table<Problem>('problems')
+        .where('kind')
+        .equals('concept')
+        .filter((problem) => problem.isSeed === true)
+        .modify({ archived: true, seedVersion: 8 })
+    })
   }
 }
 
@@ -366,6 +381,12 @@ export async function initializeDatabase() {
       const duplicate = await db.problems.get(id)
       if (duplicate?.isSeed && !duplicate.archived) await db.problems.update(id, { archived: true, seedVersion: 4 })
     }
+
+    await db.problems
+      .where('kind')
+      .equals('concept')
+      .filter((problem) => problem.isSeed === true && !problem.archived)
+      .modify({ archived: true, seedVersion: 8 })
 
     await db.problems
       .where('source')

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { AlertTriangle, BookOpen, CalendarClock, ChevronDown, Clock3, Edit3, FileQuestion, Filter, Gauge, ListChecks, Plus, Search, ShieldCheck, Tags, Trash2 } from 'lucide-react'
 import { db, deleteProblem } from '../db'
-import type { ProblemKind, QuestionFormat } from '../types'
+import type { QuestionFormat } from '../types'
 import { DbImage } from '../components/DbImage'
 import { getQualitySummary } from '../data/questionQuality'
 
@@ -13,7 +13,6 @@ interface LibraryPageProps {
   notify: (message: string) => void
 }
 
-type KindFilter = 'all' | ProblemKind
 type FormatFilter = 'all' | QuestionFormat
 type QualityFilter = 'all' | 'verified' | 'needs-review'
 const PAGE_SIZE = 50
@@ -22,19 +21,17 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
   const problems = useLiveQuery(() => db.problems.orderBy('updatedAt').reverse().toArray(), [], [])
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState('all')
-  const [kind, setKind] = useState<KindFilter>('all')
   const [format, setFormat] = useState<FormatFilter>('all')
   const [quality, setQuality] = useState<QualityFilter>('all')
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
-  const activeProblems = useMemo(() => problems.filter((problem) => !problem.archived && problem.qualityStatus !== 'excluded'), [problems])
+  const activeProblems = useMemo(() => problems.filter((problem) => problem.kind === 'problem' && !problem.archived && problem.qualityStatus !== 'excluded'), [problems])
   const qualitySummary = useMemo(() => getQualitySummary(problems), [problems])
   const tags = useMemo(() => Array.from(new Set(activeProblems.flatMap((problem) => problem.tags))).sort(), [activeProblems])
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     return activeProblems.filter((problem) => {
       if (quality !== 'all' && (problem.qualityStatus || 'verified') !== quality) return false
-      if (kind !== 'all' && problem.kind !== kind) return false
       if (format !== 'all' && problem.questionFormat !== format) return false
       if (tag !== 'all' && !problem.tags.includes(tag)) return false
       if (!normalized) return true
@@ -50,12 +47,12 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
         problem.tags.join(' ')
       ].join(' ').toLowerCase().includes(normalized)
     })
-  }, [activeProblems, query, tag, kind, format, quality])
+  }, [activeProblems, query, tag, format, quality])
   const visibleProblems = filtered.slice(0, visibleCount)
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
-  }, [query, tag, kind, format, quality])
+  }, [query, tag, format, quality])
 
   async function remove(problemId: string, title: string) {
     if (!window.confirm(`确定删除“${title}”吗？相关图片、做题记录和奖励卡也会一并删除。`)) return
@@ -68,7 +65,7 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
       <header className="page-header">
         <div>
           <p className="eyebrow">个人题库</p>
-          <h1>经典题与定义</h1>
+          <h1>经典题库</h1>
         </div>
         <button type="button" className="icon-button solid" onClick={onAdd} aria-label="新增题卡"><Plus size={22} /></button>
       </header>
@@ -84,11 +81,6 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
           <button type="button" className={quality === 'all' ? 'active' : ''} onClick={() => setQuality('all')}>全部 <b>{qualitySummary.verified + qualitySummary.needsReview}</b></button>
           <button type="button" className={quality === 'verified' ? 'active' : ''} onClick={() => setQuality('verified')}><ShieldCheck size={15} />已通过</button>
           <button type="button" className={quality === 'needs-review' ? 'active warning' : 'warning'} onClick={() => setQuality('needs-review')}><AlertTriangle size={15} />待人工确认 <b>{qualitySummary.needsReview}</b></button>
-        </div>
-        <div className="segmented-control">
-          {([['all', '全部'], ['problem', '典型题'], ['concept', '定义卡']] as const).map(([value, label]) => (
-            <button type="button" key={value} className={kind === value ? 'active' : ''} onClick={() => setKind(value)}>{label}</button>
-          ))}
         </div>
         <label className="select-wrap">
           <Tags size={17} />
@@ -112,8 +104,8 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
 
       <div className="result-summary">
         <span><Filter size={15} /> {filtered.length} 张卡片</span>
-        {(query || tag !== 'all' || kind !== 'all' || format !== 'all' || quality !== 'all') && (
-          <button type="button" onClick={() => { setQuery(''); setTag('all'); setKind('all'); setFormat('all'); setQuality('all') }}>清除筛选</button>
+        {(query || tag !== 'all' || format !== 'all' || quality !== 'all') && (
+          <button type="button" onClick={() => { setQuery(''); setTag('all'); setFormat('all'); setQuality('all') }}>清除筛选</button>
         )}
       </div>
 
@@ -127,7 +119,7 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
               )}
               <div className="library-card-body">
                 <div className="library-card-topline">
-                  <span className={`kind-badge kind-${problem.kind}`}>{problem.kind === 'concept' ? '定义' : '题目'}</span>
+                  <span className="kind-badge kind-problem">题目</span>
                   {problem.questionFormat !== 'open' && <span className="format-badge">{problem.questionFormat === 'single-choice' ? '单选' : '多选'}</span>}
                   {problem.qualityStatus === 'needs-review' && <span className="quality-review-badge"><AlertTriangle size={12} />待确认</span>}
                   <span className={isDue ? 'due-label' : 'scheduled-label'}><CalendarClock size={13} />{isDue ? '建议复做' : formatSchedule(problem.nextReviewAt)}</span>

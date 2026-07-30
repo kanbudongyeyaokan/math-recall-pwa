@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Camera, Check, FileText, ImagePlus, Info, Lightbulb, ListChecks, Plus, Route, Save, ShieldAlert, Trash2, X } from 'lucide-react'
 import { createRecoverySnapshot, db, normalizeProblemRecord, saveImage } from '../db'
-import type { Problem, ProblemDifficulty, ProblemKind, ProblemOption, QuestionFormat, SolutionMethod } from '../types'
+import type { Problem, ProblemDifficulty, ProblemOption, QuestionFormat, SolutionMethod } from '../types'
 import { DbImage } from '../components/DbImage'
 import { auditProblemBank } from '../data/questionQuality'
 
@@ -13,7 +13,6 @@ interface ProblemFormPageProps {
 }
 
 interface FormState {
-  kind: ProblemKind
   title: string
   statement: string
   source: string
@@ -33,7 +32,6 @@ interface FormState {
 }
 
 const emptyForm: FormState = {
-  kind: 'problem',
   title: '',
   statement: '',
   source: '',
@@ -76,7 +74,6 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
       return
     }
     setForm({
-      kind: existing.kind,
       title: existing.title,
       statement: existing.statement,
       source: existing.source,
@@ -205,7 +202,7 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
       const now = Date.now()
       const record: Problem = normalizeProblemRecord({
         id: existing?.id || crypto.randomUUID(),
-        kind: form.kind,
+        kind: 'problem',
         title: form.title.trim(),
         statement: form.statement.trim(),
         source: form.source.trim(),
@@ -267,11 +264,7 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
 
       <form className="problem-form" onSubmit={submit}>
         <section className="form-section">
-          <div className="section-title"><FileText size={19} /><div><h2>卡片类型与题面</h2><p>定义、定理也可以作为主动回忆题</p></div></div>
-          <div className="segmented-control kind-control">
-            <button type="button" className={form.kind === 'problem' ? 'active' : ''} onClick={() => update('kind', 'problem')}>典型题</button>
-            <button type="button" className={form.kind === 'concept' ? 'active' : ''} onClick={() => update('kind', 'concept')}>定义 / 关键点</button>
-          </div>
+          <div className="section-title"><FileText size={19} /><div><h2>题面</h2><p>录入例题、课后题或自己的错题</p></div></div>
           <label className="field"><span>标题 <b>*</b></span><input value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="例：等价无穷小的使用边界" /></label>
           <label className="field"><span>题面 / 提问</span><textarea value={form.statement} onChange={(e) => update('statement', e.target.value)} placeholder="可直接粘贴题目，或写成主动回忆问题…" rows={4} /></label>
           <ImageField

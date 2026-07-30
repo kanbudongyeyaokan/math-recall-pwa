@@ -47,7 +47,7 @@ export type SoundEffect =
   | 'sound-off'
 
 export type MusicScene = 'home' | 'practice' | 'focus' | 'story' | 'market' | 'battle' | 'resolve'
-export type MusicTrack = MusicScene | 'rain' | 'library' | 'campus' | 'ascent' | 'starlight'
+export type MusicTrack = 'quietly-hopeful' | 'silent-watch'
 export type MusicSelection = 'auto' | MusicTrack
 
 export interface AudioPreferences {
@@ -260,8 +260,8 @@ let outputNode: GainNode | undefined
 let musicOutputNode: GainNode | undefined
 let musicScene: MusicScene = 'home'
 let activeMusicTrack: MusicTrack | undefined
-let musicTimer: number | undefined
-let musicSources: AudioScheduledSourceNode[] = []
+let musicElement: HTMLAudioElement | undefined
+let musicElementSource: MediaElementAudioSourceNode | undefined
 let musicRestartToken = 0
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -285,7 +285,7 @@ function booleanValue(value: unknown, fallback: boolean) {
   return typeof value === 'boolean' ? value : fallback
 }
 
-const MUSIC_TRACK_IDS: MusicTrack[] = ['home', 'practice', 'focus', 'story', 'market', 'battle', 'resolve', 'rain', 'library', 'campus', 'ascent', 'starlight']
+const MUSIC_TRACK_IDS: MusicTrack[] = ['quietly-hopeful', 'silent-watch']
 
 function musicSelectionValue(value: unknown): MusicSelection {
   return value === 'auto' || MUSIC_TRACK_IDS.includes(value as MusicTrack) ? value as MusicSelection : DEFAULT_AUDIO_PREFERENCES.musicTrackId
@@ -333,7 +333,7 @@ export function saveAudioPreferences(patch: Partial<AudioPreferences>): AudioPre
   if (audioContext && outputNode) outputNode.gain.setTargetAtTime(getSoundOutputGain(next.soundVolume), audioContext.currentTime, 0.02)
   if (audioContext && musicOutputNode) {
     musicOutputNode.gain.setTargetAtTime(next.musicEnabled ? getMusicOutputGain(next.musicVolume) : 0.0001, audioContext.currentTime, 0.08)
-    if (!next.musicEnabled) stopMusicSources()
+    if (!next.musicEnabled) pauseBackgroundMusic()
     else if (trackChanged && !document.hidden) restartBackgroundMusic()
     else if (!document.hidden) void resumeBackgroundMusic()
   }
@@ -370,6 +370,10 @@ function ensureAudioGraph() {
   const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!AudioContextClass) return
   if (!audioContext || audioContext.state === 'closed') {
+    musicElement?.pause()
+    musicElement = undefined
+    musicElementSource = undefined
+    activeMusicTrack = undefined
     audioContext = new AudioContextClass({ latencyHint: 'interactive' })
     const compressor = audioContext.createDynamicsCompressor()
     compressor.threshold.value = -16
@@ -388,221 +392,70 @@ function ensureAudioGraph() {
   return { context: audioContext, output: outputNode! }
 }
 
-interface MusicSceneSpec {
+interface MusicTrackSpec {
   title: string
-  tempo: number
-  steps: readonly (readonly number[])[]
-  bass: readonly number[]
-  accent: readonly number[]
-  wave: OscillatorType
-  filterFrequency: number
-  noteGain: number
-  bassGain: number
-  rhythmGain: number
+  description: string
+  file: string
 }
 
-export const MUSIC_SCENES: Readonly<Record<MusicScene, MusicSceneSpec>> = {
-  home: {
-    title: '交大晨光', tempo: 72,
-    steps: [[261.63, 392], [329.63, 493.88], [293.66, 440], [349.23, 523.25], [392, 587.33], [349.23, 523.25], [329.63, 493.88], [293.66, 440]],
-    bass: [130.81, 146.83, 174.61, 146.83], accent: [659.25, 783.99, 698.46, 880, 783.99, 698.46, 659.25, 587.33],
-    wave: 'sine', filterFrequency: 1750, noteGain: 0.052, bassGain: 0.046, rhythmGain: 0.012
+export const MUSIC_SCENES: Readonly<Record<MusicScene, MusicTrack>> = {
+  home: 'quietly-hopeful',
+  practice: 'quietly-hopeful',
+  focus: 'quietly-hopeful',
+  story: 'quietly-hopeful',
+  market: 'quietly-hopeful',
+  battle: 'silent-watch',
+  resolve: 'quietly-hopeful'
+}
+
+export const MUSIC_TRACKS: Readonly<Record<MusicTrack, MusicTrackSpec>> = {
+  'quietly-hopeful': {
+    title: 'Quietly Hopeful',
+    description: '轻柔舒缓，适合日常做题、剧情与整理。',
+    file: 'audio/music/quietly-hopeful.mp3'
   },
-  practice: {
-    title: '山门启程', tempo: 80,
-    steps: [[220, 329.63], [246.94, 369.99], [261.63, 392], [293.66, 440], [261.63, 392], [246.94, 369.99], [220, 329.63], [196, 293.66]],
-    bass: [110, 123.47, 130.81, 98], accent: [440, 493.88, 523.25, 587.33, 523.25, 493.88, 440, 392],
-    wave: 'triangle', filterFrequency: 1450, noteGain: 0.048, bassGain: 0.05, rhythmGain: 0.018
-  },
-  focus: {
-    title: '深夜推演', tempo: 60,
-    steps: [[196], [293.66], [220], [329.63], [174.61], [261.63], [196], [293.66]],
-    bass: [98, 110, 87.31, 98], accent: [392, 440, 392, 493.88, 349.23, 440, 392, 329.63],
-    wave: 'triangle', filterFrequency: 920, noteGain: 0.042, bassGain: 0.044, rhythmGain: 0
-  },
-  story: {
-    title: '同行长路', tempo: 68,
-    steps: [[196, 293.66], [220, 329.63], [246.94, 369.99], [220, 329.63], [174.61, 261.63], [196, 293.66], [220, 329.63], [246.94, 369.99]],
-    bass: [98, 110, 87.31, 123.47], accent: [587.33, 659.25, 739.99, 659.25, 523.25, 587.33, 659.25, 739.99],
-    wave: 'sine', filterFrequency: 1550, noteGain: 0.047, bassGain: 0.042, rhythmGain: 0.006
-  },
-  market: {
-    title: '黑角坊市', tempo: 88,
-    steps: [[293.66, 440], [329.63], [392, 493.88], [329.63], [261.63, 392], [329.63], [440, 523.25], [392]],
-    bass: [146.83, 164.81, 130.81, 146.83], accent: [880, 987.77, 1174.66, 987.77, 783.99, 987.77, 1318.51, 1174.66],
-    wave: 'triangle', filterFrequency: 1900, noteGain: 0.048, bassGain: 0.047, rhythmGain: 0.016
-  },
-  battle: {
-    title: '宿敌决战', tempo: 104,
-    steps: [[220], [220, 329.63], [246.94], [261.63, 392], [196], [220, 329.63], [174.61], [196, 293.66]],
-    bass: [55, 61.74, 49, 55], accent: [440, 440, 493.88, 523.25, 392, 440, 349.23, 392],
-    wave: 'sawtooth', filterFrequency: 1250, noteGain: 0.052, bassGain: 0.066, rhythmGain: 0.032
-  },
-  resolve: {
-    title: '思源回响', tempo: 64,
-    steps: [[174.61, 261.63], [196, 293.66], [220, 329.63], [246.94, 369.99], [261.63, 392], [246.94, 369.99], [220, 329.63], [196, 293.66]],
-    bass: [87.31, 98, 110, 123.47], accent: [523.25, 587.33, 659.25, 739.99, 783.99, 739.99, 659.25, 587.33],
-    wave: 'sine', filterFrequency: 1650, noteGain: 0.049, bassGain: 0.043, rhythmGain: 0.008
+  'silent-watch': {
+    title: 'The Silent Watch',
+    description: '克制而紧张，自动用于限时挑战与 Boss 战。',
+    file: 'audio/music/the-silent-watch.mp3'
   }
-}
-
-const ADDITIONAL_MUSIC_TRACKS: Readonly<Record<Exclude<MusicTrack, MusicScene>, MusicSceneSpec>> = {
-  rain: {
-    title: '梧桐雨夜', tempo: 56,
-    steps: [[174.61, 261.63], [196], [220, 293.66], [196], [164.81, 246.94], [174.61], [196, 261.63], [146.83]],
-    bass: [87.31, 82.41, 73.42, 82.41], accent: [523.25, 440, 587.33, 493.88, 440, 392, 523.25, 349.23],
-    wave: 'sine', filterFrequency: 780, noteGain: 0.038, bassGain: 0.039, rhythmGain: 0
-  },
-  library: {
-    title: '闭馆前一小时', tempo: 66,
-    steps: [[261.63, 329.63], [293.66], [329.63, 392], [349.23], [293.66, 369.99], [261.63], [246.94, 329.63], [220]],
-    bass: [130.81, 146.83, 123.47, 110], accent: [659.25, 587.33, 783.99, 698.46, 659.25, 523.25, 587.33, 493.88],
-    wave: 'triangle', filterFrequency: 1320, noteGain: 0.044, bassGain: 0.041, rhythmGain: 0.004
-  },
-  campus: {
-    title: '思源湖风', tempo: 76,
-    steps: [[293.66, 440], [329.63, 493.88], [392, 587.33], [349.23, 523.25], [329.63, 493.88], [293.66, 440], [261.63, 392], [329.63, 493.88]],
-    bass: [146.83, 164.81, 196, 174.61], accent: [880, 987.77, 1174.66, 1046.5, 987.77, 880, 783.99, 987.77],
-    wave: 'sine', filterFrequency: 2050, noteGain: 0.05, bassGain: 0.044, rhythmGain: 0.008
-  },
-  ascent: {
-    title: '破境长阶', tempo: 94,
-    steps: [[196, 293.66], [220, 329.63], [246.94, 369.99], [293.66, 440], [329.63, 493.88], [293.66, 440], [246.94, 369.99], [220, 329.63]],
-    bass: [98, 110, 123.47, 146.83], accent: [587.33, 659.25, 739.99, 880, 987.77, 880, 739.99, 659.25],
-    wave: 'sawtooth', filterFrequency: 1480, noteGain: 0.046, bassGain: 0.056, rhythmGain: 0.024
-  },
-  starlight: {
-    title: '凌晨四点的公式', tempo: 52,
-    steps: [[220, 329.63], [196], [174.61, 261.63], [164.81], [196, 293.66], [220], [246.94, 369.99], [196]],
-    bass: [110, 98, 82.41, 98], accent: [440, 493.88, 392, 523.25, 587.33, 493.88, 659.25, 440],
-    wave: 'sine', filterFrequency: 720, noteGain: 0.036, bassGain: 0.038, rhythmGain: 0
-  }
-}
-
-export const MUSIC_TRACKS: Readonly<Record<MusicTrack, MusicSceneSpec>> = {
-  ...MUSIC_SCENES,
-  ...ADDITIONAL_MUSIC_TRACKS
 }
 
 export const MUSIC_TRACK_OPTIONS: readonly { id: MusicTrack, title: string, description: string }[] = [
-  { id: 'home', title: '交大晨光', description: '明亮舒展，适合开始今天的第一组题。' },
-  { id: 'practice', title: '山门启程', description: '稳健节拍，适合连续做题与章节推进。' },
-  { id: 'focus', title: '深夜推演', description: '低干扰慢拍，适合长解析与专注计算。' },
-  { id: 'story', title: '同行长路', description: '温和叙事感，适合人物与交大主线。' },
-  { id: 'market', title: '黑角坊市', description: '轻快灵动，适合商城和奖励整理。' },
-  { id: 'battle', title: '宿敌决战', description: '高压强节奏，适合 Boss 与五题挑战。' },
-  { id: 'resolve', title: '思源回响', description: '平静收束，适合复盘、洞府和错因整理。' },
-  { id: 'rain', title: '梧桐雨夜', description: '雨夜般稀疏安静，减少长时间学习疲劳。' },
-  { id: 'library', title: '闭馆前一小时', description: '克制的倒计时感，适合冲刺一个小节。' },
-  { id: 'campus', title: '思源湖风', description: '开阔明亮，把交大目标留在背景里。' },
-  { id: 'ascent', title: '破境长阶', description: '逐步抬升的战斗感，适合需要提神时。' },
-  { id: 'starlight', title: '凌晨四点的公式', description: '最慢、最轻的一首，适合夜间低刺激刷题。' }
+  { id: 'quietly-hopeful', title: MUSIC_TRACKS['quietly-hopeful'].title, description: MUSIC_TRACKS['quietly-hopeful'].description },
+  { id: 'silent-watch', title: MUSIC_TRACKS['silent-watch'].title, description: MUSIC_TRACKS['silent-watch'].description }
 ]
 
 export function resolveMusicTrack(scene: MusicScene, selection: MusicSelection): MusicTrack {
-  return selection === 'auto' ? scene : selection
+  return selection === 'auto' ? MUSIC_SCENES[scene] : selection
 }
 
-function stopMusicSources() {
-  if (musicTimer !== undefined && typeof window !== 'undefined') window.clearTimeout(musicTimer)
-  musicTimer = undefined
-  musicSources.forEach((source) => {
-    try { source.stop() } catch { /* Source may already have ended. */ }
-  })
-  musicSources = []
-  activeMusicTrack = undefined
+function getMusicUrl(track: MusicTrack) {
+  return `${import.meta.env.BASE_URL}${MUSIC_TRACKS[track].file}`
 }
 
-function scheduleMusicPass(context: AudioContext, output: AudioNode, track: MusicTrack) {
-  const spec = MUSIC_TRACKS[track]
-  const beat = 60 / spec.tempo
-  const origin = context.currentTime + 0.06
-  const loopDuration = spec.steps.length * beat
-  const sources: AudioScheduledSourceNode[] = []
-
-  spec.steps.forEach((chord, index) => {
-    chord.forEach((frequency, noteIndex) => {
-      const oscillator = context.createOscillator()
-      const envelope = context.createGain()
-      const filter = context.createBiquadFilter()
-      const start = origin + index * beat
-      const end = start + beat * 0.76
-      oscillator.type = spec.wave
-      oscillator.frequency.value = frequency
-      filter.type = 'lowpass'
-      filter.frequency.value = spec.filterFrequency
-      envelope.gain.setValueAtTime(0.0001, start)
-      envelope.gain.exponentialRampToValueAtTime(spec.noteGain / (1 + noteIndex * 0.55), start + 0.035)
-      envelope.gain.exponentialRampToValueAtTime(0.0001, end)
-      oscillator.connect(filter)
-      filter.connect(envelope)
-      connectWithPan(context, envelope, output, noteIndex ? 0.18 : -0.12)
-      oscillator.start(start)
-      oscillator.stop(end + 0.03)
-      sources.push(oscillator)
-    })
-  })
-
-  spec.bass.forEach((frequency, index) => {
-    const oscillator = context.createOscillator()
-    const envelope = context.createGain()
-    const start = origin + index * beat * 2
-    const end = start + beat * 1.55
-    oscillator.type = 'sine'
-    oscillator.frequency.value = frequency
-    envelope.gain.setValueAtTime(0.0001, start)
-    envelope.gain.exponentialRampToValueAtTime(spec.bassGain, start + 0.04)
-    envelope.gain.exponentialRampToValueAtTime(0.0001, end)
-    oscillator.connect(envelope)
-    envelope.connect(output)
-    oscillator.start(start)
-    oscillator.stop(end + 0.03)
-    sources.push(oscillator)
-  })
-
-  spec.accent.forEach((frequency, index) => {
-    const oscillator = context.createOscillator()
-    const envelope = context.createGain()
-    const start = origin + index * beat + beat * 0.48
-    const end = start + beat * 0.24
-    oscillator.type = track === 'battle' ? 'square' : 'sine'
-    oscillator.frequency.value = frequency
-    envelope.gain.setValueAtTime(0.0001, start)
-    envelope.gain.exponentialRampToValueAtTime(spec.noteGain * 0.42, start + 0.018)
-    envelope.gain.exponentialRampToValueAtTime(0.0001, end)
-    oscillator.connect(envelope)
-    connectWithPan(context, envelope, output, index % 2 ? 0.24 : -0.24)
-    oscillator.start(start)
-    oscillator.stop(end + 0.02)
-    sources.push(oscillator)
-  })
-
-  if (spec.rhythmGain > 0) {
-    spec.steps.forEach((_, index) => {
-      const oscillator = context.createOscillator()
-      const envelope = context.createGain()
-      const start = origin + index * beat
-      const end = start + Math.min(0.15, beat * 0.22)
-      oscillator.type = 'sine'
-      oscillator.frequency.setValueAtTime(index % 2 ? 96 : 82, start)
-      oscillator.frequency.exponentialRampToValueAtTime(48, end)
-      envelope.gain.setValueAtTime(spec.rhythmGain, start)
-      envelope.gain.exponentialRampToValueAtTime(0.0001, end)
-      oscillator.connect(envelope)
-      envelope.connect(output)
-      oscillator.start(start)
-      oscillator.stop(end + 0.02)
-      sources.push(oscillator)
-    })
+function ensureMusicElement(context: AudioContext) {
+  if (!musicElement) {
+    musicElement = new Audio()
+    musicElement.loop = true
+    musicElement.preload = 'auto'
+    musicElement.setAttribute('playsinline', '')
+    musicElementSource = context.createMediaElementSource(musicElement)
+    musicElementSource.connect(musicOutputNode!)
   }
+  return musicElement
+}
 
-  musicSources = sources
-  activeMusicTrack = track
-  const token = musicRestartToken
-  musicTimer = window.setTimeout(() => {
-    if (token !== musicRestartToken || document.hidden || !getAudioPreferences().musicEnabled) return
-    scheduleMusicPass(context, output, track)
-  }, Math.max(250, (loopDuration - 0.12) * 1000))
+function loadMusicTrack(context: AudioContext, track: MusicTrack) {
+  const element = ensureMusicElement(context)
+  if (activeMusicTrack !== track) {
+    element.pause()
+    element.src = getMusicUrl(track)
+    element.currentTime = 0
+    element.load()
+    activeMusicTrack = track
+  }
+  return element
 }
 
 function restartBackgroundMusic() {
@@ -612,7 +465,8 @@ function restartBackgroundMusic() {
   musicOutputNode.gain.setTargetAtTime(0.0001, audioContext.currentTime, 0.08)
   window.setTimeout(() => {
     if (token !== musicRestartToken) return
-    stopMusicSources()
+    musicElement?.pause()
+    activeMusicTrack = undefined
     void resumeBackgroundMusic()
   }, 180)
 }
@@ -630,10 +484,10 @@ export async function resumeBackgroundMusic() {
   if (!graph || !musicOutputNode) return false
   try {
     if (graph.context.state === 'suspended') await graph.context.resume()
-    if (!activeMusicTrack) {
-      musicRestartToken += 1
-      scheduleMusicPass(graph.context, musicOutputNode, resolveMusicTrack(musicScene, getAudioPreferences().musicTrackId))
-    }
+    musicRestartToken += 1
+    const track = resolveMusicTrack(musicScene, getAudioPreferences().musicTrackId)
+    const element = loadMusicTrack(graph.context, track)
+    await element.play()
     musicOutputNode.gain.setTargetAtTime(getMusicOutputGain(getAudioPreferences().musicVolume), graph.context.currentTime, 0.18)
     return true
   } catch {
@@ -646,7 +500,7 @@ export function pauseBackgroundMusic() {
   const token = musicRestartToken
   if (audioContext && musicOutputNode) musicOutputNode.gain.setTargetAtTime(0.0001, audioContext.currentTime, 0.08)
   window.setTimeout(() => {
-    if (token === musicRestartToken) stopMusicSources()
+    if (token === musicRestartToken) musicElement?.pause()
   }, 180)
 }
 

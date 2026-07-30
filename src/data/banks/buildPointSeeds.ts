@@ -38,23 +38,6 @@ export function buildPointSeeds(
     const correctOptionId = String.fromCharCode(65 + correctChoiceIndex)
     return [
       {
-        id: `${idPrefix}-${point.id}-definition`,
-        kind: 'concept',
-        title: `${point.title}：条件与结论`,
-        statement: `请完整说明“${point.title}”使用的条件、结论，并指出最容易误用的一点。`,
-        tags: [...tags, '定义与判据'],
-        coreMethod: `从定义出发，按“适用对象 → 必要条件 → 可得结论”复述 ${point.principle}。`,
-        mistakes: point.misconception,
-        answerText: `适用条件：${point.conditions}\n\n可得结论：${point.conclusion}\n\n误区纠正：${point.misconception}`,
-        solutionMethods: [
-          { title: '路线一 · 条件链复原', content: `先锁定所用原理“${point.principle}”，再逐项核对：${point.conditions}。条件成立后才可写出：${point.conclusion}` },
-          { title: '路线二 · 误用边界检查', content: `把常见误判单独拿出来检验：${point.misconception}。若题面没有给足条件，应回到定义或构造反例，不能直接套结论。` }
-        ],
-        source,
-        page,
-        methodFingerprint: fingerprint(point, 'definition-condition-conclusion')
-      },
-      {
         id: `${idPrefix}-${point.id}-choice`,
         kind: 'problem',
         title: `${point.title}：命题辨析`,

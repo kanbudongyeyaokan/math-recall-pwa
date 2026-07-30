@@ -17,19 +17,20 @@ describe('高质量考研数学题库', () => {
   const seeds = makeSeedProblems(1_000_000)
   const curated = seeds.filter((problem) => problem.id.startsWith('zy27-'))
 
-  it('删除 18 道低清晰度旧卡，新增 72 道经典方法精选题且 ID 稳定唯一', () => {
+  it('删除全部定义卡与 18 道低清晰度旧卡，保留正式题且 ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
     expect(wuFoundationPoints).toHaveLength(18)
     expect(calculusQualityExpansionPoints).toHaveLength(18)
-    expect(curated).toHaveLength(606)
-    expect(seeds.filter((problem) => problem.id.startsWith('wzx27-'))).toHaveLength(72)
-    expect(seeds.filter((problem) => problem.id.startsWith('dpm20-'))).toHaveLength(72)
-    expect(seeds).toHaveLength(824)
+    expect(curated).toHaveLength(450)
+    expect(seeds.filter((problem) => problem.id.startsWith('wzx27-'))).toHaveLength(54)
+    expect(seeds.filter((problem) => problem.id.startsWith('dpm20-'))).toHaveLength(54)
+    expect(seeds).toHaveLength(588)
+    expect(seeds.every((problem) => problem.kind === 'problem' && !problem.id.endsWith('-definition'))).toBe(true)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(DEPRECATED_SEED_IDS.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
   })
 
-  it('72 道高数方法强化题均为原创重构、双路线且能归入具体讲次', () => {
+  it('54 道高数方法强化题均为原创重构、双路线且能归入具体讲次', () => {
     const rebuilt = seeds.filter((problem) => problem.id.startsWith('wzx27-'))
     for (const problem of rebuilt) {
       expect(problem.source).toBe('斗破数学 · 高数基础题型原创重构')
@@ -46,16 +47,16 @@ describe('高质量考研数学题库', () => {
   it('方法指纹唯一，阻止仅换数字或同解法题再次混入', () => {
     expect(seeds.every((problem) => problem.methodFingerprint)).toBe(true)
     expect(findDuplicateMethodGroups(seeds)).toEqual([])
-    expect(new Set(curated.map((problem) => problem.methodFingerprint)).size).toBe(606)
+    expect(new Set(curated.map((problem) => problem.methodFingerprint)).size).toBe(450)
   })
 
-  it('每个资料考点保留三至四种认知任务，低清晰度审判卡被精确移除', () => {
+  it('每个资料考点只保留正式选择、应用与可用的错解题', () => {
     for (const point of curatedBankPoints) {
       const cards = curated.filter((problem) => problem.id.startsWith(`zy27-${point.id}-`))
       const auditId = `zy27-${point.id}-audit`
       const expected = LOW_CLARITY_SEED_IDS.includes(auditId as typeof LOW_CLARITY_SEED_IDS[number])
-        ? ['application', 'choice', 'definition']
-        : ['application', 'audit', 'choice', 'definition']
+        ? ['application', 'choice']
+        : ['application', 'audit', 'choice']
       expect(cards.map((problem) => problem.id.split('-').at(-1)).sort()).toEqual(expected)
     }
   })
@@ -69,7 +70,7 @@ describe('高质量考研数学题库', () => {
     }
   })
 
-  it('72 道经典方法精选题覆盖 18 讲、双路线完整且题意自洽', () => {
+  it('54 道经典方法精选题覆盖 18 讲、双路线完整且题意自洽', () => {
     const expansion = seeds.filter((problem) => problem.id.startsWith('dpm20-'))
     expect(expansion.every((problem) => problem.source === '斗破数学 · 高数经典方法原创精选')).toBe(true)
     expect(expansion.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
@@ -81,7 +82,6 @@ describe('高质量考研数学题库', () => {
 
   it('资料重构题按结构化标签进入正确做题类型', () => {
     const expectedRoles = {
-      definition: 'concept',
       choice: 'choice',
       audit: 'exercise',
       application: 'example'

@@ -1,6 +1,6 @@
 import type { PlayerProfile, Problem, ReviewRating } from '../types'
 
-export type TechniqueTrigger = 'concept' | 'choice-correct' | 'recovery' | 'independent' | 'multiple' | 'advanced'
+export type TechniqueTrigger = 'foundation' | 'choice-correct' | 'recovery' | 'independent' | 'multiple' | 'advanced'
 
 export interface CultivationTechnique {
   id: string
@@ -29,9 +29,9 @@ export interface TechniqueResolution {
 
 export const CULTIVATION_TECHNIQUES: readonly CultivationTechnique[] = [
   {
-    id: 'definition-heart', name: '定义心经', school: '根基功法',
-    description: '先守定义与适用条件，再进入推导。适合概念、判据和辨析题。',
-    triggerLabel: '完成定义或概念题', trigger: 'concept', unlockLabel: '初始解锁', unlocked: () => true,
+    id: 'definition-heart', name: '基础锻体诀', school: '根基功法',
+    description: '从低难度经典题练稳计算入口、条件检查和基础通法。',
+    triggerLabel: '完成难度 1～2 的基础题', trigger: 'foundation', unlockLabel: '初始解锁', unlocked: () => true,
     baseXpBonus: 3, baseCoinBonus: 0
   },
   {
@@ -92,7 +92,7 @@ export function getTechniqueProgress(mastery: number) {
 }
 
 function matchesTrigger(trigger: TechniqueTrigger, problem: Problem, rating: ReviewRating, isCorrect?: boolean) {
-  if (trigger === 'concept') return problem.kind === 'concept'
+  if (trigger === 'foundation') return problem.kind === 'problem' && (problem.difficulty || 2) <= 2
   if (trigger === 'choice-correct') return problem.questionFormat !== 'open' && isCorrect === true
   if (trigger === 'recovery') return rating === 'again' || rating === 'hint'
   if (trigger === 'independent') return rating === 'independent'

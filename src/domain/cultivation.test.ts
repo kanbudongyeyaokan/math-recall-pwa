@@ -4,16 +4,16 @@ import type { Problem } from '../types'
 import { getTechniqueLevel, getTechniqueProgress, resolveTechnique } from './cultivation'
 
 const problem: Problem = {
-  id: 'p', kind: 'concept', title: '定义辨析', statement: '', source: '', page: '', tags: [],
+  id: 'p', kind: 'problem', title: '基础例题', statement: '', source: '', page: '', tags: [],
   coreMethod: '', mistakes: '', answerText: '', questionFormat: 'single-choice', options: [],
   correctOptionIds: ['A'], solutionMethods: [], createdAt: 1, updatedAt: 1, nextReviewAt: 1,
-  intervalIndex: -1, reviewCount: 0
+  intervalIndex: -1, reviewCount: 0, difficulty: 2
 }
 
 describe('功法触发与熟练度', () => {
-  it('定义心经只在概念题触发并增加熟练度', () => {
+  it('基础锻体诀在低难度正式题中触发并增加熟练度', () => {
     const result = resolveTechnique(defaultProfile, problem, 'independent', true)
-    expect(result.technique.name).toBe('定义心经')
+    expect(result.technique.name).toBe('基础锻体诀')
     expect(result.triggered).toBe(true)
     expect(result.xpBonus).toBe(3)
     expect(result.masteryGained).toBe(1)

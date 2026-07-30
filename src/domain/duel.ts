@@ -122,7 +122,7 @@ export function buildDuelQueue(input: {
   const selected: string[] = []
 
   if (input.scope !== 'choice') {
-    ;(['concept', 'choice', 'example', 'exercise'] as const).forEach((role, index) => {
+    ;(['choice', 'example', 'exercise'] as const).forEach((role, index) => {
       const ids = pool.filter((problem) => getProblemRole(problem) === role).map((problem) => problem.id)
       const id = shuffleProblemIds(ids, seed + index * 17)[0]
       if (id) selected.push(id)

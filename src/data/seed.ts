@@ -1,5 +1,4 @@
 import type { Problem } from '../types'
-import { foundationConclusionSeeds } from './foundationConclusionSeeds'
 import type { SeedInput } from './banks/types'
 import { curatedQuestionSeeds } from './banks/curatedBank'
 import { auditProblemBank } from './questionQuality'
@@ -546,8 +545,6 @@ const originalSeeds: SeedInput[] = [
   }
 ]
 
-originalSeeds.push(...foundationConclusionSeeds)
-
 export const LOW_CLARITY_SEED_IDS = [
   'zy27-c01-equivalent-audit',
   'zy27-c02-epsilon-n-audit',
@@ -571,7 +568,7 @@ export const LOW_CLARITY_SEED_IDS = [
 
 export const DEPRECATED_SEED_IDS = ['seed-56', 'seed-65', ...LOW_CLARITY_SEED_IDS] as const
 
-const allSeeds = [...originalSeeds, ...curatedQuestionSeeds]
+const allSeeds = [...originalSeeds, ...curatedQuestionSeeds].filter((seed) => seed.kind === 'problem')
 
 function normalizeMathTypography(text: string) {
   return text.replace(/″/g, "''").replace(/′/g, "'")

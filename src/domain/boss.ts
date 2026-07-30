@@ -60,7 +60,7 @@ export function getBossEligibility(mastery: LectureMastery, defeated = false) {
 export function buildBossQueue(problems: readonly Problem[], mastery: LectureMastery, seed = Date.now()) {
   const candidates = problems.filter((problem) => isProblemEligibleForPractice(problem) && getProblemLectureIds(problem).includes(mastery.lectureId))
   const scoreById = new Map(mastery.problemMastery.map((item) => [item.problemId, item.score]))
-  const roles = ['concept', 'choice', 'example', 'exercise'] as const
+  const roles = ['choice', 'example', 'exercise'] as const
   const selected: string[] = []
   roles.forEach((role, index) => {
     const ids = candidates
