@@ -1,7 +1,7 @@
 {
   "name": "math-recall-pwa",
   "private": true,
-  "version": "0.22.0",
+  "version": "0.23.0",
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "scripts": {

@@ -9,7 +9,8 @@ import {
   getMathFragments,
   getProblemTextFields,
   hasBalancedMathDelimiters,
-  hasUnwrappedMathSymbols
+  hasUnwrappedMathSymbols,
+  isProblemEligibleForPractice
 } from './questionQuality'
 import { DEPRECATED_SEED_IDS, LOW_CLARITY_SEED_IDS, makeSeedProblems } from './seed'
 
@@ -24,10 +25,31 @@ describe('高质量考研数学题库', () => {
     expect(curated).toHaveLength(450)
     expect(seeds.filter((problem) => problem.id.startsWith('wzx27-'))).toHaveLength(54)
     expect(seeds.filter((problem) => problem.id.startsWith('dpm20-'))).toHaveLength(54)
-    expect(seeds).toHaveLength(588)
+    expect(seeds).toHaveLength(624)
     expect(seeds.every((problem) => problem.kind === 'problem' && !problem.id.endsWith('-definition'))).toBe(true)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(DEPRECATED_SEED_IDS.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
+  it('基础30讲来源精选覆盖 18 讲的例题与课后题，且全部可进入正式题池', () => {
+    const sourceQuestions = seeds.filter((problem) => problem.id.startsWith('zy30-source-'))
+    expect(sourceQuestions).toHaveLength(36)
+    expect(sourceQuestions.filter((problem) => problem.tags.includes('经典例题'))).toHaveLength(18)
+    expect(sourceQuestions.filter((problem) => problem.tags.includes('课后训练'))).toHaveLength(18)
+    expect(new Set(sourceQuestions.flatMap(getProblemLectureIds))).toEqual(new Set(
+      Array.from({ length: 18 }, (_, index) => `lecture-${String(index + 1).padStart(2, '0')}`)
+    ))
+    for (let lecture = 1; lecture <= 18; lecture += 1) {
+      expect(sourceQuestions.filter((problem) => problem.tags.includes(`第${lecture}讲`))).toHaveLength(2)
+    }
+    for (const problem of sourceQuestions) {
+      expect(problem.source).toContain('张宇《基础30讲》')
+      expect(problem.page).toMatch(/^PDF \d+ · 书页 \d+$/)
+      expect(problem.solutionMethods).toHaveLength(2)
+      expect(problem.solutionMethods.every((method) => method.content.length > 30)).toBe(true)
+      expect(problem.methodFingerprint).toMatch(/^zy30-source:/)
+      expect(isProblemEligibleForPractice(problem)).toBe(true)
+    }
   })
 
   it('54 道高数方法强化题均为原创重构、双路线且能归入具体讲次', () => {

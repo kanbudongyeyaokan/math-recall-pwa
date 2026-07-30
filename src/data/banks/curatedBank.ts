@@ -6,6 +6,7 @@ import { calculusQualityExpansionPoints } from './calculusQualityExpansionBank'
 import { linearAlgebraPoints } from './linearAlgebra'
 import { probabilityPoints } from './probability'
 import { wuFoundationPoints } from './wuFoundationRebuiltBank'
+import { zhangYuFoundationQuestionSeeds } from './zhangYuFoundation30Bank'
 
 export const curatedBankPoints = [
   ...calculus01to06Points,
@@ -26,5 +27,6 @@ export const curatedQuestionSeeds = [
     idPrefix: 'dpm20',
     sharedTag: '经典方法精选',
     varyChoicePosition: true
-  })
+  }),
+  ...zhangYuFoundationQuestionSeeds
 ]
