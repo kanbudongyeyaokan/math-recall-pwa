@@ -6,6 +6,20 @@ export type ReviewRating = 'again' | 'hint' | 'independent' | 'multiple'
 
 export type RewardRarity = 'common' | 'rare' | 'epic' | 'legendary'
 
+export type ProblemDifficulty = 1 | 2 | 3 | 4 | 5
+
+export type ProblemQualityStatus = 'verified' | 'needs-review' | 'excluded'
+
+export type QualityIssueSeverity = 'warning' | 'error'
+
+export interface ProblemQualityIssue {
+  code: string
+  message: string
+  severity: QualityIssueSeverity
+}
+
+export type AdaptivePracticeMode = 'foundation' | 'weak' | 'mixed' | 'sprint'
+
 export interface ProblemOption {
   id: string
   text: string
@@ -33,6 +47,14 @@ export interface Problem {
   correctOptionIds: string[]
   solutionMethods: SolutionMethod[]
   methodFingerprint?: string
+  semanticClusterId?: string
+  difficulty?: ProblemDifficulty
+  prerequisites?: string[]
+  estimatedMinutes?: number
+  discrimination?: ProblemDifficulty
+  qualityStatus?: ProblemQualityStatus
+  qualityIssues?: ProblemQualityIssue[]
+  qualityAuditedAt?: number
   questionImageId?: string
   answerImageId?: string
   createdAt: number
@@ -77,6 +99,8 @@ export interface ReviewLog {
   techniqueXpBonus?: number
   techniqueCoinBonus?: number
   techniqueMasteryGained?: number
+  durationSeconds?: number
+  revealedAt?: number
 }
 
 export interface BossVictory {
@@ -104,6 +128,7 @@ export interface PracticeSessionSelection {
   opponentId?: string
   duelScope?: DuelScope
   duelLectureId?: string
+  adaptiveMode?: AdaptivePracticeMode
 }
 
 export interface PracticeSessionAnswer {
@@ -113,6 +138,8 @@ export interface PracticeSessionAnswer {
   selectedOptionIds: string[]
   choiceSubmitted: boolean
   expandedSectionIds: string[]
+  thinkingStartedAt?: number
+  revealedAt?: number
 }
 
 export interface PracticeSessionOutcome {
@@ -133,6 +160,13 @@ export interface ActivePracticeSession {
   outcomes: PracticeSessionOutcome[]
   startedAt: number
   updatedAt: number
+}
+
+export interface PracticeSessionCheckpoint {
+  id: string
+  sessionId: string
+  createdAt: number
+  session: ActivePracticeSession
 }
 
 export interface RewardCard {

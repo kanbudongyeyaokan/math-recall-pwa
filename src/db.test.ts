@@ -4,13 +4,19 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   db,
   defaultProfile,
+  clearActivePracticeSession,
+  getActivePracticeSession,
+  getLatestPracticeCheckpoint,
   MathRecallDatabase,
   normalizeProblemRecord,
   normalizeProfileRecord,
+  PRACTICE_SESSION_CHECKPOINTS_KEY,
   recordDuelResult,
-  recordSurpriseChallengeResult
+  recordSurpriseChallengeResult,
+  saveActivePracticeSession
 } from './db'
 import { LEGACY_PRIVATE_BANK_SOURCE } from './data/questionQuality'
+import { ACTIVE_PRACTICE_SESSION_KEY, createPracticeSession } from './domain/practiceSession'
 import type { PlayerProfile, Problem } from './types'
 
 describe('旧数据迁移归一化', () => {
@@ -190,6 +196,80 @@ describe('旧数据迁移归一化', () => {
     expect(await upgraded.reviews.where('problemId').equals('seed-56').count()).toBe(1)
     expect(await upgraded.reviews.where('problemId').equals('zy30-heyaokun-001').count()).toBe(1)
     upgraded.close()
+  })
+
+  it('从 v7 升级到 v8 时补齐质量元数据并隔离同构题', async () => {
+    const name = `quality-migration-${crypto.randomUUID()}`
+    databases.push(name)
+    const legacyDb = new Dexie(name)
+    legacyDb.version(7).stores({
+      problems: 'id, kind, questionFormat, nextReviewAt, updatedAt, source, *tags',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    })
+    await legacyDb.open()
+    const base = {
+      kind: 'problem', title: '参数极限', source: '个人整理', page: '12', tags: ['第1讲', '极限'],
+      coreMethod: '先提取最高阶，再比较分子分母的主导项。', mistakes: '不要只比较表面次数。',
+      answerText: '同除最高次幂后取极限。', questionFormat: 'open', options: [], correctOptionIds: [],
+      solutionMethods: [
+        { id: 'm1', title: '主导项', content: '同除最高次幂，逐项取极限得到结论。' },
+        { id: 'm2', title: '换元复核', content: '令自变量倒数为新变量，在零点复核。' }
+      ],
+      updatedAt: 1, nextReviewAt: 1, intervalIndex: -1, reviewCount: 0
+    }
+    await legacyDb.table('problems').bulkPut([
+      { ...base, id: 'clone-a', statement: '计算 $\\lim_{x\\to\\infty}(2x+1)/(x+3)$。', createdAt: 1 },
+      { ...base, id: 'clone-b', statement: '计算 $\\lim_{t\\to\\infty}(5t+7)/(t+9)$。', createdAt: 2 }
+    ])
+    legacyDb.close()
+
+    const upgraded = new MathRecallDatabase(name)
+    await upgraded.open()
+    const migrated = (await upgraded.problems.toArray()).sort((a, b) => a.createdAt - b.createdAt)
+    expect(migrated[0]).toMatchObject({ qualityStatus: 'verified', difficulty: expect.any(Number), estimatedMinutes: expect.any(Number), discrimination: expect.any(Number) })
+    expect(migrated[0].semanticClusterId).toMatch(/^semantic:/)
+    expect(migrated[0].prerequisites).toEqual(expect.arrayContaining(['极限']))
+    expect(migrated[1].qualityStatus).toBe('needs-review')
+    expect(migrated[1].qualityIssues).toContainEqual(expect.objectContaining({ code: 'semantic-duplicate' }))
+    upgraded.close()
+  })
+
+  it('会话写入保留 12 个滚动恢复点、拒绝旧状态回写并可彻底清理', async () => {
+    db.close()
+    await db.delete()
+    await db.open()
+    const base = createPracticeSession({
+      mode: 'practice',
+      selection: { lectureId: 'lecture-01', role: 'all', label: '第 1 讲', adaptiveMode: 'weak' },
+      queueIds: ['q1', 'q2'],
+      now: 1
+    })
+    for (let updatedAt = 1; updatedAt <= 14; updatedAt += 1) {
+      await saveActivePracticeSession({ ...base, updatedAt, answer: { ...base.answer, thinking: updatedAt >= 2 } })
+    }
+    await saveActivePracticeSession({ ...base, updatedAt: 5, answer: { ...base.answer, thinking: false } })
+
+    const active = await getActivePracticeSession()
+    const checkpoints = await db.settings.get(PRACTICE_SESSION_CHECKPOINTS_KEY)
+    expect(active).toMatchObject({ id: base.id, updatedAt: 14, answer: { thinking: true } })
+    expect((checkpoints?.value as unknown[])).toHaveLength(12)
+    expect((await getLatestPracticeCheckpoint())?.createdAt).toBe(14)
+
+    await db.settings.delete(ACTIVE_PRACTICE_SESSION_KEY)
+    const recovery = await getLatestPracticeCheckpoint()
+    expect(recovery?.session.updatedAt).toBe(14)
+    await saveActivePracticeSession(recovery!.session)
+    await clearActivePracticeSession(base.id)
+    expect(await db.settings.get(ACTIVE_PRACTICE_SESSION_KEY)).toBeUndefined()
+    expect(await db.settings.get(PRACTICE_SESSION_CHECKPOINTS_KEY)).toBeUndefined()
+
+    db.close()
+    await db.delete()
   })
 
   it('同一场突发邀战重复结算时不会重复增加灵石或胜场', async () => {

@@ -1,6 +1,12 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { DEPRECATED_SEED_IDS, makeSeedProblems } from './data/seed'
-import { isLegacyPrivateBankProblem, LEGACY_PRIVATE_BANK_SOURCE } from './data/questionQuality'
+import {
+  auditProblemBank,
+  enrichProblemQuality,
+  isLegacyPrivateBankProblem,
+  isProblemEligibleForPractice,
+  LEGACY_PRIVATE_BANK_SOURCE
+} from './data/questionQuality'
 import {
   applyStudyToProfile,
   calculateCoinReward,
@@ -51,6 +57,7 @@ import type {
   AppSetting,
   ImageAsset,
   PlayerProfile,
+  PracticeSessionCheckpoint,
   Problem,
   RecoverySnapshot,
   ReviewLog,
@@ -62,6 +69,7 @@ import type {
 const DISMISSED_SEEDS_KEY = 'dismissed-seed-ids'
 const STORAGE_PERSISTENCE_KEY = 'storage-persistence'
 const LAST_EXTERNAL_BACKUP_KEY = 'last-external-backup-at'
+export const PRACTICE_SESSION_CHECKPOINTS_KEY = 'practice-session-checkpoints'
 const LEGACY_SEED_IDS = Array.from({ length: 15 }, (_, index) => `seed-${String(index + 1).padStart(2, '0')}`)
 const LEGACY_CHARACTER_IDS: Record<string, string> = {
   'he-jiancheng': 'he-xinping',
@@ -121,7 +129,7 @@ export const defaultProfile: PlayerProfile = {
 
 export function normalizeProblemRecord(problem: Problem): Problem {
   const fallbackMethod = problem.answerText || problem.coreMethod
-  return {
+  const normalized: Problem = {
     ...problem,
     archived: isLegacyPrivateBankProblem(problem) ? true : problem.archived,
     questionFormat: problem.questionFormat || 'open',
@@ -133,6 +141,7 @@ export function normalizeProblemRecord(problem: Problem): Problem {
         ? [{ id: 'method-1', title: '主方法', content: fallbackMethod }]
         : []
   }
+  return enrichProblemQuality(normalized, problem.qualityAuditedAt || Date.now())
 }
 
 export function normalizeProfileRecord(profile?: PlayerProfile): PlayerProfile {
@@ -310,6 +319,19 @@ export class MathRecallDatabase extends Dexie {
         .filter(isLegacyPrivateBankProblem)
         .modify({ archived: true })
     })
+    this.version(8).stores({
+      problems: 'id, kind, questionFormat, qualityStatus, difficulty, nextReviewAt, updatedAt, source, *tags, *prerequisites',
+      images: 'id, createdAt',
+      reviews: '++id, problemId, reviewedAt, isCorrect, techniqueId',
+      rewards: 'id, problemId, earnedAt, rarity',
+      profiles: 'id',
+      settings: 'key, updatedAt',
+      snapshots: 'id, createdAt'
+    }).upgrade(async (transaction) => {
+      const problems = transaction.table<Problem>('problems')
+      const audited = auditProblemBank((await problems.toArray()).map(normalizeProblemRecord))
+      if (audited.length) await problems.bulkPut(audited)
+    })
   }
 }
 
@@ -370,20 +392,67 @@ export async function setSettingValue<T>(key: string, value: T) {
 }
 
 export async function getActivePracticeSession() {
+  await sessionWriteChain.catch(() => undefined)
   return getSettingValue<ActivePracticeSession | undefined>(ACTIVE_PRACTICE_SESSION_KEY, undefined)
 }
 
-export async function saveActivePracticeSession(session: ActivePracticeSession) {
-  await setSettingValue(ACTIVE_PRACTICE_SESSION_KEY, session)
-  return session
+let sessionWriteChain: Promise<unknown> = Promise.resolve()
+
+export function saveActivePracticeSession(session: ActivePracticeSession) {
+  const write = sessionWriteChain.catch(() => undefined).then(async () => {
+    await db.transaction('rw', db.settings, async () => {
+      const activeRecord = await db.settings.get(ACTIVE_PRACTICE_SESSION_KEY)
+      const activeSession = activeRecord?.value as ActivePracticeSession | undefined
+      if (activeSession?.updatedAt && activeSession.updatedAt > session.updatedAt) return
+      const checkpointRecord = await db.settings.get(PRACTICE_SESSION_CHECKPOINTS_KEY)
+      const checkpoints = Array.isArray(checkpointRecord?.value)
+        ? checkpointRecord.value as PracticeSessionCheckpoint[]
+        : []
+      const checkpoint: PracticeSessionCheckpoint = {
+        id: `${session.id}:${session.updatedAt}`,
+        sessionId: session.id,
+        createdAt: session.updatedAt,
+        session
+      }
+      const nextCheckpoints = [...checkpoints.filter((item) => item.id !== checkpoint.id), checkpoint]
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 12)
+      await Promise.all([
+        db.settings.put({ key: ACTIVE_PRACTICE_SESSION_KEY, value: session, updatedAt: session.updatedAt }),
+        db.settings.put({ key: PRACTICE_SESSION_CHECKPOINTS_KEY, value: nextCheckpoints, updatedAt: session.updatedAt })
+      ])
+    })
+    return session
+  })
+  sessionWriteChain = write
+  return write
 }
 
 export async function clearActivePracticeSession(sessionId?: string) {
-  if (sessionId) {
-    const active = await getActivePracticeSession()
-    if (active?.id !== sessionId) return
-  }
-  await db.settings.delete(ACTIVE_PRACTICE_SESSION_KEY)
+  const write = sessionWriteChain.catch(() => undefined).then(async () => {
+    if (sessionId) {
+      const active = await getSettingValue<ActivePracticeSession | undefined>(ACTIVE_PRACTICE_SESSION_KEY, undefined)
+      if (active?.id !== sessionId) return
+    }
+    const checkpointRecord = await db.settings.get(PRACTICE_SESSION_CHECKPOINTS_KEY)
+    const checkpoints = Array.isArray(checkpointRecord?.value)
+      ? checkpointRecord.value as PracticeSessionCheckpoint[]
+      : []
+    const retained = sessionId ? checkpoints.filter((item) => item.sessionId !== sessionId) : []
+    await db.transaction('rw', db.settings, async () => {
+      await db.settings.delete(ACTIVE_PRACTICE_SESSION_KEY)
+      if (retained.length) await db.settings.put({ key: PRACTICE_SESSION_CHECKPOINTS_KEY, value: retained, updatedAt: Date.now() })
+      else await db.settings.delete(PRACTICE_SESSION_CHECKPOINTS_KEY)
+    })
+  })
+  sessionWriteChain = write
+  await write
+}
+
+export async function getLatestPracticeCheckpoint() {
+  await sessionWriteChain.catch(() => undefined)
+  const checkpoints = await getSettingValue<PracticeSessionCheckpoint[]>(PRACTICE_SESSION_CHECKPOINTS_KEY, [])
+  return [...checkpoints].sort((a, b) => b.createdAt - a.createdAt)[0]
 }
 
 export async function refreshRivalCompetitionState(now = Date.now()) {
@@ -407,7 +476,7 @@ export async function getOrCreateSurpriseChallengeOffer(now = Date.now(), seed =
   return db.transaction('rw', db.profiles, db.problems, db.settings, async () => {
     const profile = normalizeProfileRecord(await db.profiles.get('player'))
     const state = normalizeSurpriseChallengeState((await db.settings.get(SURPRISE_CHALLENGE_STATE_KEY))?.value as SurpriseChallengeState | undefined)
-    const problems = await db.problems.filter((problem) => !problem.archived).toArray()
+    const problems = await db.problems.filter(isProblemEligibleForPractice).toArray()
     const prepared = prepareSurpriseChallengeOffer({
       profile,
       state,
@@ -634,6 +703,8 @@ export async function deleteProblem(id: string) {
 interface ReviewAnswerMeta {
   selectedOptionIds?: string[]
   isCorrect?: boolean
+  durationSeconds?: number
+  revealedAt?: number
 }
 
 export async function recordReview(problemId: string, rating: ReviewRating, answerMeta: ReviewAnswerMeta = {}) {
@@ -689,7 +760,9 @@ export async function recordReview(problemId: string, rating: ReviewRating, answ
       techniqueId: technique.technique.id,
       techniqueXpBonus: technique.xpBonus,
       techniqueCoinBonus: technique.coinBonus,
-      techniqueMasteryGained: technique.masteryGained
+      techniqueMasteryGained: technique.masteryGained,
+      durationSeconds: answerMeta.durationSeconds,
+      revealedAt: answerMeta.revealedAt
     }
     const nextProfile = applyProblemMasteryToProfile(profileWithTechnique, problem, [...previousReviews, reviewRecord])
     const problemMastered = !currentProfile.masteredProblemIds.includes(problem.id) && nextProfile.masteredProblemIds.includes(problem.id)

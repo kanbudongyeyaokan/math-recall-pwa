@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, BookOpenCheck, Check, Filter, Library, LockKeyhole, Route, Sigma, Swords, Trophy, Zap } from 'lucide-react'
+import { ArrowRight, BookOpenCheck, BrainCircuit, Check, Filter, Gauge, Library, LockKeyhole, Route, Sigma, Swords, Target, Trophy, Zap } from 'lucide-react'
 import { CharacterPortrait } from '../components/CharacterPortrait'
 import { db, defaultProfile } from '../db'
 import { getBossEligibility, getLectureBoss } from '../domain/boss'
@@ -16,7 +16,10 @@ import {
 } from '../domain/curriculum'
 import { getPracticeCycleProgress, getPracticeCycleSettingKey, type PracticeCycleState } from '../domain/practiceCycle'
 import { getLectureMastery } from '../domain/mastery'
+import { ADAPTIVE_MODES, getAdaptiveMode } from '../domain/adaptivePractice'
+import { isProblemEligibleForPractice } from '../data/questionQuality'
 import { getCharacter } from '../domain/story'
+import type { AdaptivePracticeMode } from '../types'
 import { playSound } from '../utils/sound'
 
 interface PracticePageProps {
@@ -27,12 +30,13 @@ interface PracticePageProps {
 const roles: PracticeRole[] = ['all', 'concept', 'example', 'choice', 'exercise']
 
 export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
-  const problems = useLiveQuery(() => db.problems.filter((problem) => !problem.archived).toArray(), [], [])
+  const problems = useLiveQuery(() => db.problems.filter(isProblemEligibleForPractice).toArray(), [], [])
   const reviews = useLiveQuery(() => db.reviews.toArray(), [], [])
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
   const [lectureId, setLectureId] = useState('lecture-01')
   const [role, setRole] = useState<PracticeRole>('all')
   const [sectionId, setSectionId] = useState<string>()
+  const [adaptiveMode, setAdaptiveMode] = useState<AdaptivePracticeMode>('mixed')
   const lastTouchRef = useRef<{ lectureId: string; at: number }>()
   const startLockRef = useRef(0)
   const cycleRecord = useLiveQuery(() => db.settings.get(getPracticeCycleSettingKey(lectureId)), [lectureId])
@@ -65,6 +69,7 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
     ? selectedProblems.length
     : selectedProblems.filter((problem) => !cycleSeenIds.has(problem.id)).length
   const unclassifiedCount = classified.filter((item) => item.lectureIds.length === 0).length
+  const weakKnowledge = (mastery.knowledgeMastery || []).slice(0, 4)
 
   function chooseLecture(nextLectureId: string) {
     setLectureId(nextLectureId)
@@ -80,7 +85,8 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
       lectureId,
       sectionId,
       role,
-      label: `第 ${selectedLecture.number} 讲 · ${section?.title || PRACTICE_ROLE_LABELS[role]}`
+      adaptiveMode,
+      label: `第 ${selectedLecture.number} 讲 · ${section?.title || PRACTICE_ROLE_LABELS[role]} · ${getAdaptiveMode(adaptiveMode).name}`
     })
   }
 
@@ -95,7 +101,8 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
     onStart({
       lectureId: nextLectureId,
       role: 'all',
-      label: `第 ${lecture.number} 讲 · 整讲混合`
+      adaptiveMode: 'mixed',
+      label: `第 ${lecture.number} 讲 · 综合混练`
     })
   }
 
@@ -163,6 +170,19 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
           <strong>第 {cycleState?.cycle || 1} 轮 · {cycleProgress.seen}/{cycleProgress.total} 已刷</strong>
         </div>
 
+        <div className="adaptive-mode-grid" role="group" aria-label="自适应做题模式">
+          {ADAPTIVE_MODES.map((mode) => {
+            const Icon = mode.id === 'foundation' ? BookOpenCheck : mode.id === 'weak' ? Target : mode.id === 'sprint' ? Gauge : BrainCircuit
+            return (
+              <button type="button" className={adaptiveMode === mode.id ? 'active' : ''} onClick={() => setAdaptiveMode(mode.id)} key={mode.id}>
+                <Icon size={18} />
+                <span><strong>{mode.name}</strong><small>{mode.shortDescription}</small></span>
+                <b>{mode.queueSize}题</b>
+              </button>
+            )
+          })}
+        </div>
+
         <div className="practice-role-tabs" role="group" aria-label="题目类型">
           {roles.map((item) => {
             const roleProblems = lectureProblems.filter((problem) => item === 'all' || getProblemRole(problem) === item)
@@ -170,6 +190,13 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
             return <button type="button" className={role === item ? 'active' : ''} onClick={() => { setRole(item); setSectionId(undefined) }} key={item}>{PRACTICE_ROLE_LABELS[item]}<small>{remaining}/{roleProblems.length}</small></button>
           })}
         </div>
+
+        {!!weakKnowledge.length && (
+          <div className="knowledge-mastery-strip" aria-label="本讲知识点掌握度">
+            <span><Target size={15} />优先补强</span>
+            {weakKnowledge.map((item) => <b key={item.knowledgePoint}>{item.knowledgePoint}<small>{item.scorePercent}%</small></b>)}
+          </div>
+        )}
 
         <div className="lecture-section-list">
           <button type="button" className={!sectionId ? 'active' : ''} onClick={() => setSectionId(undefined)}>
@@ -207,7 +234,7 @@ export function PracticePage({ onStart, onOpenLibrary }: PracticePageProps) {
           <div className="boss-unlock-progress">
             <span className={mastery.attempted >= bossEligibility.requiredAttempted ? 'done' : ''}>尝试 {mastery.attempted}/{bossEligibility.requiredAttempted}</span>
             <span className={mastery.mastered >= bossEligibility.requiredMastered ? 'done' : ''}>掌握 {mastery.mastered}/{bossEligibility.requiredMastered}</span>
-            <span>讲次掌握率 {mastery.scorePercent}%</span>
+            <span className={mastery.scorePercent >= bossEligibility.requiredScorePercent ? 'done' : ''}>掌握率 {mastery.scorePercent}/{bossEligibility.requiredScorePercent}%</span>
           </div>
         </div>
         <button type="button" onClick={startBossBattle} disabled={!bossEligibility.unlocked}>

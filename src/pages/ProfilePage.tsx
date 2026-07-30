@@ -8,7 +8,9 @@ import {
   CloudOff,
   Database,
   Download,
+  FileCheck2,
   HardDrive,
+  LockKeyhole,
   Map,
   RefreshCcw,
   RefreshCw,
@@ -20,7 +22,8 @@ import { db, defaultProfile, requestPersistentStorage, restoreLatestSnapshot, sa
 import { getRealmProgress } from '../domain/gamification'
 import { getCharacter, isCharacterUnlocked } from '../domain/story'
 import type { StoragePersistenceState } from '../types'
-import { downloadBackup, restoreBackup } from '../utils/backup'
+import { downloadBackup, downloadEncryptedBackup, restoreBackup, verifyBackupFile } from '../utils/backup'
+import { runPwaDiagnostics, type PwaDiagnosticReport } from '../utils/pwaDiagnostics'
 import { PlayerAvatar } from '../components/PlayerAvatar'
 import { AudioSettingsControls } from '../components/AudioSettingsControls'
 import { getAudioPreferences, playSound, resumeBackgroundMusic, saveAudioPreferences, type AudioPreferences } from '../utils/sound'
@@ -58,10 +61,16 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
   const [storage, setStorage] = useState<{ usage: number; quota: number }>()
   const [audioPreferences, setAudioPreferences] = useState(getAudioPreferences)
   const [voiceDiagnostics, setVoiceDiagnostics] = useState(() => getVoiceDiagnostics(voiceSampleCharacterIds))
+  const [backupPassphrase, setBackupPassphrase] = useState('')
+  const [backupVerification, setBackupVerification] = useState('')
+  const [pwaDiagnostics, setPwaDiagnostics] = useState<PwaDiagnosticReport>()
+  const [diagnosing, setDiagnosing] = useState(false)
   const realm = getRealmProgress(profile.xp)
   const persistence = persistenceRecord?.value as StoragePersistenceState | undefined
   const lastBackup = lastBackupRecord?.value as string | undefined
   const voiceSupported = hasCharacterVoiceSupport()
+  const backupAgeDays = lastBackup ? Math.floor((Date.now() - new Date(lastBackup).getTime()) / 86_400_000) : undefined
+  const backupDue = profile.totalReviews >= 5 && (backupAgeDays === undefined || backupAgeDays >= 14)
 
   function updateAudioPreferences(patch: Partial<AudioPreferences>) {
     setAudioPreferences(saveAudioPreferences(patch))
@@ -100,6 +109,19 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
     setVoiceDiagnostics(getVoiceDiagnostics(voiceSampleCharacterIds))
   }), [])
 
+  useEffect(() => {
+    void refreshPwaDiagnostics()
+  }, [isStandalone, persistence?.status])
+
+  async function refreshPwaDiagnostics() {
+    setDiagnosing(true)
+    try {
+      setPwaDiagnostics(await runPwaDiagnostics(isStandalone))
+    } finally {
+      setDiagnosing(false)
+    }
+  }
+
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -137,6 +159,22 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
     }
   }
 
+  async function exportEncryptedData() {
+    if (backupPassphrase.length < 6) {
+      notify('加密密码至少需要 6 个字符')
+      return
+    }
+    setBusy(true)
+    try {
+      await downloadEncryptedBackup(backupPassphrase)
+      notify('加密备份已下载，并已完成生成校验')
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '加密备份失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function importData(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -144,10 +182,30 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
     if (replaceExisting && !window.confirm('替换导入会先清空本机现有题目、图片和进度，确定继续吗？')) return
     setBusy(true)
     try {
-      const result = await restoreBackup(file, replaceExisting)
+      const result = await restoreBackup(file, replaceExisting, backupPassphrase || undefined)
       notify(`恢复完成：新增 ${result.problems} 张题卡、${result.images} 张图片${result.preservedProblems ? `，保留已有 ${result.preservedProblems} 张题卡` : ''}`)
     } catch (error) {
       notify(error instanceof Error ? error.message : '导入失败，请检查备份文件')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function verifyBackup(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setBusy(true)
+    setBackupVerification('')
+    try {
+      const result = await verifyBackupFile(file, backupPassphrase || undefined)
+      const message = `${result.encrypted ? '加密' : '普通'}备份可恢复 · ${result.problems} 题 · ${result.images} 图 · ${result.reviews} 条记录`
+      setBackupVerification(message)
+      notify('备份完整性检测通过，未修改本机数据')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '备份检测失败'
+      setBackupVerification(message)
+      notify(message)
     } finally {
       setBusy(false)
     }
@@ -290,11 +348,16 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
           <span><strong>{problemCount}</strong> 题卡</span><span><strong>{imageCount}</strong> 图片</span>
           {storage && <span><strong>{formatBytes(storage.usage)}</strong> 已用</span>}
         </div>
+        {backupDue && <div className="backup-reminder"><LockKeyhole size={18} /><span><strong>{backupAgeDays === undefined ? '还没有外部备份' : `已 ${backupAgeDays} 天没有备份`}</strong><small>完成加密备份后，本提醒会重新计时。</small></span></div>}
         <p className="section-note">完整 JSON 包含题目、原图、解析、做题历史、个人头像、灵石、坊市物品、斗气境界、称号与奖励卡。{lastBackup ? `上次导出：${formatDateTime(lastBackup)}` : '尚未导出外部备份。'}</p>
+        <label className="field backup-password-field"><span><LockKeyhole size={16} />备份密码</span><input type="password" value={backupPassphrase} onChange={(event) => setBackupPassphrase(event.target.value)} autoComplete="new-password" placeholder="至少 6 个字符" /></label>
         <div className="backup-actions">
-          <button type="button" className="button button-primary" onClick={exportData} disabled={busy}><Download size={18} />导出完整备份</button>
+          <button type="button" className="button button-primary" onClick={exportEncryptedData} disabled={busy || backupPassphrase.length < 6}><LockKeyhole size={18} />导出加密备份</button>
+          <button type="button" className="button button-secondary" onClick={exportData} disabled={busy}><Download size={18} />普通备份</button>
           <label className={`button button-secondary ${busy ? 'disabled' : ''}`}><Upload size={18} />导入备份<input type="file" accept="application/json,.json" onChange={importData} disabled={busy} /></label>
+          <label className={`button button-secondary ${busy ? 'disabled' : ''}`}><FileCheck2 size={18} />检测可恢复性<input type="file" accept="application/json,.json" onChange={verifyBackup} disabled={busy} /></label>
         </div>
+        {backupVerification && <div className="backup-verification" role="status">{backupVerification}</div>}
         <label className="check-row">
           <input type="checkbox" checked={replaceExisting} onChange={(event) => setReplaceExisting(event.target.checked)} />
           <span><ArchiveRestore size={17} />导入前清空本机数据（默认关闭，即同 ID 合并）</span>
@@ -313,6 +376,16 @@ export function ProfilePage({ canInstall, isStandalone, isWechat, onInstall, onC
           <div className="install-hint"><CloudOff size={20} /><p>iPhone 使用 Safari“分享 → 添加到主屏幕”；Android 使用浏览器菜单中的“安装应用”。</p></div>
         )}
         {storage && storage.quota > 0 && <div className="storage-note"><HardDrive size={15} />浏览器可用空间约 {formatBytes(storage.quota)}</div>}
+        <div className="pwa-diagnostics">
+          <div className="pwa-diagnostics-heading"><span><ShieldCheck size={17} />安装与离线诊断</span><b>{pwaDiagnostics ? `${pwaDiagnostics.score}%` : '检查中'}</b></div>
+          {pwaDiagnostics?.items.map((item) => (
+            <div className={`diagnostic-row status-${item.status}`} key={item.id}>
+              <span>{item.status === 'pass' ? <CheckCircle2 size={16} /> : <CloudOff size={16} />}</span>
+              <div><strong>{item.label}</strong><small>{item.detail}</small></div>
+            </div>
+          ))}
+          <button type="button" className="button button-secondary button-full" onClick={() => void refreshPwaDiagnostics()} disabled={diagnosing}><RefreshCcw size={17} />重新诊断</button>
+        </div>
       </section>
 
       <section className="section-block update-section">

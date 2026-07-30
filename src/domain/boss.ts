@@ -1,4 +1,5 @@
 import { CALCULUS_LECTURES, getProblemLectureIds, getProblemRole } from './curriculum'
+import { isProblemEligibleForPractice } from '../data/questionQuality'
 import { shuffleProblemIds } from './practiceCycle'
 import type { LectureMastery } from './mastery'
 import type { PracticeSessionOutcome, Problem } from '../types'
@@ -36,33 +37,51 @@ export function getLectureBoss(lectureId: string) {
 }
 
 export function getBossEligibility(mastery: LectureMastery, defeated = false) {
-  const requiredAttempted = Math.min(mastery.total, 6)
-  const requiredMastered = Math.min(mastery.total, 4)
-  const unlocked = defeated || (mastery.total > 0 && mastery.attempted >= requiredAttempted && mastery.mastered >= requiredMastered)
+  const requiredAttempted = Math.min(mastery.total, Math.max(8, Math.ceil(mastery.total * 0.35)))
+  const requiredMastered = Math.min(mastery.total, Math.max(6, Math.ceil(requiredAttempted * 0.75)))
+  const requiredScorePercent = Math.min(50, mastery.total ? 50 : 0)
+  const unlocked = defeated || (
+    mastery.total > 0
+    && mastery.attempted >= requiredAttempted
+    && mastery.mastered >= requiredMastered
+    && mastery.scorePercent >= requiredScorePercent
+  )
   return {
     unlocked,
     requiredAttempted,
     requiredMastered,
+    requiredScorePercent,
     attemptedRemaining: Math.max(0, requiredAttempted - mastery.attempted),
-    masteredRemaining: Math.max(0, requiredMastered - mastery.mastered)
+    masteredRemaining: Math.max(0, requiredMastered - mastery.mastered),
+    scoreRemaining: Math.max(0, requiredScorePercent - mastery.scorePercent)
   }
 }
 
 export function buildBossQueue(problems: readonly Problem[], mastery: LectureMastery, seed = Date.now()) {
-  const candidates = problems.filter((problem) => !problem.archived && getProblemLectureIds(problem).includes(mastery.lectureId))
+  const candidates = problems.filter((problem) => isProblemEligibleForPractice(problem) && getProblemLectureIds(problem).includes(mastery.lectureId))
   const scoreById = new Map(mastery.problemMastery.map((item) => [item.problemId, item.score]))
   const roles = ['concept', 'choice', 'example', 'exercise'] as const
   const selected: string[] = []
   roles.forEach((role, index) => {
     const ids = candidates
       .filter((problem) => getProblemRole(problem) === role)
-      .sort((a, b) => (scoreById.get(a.id) || 0) - (scoreById.get(b.id) || 0))
+      .sort((a, b) => (
+        (scoreById.get(a.id) || 0) - (scoreById.get(b.id) || 0)
+        || (b.difficulty || 2) - (a.difficulty || 2)
+        || (b.discrimination || 2) - (a.discrimination || 2)
+      ))
       .map((problem) => problem.id)
     const id = shuffleProblemIds(ids.slice(0, Math.max(4, Math.ceil(ids.length / 2))), seed + index)[0]
     if (id) selected.push(id)
   })
-  const remaining = candidates.map((problem) => problem.id).filter((id) => !selected.includes(id))
-  return [...selected, ...shuffleProblemIds(remaining, seed + 97)].slice(0, Math.min(5, candidates.length))
+  const remaining = candidates
+    .filter((problem) => !selected.includes(problem.id))
+    .sort((a, b) => (scoreById.get(a.id) || 0) - (scoreById.get(b.id) || 0) || (b.difficulty || 2) - (a.difficulty || 2))
+    .map((problem) => problem.id)
+  const queueSize = Math.min(5, candidates.length)
+  const remainingSlots = Math.max(0, queueSize - selected.length)
+  const priorityWindow = remaining.slice(0, Math.max(remainingSlots, Math.ceil(remainingSlots * 1.5)))
+  return [...selected, ...shuffleProblemIds(priorityWindow, seed + 97).slice(0, remainingSlots)]
 }
 
 export function scoreBossBattle(outcomes: readonly PracticeSessionOutcome[], problems: readonly Problem[]) {
@@ -73,9 +92,10 @@ export function scoreBossBattle(outcomes: readonly PracticeSessionOutcome[], pro
     const problem = byId.get(outcome.problemId)
     const choiceFailed = problem?.questionFormat !== 'open' && outcome.isCorrect !== true
     if (choiceFailed || outcome.rating === 'again') continue
-    if (outcome.rating === 'hint') score += 8
-    if (outcome.rating === 'independent') { score += 20; strongWins += 1 }
-    if (outcome.rating === 'multiple') { score += 24; strongWins += 1 }
+    const difficulty = problem?.difficulty || 2
+    if (outcome.rating === 'hint') score += Math.max(4, 4 + difficulty * 2)
+    if (outcome.rating === 'independent') { score += 12 + difficulty * 4; strongWins += 1 }
+    if (outcome.rating === 'multiple') { score += 16 + difficulty * 4; strongWins += 1 }
   }
   const normalized = Math.min(100, Math.round(score * (5 / Math.max(1, outcomes.length))))
   return {

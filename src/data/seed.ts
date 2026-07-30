@@ -2,6 +2,7 @@ import type { Problem } from '../types'
 import { foundationConclusionSeeds } from './foundationConclusionSeeds'
 import type { SeedInput } from './banks/types'
 import { curatedQuestionSeeds } from './banks/curatedBank'
+import { auditProblemBank } from './questionQuality'
 
 export type { SeedInput } from './banks/types'
 
@@ -582,7 +583,7 @@ function legacyFingerprint(seed: SeedInput, id: string) {
 }
 
 export function makeSeedProblems(now = Date.now()): Problem[] {
-  return allSeeds.map((seed, index) => {
+  const problems = allSeeds.map((seed, index) => {
     const optionIds = ['A', 'B', 'C', 'D', 'E', 'F']
     const alternate = legacyAlternateMethods[seed.title]
     const methods = seed.solutionMethods
@@ -620,7 +621,8 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
       intervalIndex: -1,
       reviewCount: 0,
       isSeed: true,
-      seedVersion: 6
+      seedVersion: 7
     }
   }).filter((problem) => !DEPRECATED_SEED_IDS.includes(problem.id as typeof DEPRECATED_SEED_IDS[number]))
+  return auditProblemBank(problems, now)
 }

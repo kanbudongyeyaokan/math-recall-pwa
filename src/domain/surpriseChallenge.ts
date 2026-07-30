@@ -3,6 +3,7 @@ import { getMasteryPower } from './mastery'
 import { shuffleProblemIds } from './practiceCycle'
 import { scoreBossBattle } from './boss'
 import type { PlayerProfile, PracticeSessionOutcome, Problem } from '../types'
+import { isProblemEligibleForPractice } from '../data/questionQuality'
 
 export const SURPRISE_CHALLENGE_STATE_KEY = 'surprise-challenge-state-v1'
 export const SURPRISE_CHALLENGE_QUESTION_COUNT = 5
@@ -133,7 +134,7 @@ export function getSurpriseChallengeDelay(seed = Date.now()) {
 
 export function buildSurpriseChallengeQueue(problems: readonly Problem[], seed = Date.now()) {
   const candidates = problems.filter((problem) => (
-    !problem.archived
+    isProblemEligibleForPractice(problem)
     && getProblemLectureIds(problem).length > 0
     && problem.questionFormat !== 'open'
     && problem.options.length >= 2

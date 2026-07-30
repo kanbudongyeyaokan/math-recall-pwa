@@ -27,4 +27,12 @@ describe('真实掌握度', () => {
     expect(next.correctedProblemIds).toEqual(['q1'])
     expect(getMasteryPower(next)).toBe(2)
   })
+
+  it('明显超时会降低掌握评分，防止只靠自评跳过真实薄弱点', () => {
+    const timedProblem = { ...problem, estimatedMinutes: 5 }
+    expect(getProblemMastery(timedProblem, [{ ...review('independent', true, 1), durationSeconds: 300 }]).score).toBe(78)
+    const overtime = getProblemMastery(timedProblem, [{ ...review('independent', true, 1), durationSeconds: 700 }])
+    expect(overtime.score).toBe(66)
+    expect(overtime.mastered).toBe(false)
+  })
 })

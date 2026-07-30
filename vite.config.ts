@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const base = process.env.VITE_BASE_PATH || '/'
-const appVersion = process.env.npm_package_version || '0.20.0'
+const appVersion = process.env.npm_package_version || '0.21.0'
 
 export default defineConfig({
   base,
@@ -26,7 +26,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'pwa-icon-192.png', 'pwa-icon-512.png', 'apple-touch-icon.png'],
       manifest: {
         name: '斗破数学 · 何耀焜的交大斗魂之路',

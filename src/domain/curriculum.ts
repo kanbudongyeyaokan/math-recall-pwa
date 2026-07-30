@@ -1,4 +1,4 @@
-import type { DuelScope, Problem } from '../types'
+import type { AdaptivePracticeMode, DuelScope, Problem } from '../types'
 
 export type PracticeRole = 'all' | 'concept' | 'example' | 'choice' | 'exercise'
 
@@ -33,6 +33,7 @@ export interface PracticeSelection {
   opponentId?: string
   duelScope?: DuelScope
   duelLectureId?: string
+  adaptiveMode?: AdaptivePracticeMode
 }
 
 export const PRACTICE_ROLE_LABELS: Record<PracticeRole, string> = {

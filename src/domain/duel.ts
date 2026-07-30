@@ -3,6 +3,7 @@ import { getProblemLectureIds, getProblemRole } from './curriculum'
 import { shuffleProblemIds } from './practiceCycle'
 import { getCharacter, type StoryCharacter } from './story'
 import type { DuelScope, PlayerProfile, PracticeSessionOutcome, Problem } from '../types'
+import { isProblemEligibleForPractice } from '../data/questionQuality'
 
 export const DUEL_QUESTION_COUNT = 5
 export const DUEL_TIME_MS = 12 * 60 * 1000
@@ -96,7 +97,7 @@ export function getDuelPresentation(characterId: string): DuelPresentation {
 }
 
 function eligibleProblems(problems: readonly Problem[], profile: PlayerProfile, scope: DuelScope, lectureId?: string) {
-  const calculus = problems.filter((problem) => !problem.archived && getProblemLectureIds(problem).length > 0)
+  const calculus = problems.filter((problem) => isProblemEligibleForPractice(problem) && getProblemLectureIds(problem).length > 0)
   if (scope === 'lecture') return calculus.filter((problem) => getProblemLectureIds(problem).includes(lectureId || ''))
   if (scope === 'choice') return calculus.filter((problem) => problem.questionFormat !== 'open' && problem.correctOptionIds.length > 0)
   if (scope === 'weak') {

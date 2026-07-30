@@ -30,6 +30,13 @@ describe('做题会话持久化', () => {
     expect(sanitizePracticeSession(session, new Set(['q2']))?.queueIds).toEqual(['q2'])
   })
 
+  it('不同自适应模式不会错误恢复同一场会话', () => {
+    const weakSelection = { ...selection, adaptiveMode: 'weak' as const }
+    const session = createPracticeSession({ mode: 'practice', selection: weakSelection, queueIds: ['q1'], now: 1 })
+    expect(sessionMatchesRequest(session, undefined, weakSelection)).toBe(true)
+    expect(sessionMatchesRequest(session, undefined, { ...selection, adaptiveMode: 'foundation' })).toBe(false)
+  })
+
   it('当前题被升级移除时保持在相近进度，已结算题自动前进', () => {
     const session = { ...createPracticeSession({ mode: 'practice', selection, queueIds: ['q1', 'q2', 'q3'], now: 1 }), queueIndex: 1 }
     const sanitized = sanitizePracticeSession(session, new Set(['q1', 'q3']))

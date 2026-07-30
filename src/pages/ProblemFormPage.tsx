@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Camera, Check, FileText, ImagePlus, Info, Lightbulb, ListChecks, Plus, Route, Save, ShieldAlert, Trash2, X } from 'lucide-react'
-import { createRecoverySnapshot, db, saveImage } from '../db'
-import type { Problem, ProblemKind, ProblemOption, QuestionFormat, SolutionMethod } from '../types'
+import { createRecoverySnapshot, db, normalizeProblemRecord, saveImage } from '../db'
+import type { Problem, ProblemDifficulty, ProblemKind, ProblemOption, QuestionFormat, SolutionMethod } from '../types'
 import { DbImage } from '../components/DbImage'
+import { auditProblemBank } from '../data/questionQuality'
 
 interface ProblemFormPageProps {
   editId?: string
@@ -25,6 +26,10 @@ interface FormState {
   options: ProblemOption[]
   correctOptionIds: string[]
   solutionMethods: SolutionMethod[]
+  difficulty: ProblemDifficulty
+  prerequisites: string
+  estimatedMinutes: number
+  discrimination: ProblemDifficulty
 }
 
 const emptyForm: FormState = {
@@ -48,7 +53,11 @@ const emptyForm: FormState = {
   solutionMethods: [
     { id: 'method-1', title: '方法一', content: '' },
     { id: 'method-2', title: '方法二', content: '' }
-  ]
+  ],
+  difficulty: 2,
+  prerequisites: '',
+  estimatedMinutes: 6,
+  discrimination: 2
 }
 
 export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProps) {
@@ -79,7 +88,11 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
       questionFormat: existing.questionFormat || 'open',
       options: existing.options?.length ? existing.options : emptyForm.options,
       correctOptionIds: existing.correctOptionIds || [],
-      solutionMethods: existing.solutionMethods?.length ? existing.solutionMethods : emptyForm.solutionMethods
+      solutionMethods: existing.solutionMethods?.length ? existing.solutionMethods : emptyForm.solutionMethods,
+      difficulty: existing.difficulty || 2,
+      prerequisites: (existing.prerequisites || []).join('，'),
+      estimatedMinutes: existing.estimatedMinutes || 6,
+      discrimination: existing.discrimination || 2
     })
   }, [existing, editId])
 
@@ -190,7 +203,7 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
       }
 
       const now = Date.now()
-      const record: Problem = {
+      const record: Problem = normalizeProblemRecord({
         id: existing?.id || crypto.randomUUID(),
         kind: form.kind,
         title: form.title.trim(),
@@ -209,6 +222,10 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
         solutionMethods: form.solutionMethods
           .filter((method) => method.content.trim())
           .map((method) => ({ ...method, title: method.title.trim() || '补充方法', content: method.content.trim() })),
+        difficulty: form.difficulty,
+        prerequisites: form.prerequisites.split(/[，,、]/).map((item) => item.trim()).filter(Boolean),
+        estimatedMinutes: form.estimatedMinutes,
+        discrimination: form.discrimination,
         questionImageId,
         answerImageId,
         createdAt: existing?.createdAt || now,
@@ -217,15 +234,22 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
         intervalIndex: existing?.intervalIndex ?? -1,
         reviewCount: existing?.reviewCount || 0,
         archived: existing?.archived,
-        isSeed: existing?.isSeed
-      }
+        isSeed: existing?.isSeed,
+        seedVersion: existing?.seedVersion
+      })
 
+      let savedRecord: Problem = record
       await db.transaction('rw', db.problems, db.images, async () => {
-        await db.problems.put(record)
+        const existingBank = await db.problems.toArray()
+        const auditedBank = auditProblemBank([...existingBank.filter((problem) => problem.id !== record.id), record])
+        savedRecord = auditedBank.find((problem) => problem.id === record.id) || record
+        await db.problems.bulkPut(auditedBank)
         if (oldImagesToDelete.length) await db.images.bulkDelete(Array.from(new Set(oldImagesToDelete)))
       })
       await createRecoverySnapshot(existing ? '编辑题卡' : '新增题卡')
-      onSaved(existing ? '题卡修改已保存' : '新题卡已加入题库')
+      onSaved(savedRecord.qualityStatus === 'needs-review'
+        ? '题卡已保存到待人工确认区；补齐红色问题后才会进入随机题池'
+        : existing ? '题卡修改已保存并通过质量检查' : '新题卡已加入精品题库')
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : '保存失败，请再试一次。')
     } finally {
@@ -293,6 +317,10 @@ export function ProblemFormPage({ editId, onBack, onSaved }: ProblemFormPageProp
           <label className="field"><span>来源</span><input value={form.source} onChange={(e) => update('source', e.target.value)} placeholder="书名 / 试卷 / 自己整理" /></label>
           <label className="field"><span>页码</span><input value={form.page} onChange={(e) => update('page', e.target.value)} inputMode="numeric" placeholder="例如 128" /></label>
           <label className="field full-field"><span>知识点标签</span><input value={form.tags} onChange={(e) => update('tags', e.target.value)} placeholder="高等数学，极限，泰勒公式" /><small>用逗号分隔，搜索和筛选都会用到</small></label>
+          <label className="field full-field"><span>前置知识</span><input value={form.prerequisites} onChange={(e) => update('prerequisites', e.target.value)} placeholder="极限定义，等价无穷小" /><small>自适应系统会用它安排基础巩固顺序</small></label>
+          <label className="field"><span>难度</span><select value={form.difficulty} onChange={(event) => update('difficulty', Number(event.target.value) as ProblemDifficulty)}>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value} / 5</option>)}</select></label>
+          <label className="field"><span>预计用时（分钟）</span><input type="number" min={1} max={60} inputMode="numeric" value={form.estimatedMinutes} onChange={(event) => update('estimatedMinutes', Math.max(1, Math.min(60, Number(event.target.value) || 1)))} /></label>
+          <label className="field"><span>区分度</span><select value={form.discrimination} onChange={(event) => update('discrimination', Number(event.target.value) as ProblemDifficulty)}>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value} / 5</option>)}</select></label>
         </section>
 
         <section className="form-section">

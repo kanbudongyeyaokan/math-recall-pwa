@@ -48,6 +48,7 @@ export function sessionMatchesRequest(
     && session.selection.sectionId === selection.sectionId
     && session.selection.role === selection.role
     && (session.selection.mode || 'practice') === (selection.mode || 'practice')
+    && (session.selection.adaptiveMode || 'mixed') === (selection.adaptiveMode || 'mixed')
     && session.selection.challengeId === selection.challengeId
 }
 

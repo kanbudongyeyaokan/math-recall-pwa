@@ -1,4 +1,5 @@
 import { getProblemLectureIds } from './curriculum'
+import { getPrimaryKnowledgePoint, isProblemEligibleForPractice } from '../data/questionQuality'
 import type { PlayerProfile, Problem, ReviewLog } from '../types'
 
 export interface ProblemMastery {
@@ -8,6 +9,20 @@ export interface ProblemMastery {
   mastered: boolean
   corrected: boolean
   strongReviews: number
+  lastReviewedAt?: number
+  latestRating?: ReviewLog['rating']
+  latestCorrect?: boolean
+  averageDurationSeconds?: number
+}
+
+export interface KnowledgeMastery {
+  knowledgePoint: string
+  total: number
+  attempted: number
+  mastered: number
+  scorePercent: number
+  lastReviewedAt?: number
+  problemIds: string[]
 }
 
 export interface LectureMastery {
@@ -18,14 +33,20 @@ export interface LectureMastery {
   corrected: number
   scorePercent: number
   problemMastery: ProblemMastery[]
+  knowledgeMastery?: KnowledgeMastery[]
 }
 
 function reviewScore(problem: Problem, review: ReviewLog) {
   if (problem.questionFormat !== 'open' && review.isCorrect !== true) return 0
-  if (review.rating === 'multiple') return 92
-  if (review.rating === 'independent') return 78
-  if (review.rating === 'hint') return 36
-  return 0
+  let score = review.rating === 'multiple' ? 92 : review.rating === 'independent' ? 78 : review.rating === 'hint' ? 36 : 0
+  const expectedSeconds = Math.max(60, (problem.estimatedMinutes || 6) * 60)
+  if (review.durationSeconds && score > 0) {
+    const ratio = review.durationSeconds / expectedSeconds
+    if (ratio > 2.2) score -= 12
+    else if (ratio > 1.5) score -= 6
+    else if (ratio < 0.12) score -= 8
+  }
+  return Math.max(0, score)
 }
 
 function isStrong(problem: Problem, review: ReviewLog) {
@@ -52,12 +73,50 @@ export function getProblemMastery(problem: Problem, reviews: readonly ReviewLog[
     score,
     mastered: score >= 75,
     corrected,
-    strongReviews
+    strongReviews,
+    lastReviewedAt: latest?.reviewedAt,
+    latestRating: latest?.rating,
+    latestCorrect: latest?.isCorrect,
+    averageDurationSeconds: ordered.length
+      ? Math.round(ordered.reduce((sum, review) => sum + (review.durationSeconds || 0), 0) / ordered.filter((review) => review.durationSeconds).length) || undefined
+      : undefined
   }
 }
 
+export function getKnowledgeMastery(problems: readonly Problem[], reviews: readonly ReviewLog[]): KnowledgeMastery[] {
+  const reviewsByProblem = new Map<string, ReviewLog[]>()
+  for (const review of reviews) {
+    const list = reviewsByProblem.get(review.problemId) || []
+    list.push(review)
+    reviewsByProblem.set(review.problemId, list)
+  }
+  const groups = new Map<string, { problems: Problem[]; mastery: ProblemMastery[] }>()
+  for (const problem of problems.filter(isProblemEligibleForPractice)) {
+    const knowledgePoint = getPrimaryKnowledgePoint(problem)
+    const group = groups.get(knowledgePoint) || { problems: [], mastery: [] }
+    group.problems.push(problem)
+    group.mastery.push(getProblemMastery(problem, reviewsByProblem.get(problem.id) || []))
+    groups.set(knowledgePoint, group)
+  }
+  return [...groups.entries()].map(([knowledgePoint, group]) => {
+    const attempted = group.mastery.filter((item) => item.attempted).length
+    const mastered = group.mastery.filter((item) => item.mastered).length
+    const scoreTotal = group.mastery.reduce((sum, item) => sum + item.score, 0)
+    const reviewedTimes = group.mastery.flatMap((item) => item.lastReviewedAt || [])
+    return {
+      knowledgePoint,
+      total: group.problems.length,
+      attempted,
+      mastered,
+      scorePercent: group.problems.length ? Math.round(scoreTotal / group.problems.length) : 0,
+      lastReviewedAt: reviewedTimes.length ? Math.max(...reviewedTimes) : undefined,
+      problemIds: group.problems.map((problem) => problem.id)
+    }
+  }).sort((a, b) => a.scorePercent - b.scorePercent || a.knowledgePoint.localeCompare(b.knowledgePoint))
+}
+
 export function getLectureMastery(problems: readonly Problem[], reviews: readonly ReviewLog[], lectureId: string): LectureMastery {
-  const lectureProblems = problems.filter((problem) => !problem.archived && getProblemLectureIds(problem).includes(lectureId))
+  const lectureProblems = problems.filter((problem) => isProblemEligibleForPractice(problem) && getProblemLectureIds(problem).includes(lectureId))
   const reviewsByProblem = new Map<string, ReviewLog[]>()
   for (const review of reviews) {
     const list = reviewsByProblem.get(review.problemId) || []
@@ -76,7 +135,8 @@ export function getLectureMastery(problems: readonly Problem[], reviews: readonl
     mastered,
     corrected,
     scorePercent: lectureProblems.length ? Math.round(scoreTotal / lectureProblems.length) : 0,
-    problemMastery
+    problemMastery,
+    knowledgeMastery: getKnowledgeMastery(lectureProblems, reviews)
   }
 }
 
@@ -88,7 +148,7 @@ export function rebuildProfileMastery(profile: PlayerProfile, problems: readonly
     reviewsByProblem.set(review.problemId, list)
   }
   const mastery = problems
-    .filter((problem) => !problem.archived)
+    .filter(isProblemEligibleForPractice)
     .map((problem) => getProblemMastery(problem, reviewsByProblem.get(problem.id) || []))
   return {
     ...profile,

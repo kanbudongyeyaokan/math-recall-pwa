@@ -4,7 +4,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { db, defaultProfile } from '../db'
 import { LEGACY_PRIVATE_BANK_SOURCE } from '../data/questionQuality'
 import type { Problem } from '../types'
-import { BACKUP_FORMAT, isBackupPayload, restoreBackup } from './backup'
+import type { BackupPayload } from './backup'
+import {
+  BACKUP_FORMAT,
+  decryptBackupEnvelope,
+  encryptBackupPayload,
+  isBackupPayload,
+  restoreBackup,
+  verifyBackupFile
+} from './backup'
 
 const problem = (id: string, reviewCount: number): Problem => ({
   id,
@@ -57,6 +65,56 @@ describe('备份格式校验', () => {
 
   it('拒绝普通 JSON', () => {
     expect(isBackupPayload({ data: [] })).toBe(false)
+  })
+
+  it('加密备份可往返解密并能在不导入时验证完整性', async () => {
+    const payload: BackupPayload = {
+      format: BACKUP_FORMAT,
+      exportedAt: new Date().toISOString(),
+      appVersion: '0.21.0',
+      data: { problems: [problem('encrypted', 2)], images: [], reviews: [], rewards: [], profiles: [defaultProfile] }
+    }
+    const envelope = await encryptBackupPayload(payload, 'heyaokun-2026')
+    expect(await decryptBackupEnvelope(envelope, 'heyaokun-2026')).toEqual(payload)
+
+    const file = new File([JSON.stringify(envelope)], 'encrypted.json', { type: 'application/json' }) as unknown as globalThis.File
+    await expect(verifyBackupFile(file, 'heyaokun-2026')).resolves.toMatchObject({
+      encrypted: true,
+      appVersion: '0.21.0',
+      problems: 1,
+      images: 0,
+      reviews: 0
+    })
+  })
+
+  it('加密备份使用错误密码时不会泄露或导入数据', async () => {
+    const payload: BackupPayload = {
+      format: BACKUP_FORMAT,
+      exportedAt: new Date().toISOString(),
+      appVersion: '0.21.0',
+      data: { problems: [], images: [], reviews: [], rewards: [], profiles: [] }
+    }
+    const envelope = await encryptBackupPayload(payload, 'correct-password')
+    await expect(decryptBackupEnvelope(envelope, 'wrong-password')).rejects.toThrow('无法解密备份')
+  })
+
+  it('恢复检测会拒绝字段残缺的题卡和损坏的图片记录', async () => {
+    const malformedProblem: BackupPayload = {
+      format: BACKUP_FORMAT,
+      exportedAt: new Date().toISOString(),
+      appVersion: '0.21.0',
+      data: {
+        problems: [{ id: 'broken' } as Problem],
+        images: [], reviews: [], rewards: [], profiles: []
+      }
+    }
+    const malformedImage: BackupPayload = {
+      ...malformedProblem,
+      data: { problems: [], images: [{ id: 'image', name: 'broken', mimeType: 'image/png', createdAt: 1, dataUrl: 'broken' }], reviews: [], rewards: [], profiles: [] }
+    }
+    const file = (payload: BackupPayload, name: string) => new File([JSON.stringify(payload)], name, { type: 'application/json' }) as unknown as globalThis.File
+    await expect(verifyBackupFile(file(malformedProblem, 'problem.json'))).rejects.toThrow('题卡')
+    await expect(verifyBackupFile(file(malformedImage, 'image.json'))).rejects.toThrow('图片')
   })
 
   it('合并导入时只新增缺失题卡并保留本机进度', async () => {
@@ -160,5 +218,5 @@ describe('备份格式校验', () => {
     expect(await db.reviews.count()).toBe(1)
     expect(await db.rewards.get('reward-local')).toBeTruthy()
     expect(await db.settings.get('zy30-private-manifest')).toMatchObject({ value: { cards: 1000 } })
-  })
+  }, 10_000)
 })

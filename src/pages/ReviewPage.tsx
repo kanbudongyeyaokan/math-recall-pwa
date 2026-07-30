@@ -60,6 +60,8 @@ import {
   type DuelScore
 } from '../domain/duel'
 import { getLectureMastery } from '../domain/mastery'
+import { buildAdaptiveQueue } from '../domain/adaptivePractice'
+import { isProblemEligibleForPractice } from '../data/questionQuality'
 import type { RealmProgress } from '../domain/gamification'
 import { getTechnique, type TechniqueResolution } from '../domain/cultivation'
 import { formatProblemPageLabel, isChoiceAnswerCorrect } from '../domain/questions'
@@ -117,7 +119,7 @@ function problemOrder(a: { page: string; id: string }, b: { page: string; id: st
 }
 
 export function ReviewPage({ requestedId, selection, onBack, onComplete }: ReviewPageProps) {
-  const allProblems = useLiveQuery(() => db.problems.filter((item) => !item.archived).toArray(), [])
+  const allProblems = useLiveQuery(() => db.problems.filter(isProblemEligibleForPractice).toArray(), [])
   const problemIdKey = allProblems?.map((problem) => problem.id).sort().join('|')
   const [queue, setQueue] = useState<Problem[]>()
   const [activeSession, setActiveSession] = useState<ActivePracticeSession>()
@@ -301,12 +303,20 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         })
       }
       const byId = new Map(selectedProblems.map((problem) => [problem.id, problem]))
-      await restoreOrCreate(unseenIds.flatMap((id) => byId.get(id) || []))
+      const unseenProblems = unseenIds.flatMap((id) => byId.get(id) || [])
+      const reviews = await db.reviews.toArray()
+      const adaptiveIds = buildAdaptiveQueue({
+        problems: unseenProblems,
+        reviews,
+        mode: selection.adaptiveMode || 'mixed',
+        seed: prepared.state.seed + prepared.state.cycle + prepared.state.seenIds.length
+      })
+      await restoreOrCreate(adaptiveIds.flatMap((id) => byId.get(id) || []))
     }
 
     void buildQueue()
     return () => { cancelled = true }
-  }, [requestedId, selection?.lectureId, selection?.sectionId, selection?.role, selection?.mode, selection?.challengeId, selection?.duelScope, selection?.duelLectureId, problemIdKey])
+  }, [requestedId, selection?.lectureId, selection?.sectionId, selection?.role, selection?.mode, selection?.adaptiveMode, selection?.challengeId, selection?.duelScope, selection?.duelLectureId, problemIdKey])
 
   useEffect(() => {
     stopCharacterVoice()
@@ -477,20 +487,20 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     pulseHaptic(correct ? [16, 22, 34] : 45)
     setChoiceSubmitted(true)
     setThinking(true)
-    persistAnswer({ choiceSubmitted: true, thinking: true })
+    persistAnswer({ choiceSubmitted: true, thinking: true, thinkingStartedAt: activeSession?.answer.thinkingStartedAt || Date.now() })
   }
 
   function startThinking() {
     playSound('focus')
     setThinking(true)
-    persistAnswer({ thinking: true })
+    persistAnswer({ thinking: true, thinkingStartedAt: activeSession?.answer.thinkingStartedAt || Date.now() })
   }
 
   function revealAnswer() {
     playSound('reveal')
     pulseHaptic(12)
     setRevealed(true)
-    persistAnswer({ revealed: true })
+    persistAnswer({ revealed: true, revealedAt: Date.now() })
   }
 
   function toggleSound() {
@@ -553,8 +563,13 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
     try {
       const result = await recordReview(problem.id, rating, isChoice ? {
         selectedOptionIds,
-        isCorrect: choiceCorrect
-      } : {})
+        isCorrect: choiceCorrect,
+        durationSeconds: Math.max(1, Math.round((Date.now() - (activeSession?.answer.thinkingStartedAt || activeSession?.startedAt || Date.now())) / 1000)),
+        revealedAt: activeSession?.answer.revealedAt
+      } : {
+        durationSeconds: Math.max(1, Math.round((Date.now() - (activeSession?.answer.thinkingStartedAt || activeSession?.startedAt || Date.now())) / 1000)),
+        revealedAt: activeSession?.answer.revealedAt
+      })
       const cycleLectureId = selection?.lectureId || getProblemLectureIds(problem)[0]
       if (cycleLectureId && allProblems && selection?.mode !== 'boss' && selection?.mode !== 'ambush' && selection?.mode !== 'duel') {
         const lectureProblemIds = allProblems
@@ -788,6 +803,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         <div className="review-meta">
           <span>{problem.source || '个人题库'}{problem.page ? ` · ${formatProblemPageLabel(problem.page)}` : ''}</span>
           {isChoice && <span><ListChecks size={14} /> {problem.questionFormat === 'single-choice' ? '单选' : '多选'}</span>}
+          <span>难度 {problem.difficulty || 2}/5 · 约 {problem.estimatedMinutes || 6} 分钟</span>
         </div>
         <h1>{problem.title}</h1>
         <div className="tag-list">

@@ -7,8 +7,10 @@ import { SurpriseChallengeOfferModal } from './components/SurpriseChallengeModal
 import {
   acceptSurpriseChallengeOffer,
   clearActivePracticeSession,
+  createRecoverySnapshot,
   declineSurpriseChallengeOffer,
   getActivePracticeSession,
+  getLatestPracticeCheckpoint,
   getOrCreateSurpriseChallengeOffer,
   getSurpriseChallengeState,
   initializeDatabase,
@@ -67,8 +69,11 @@ export default function App() {
       .then(async () => {
         await requestPersistentStorage().catch(() => undefined)
         const storedSession = await getActivePracticeSession().catch(() => undefined)
-        const session = getPendingPracticeSession(storedSession)
-        if (storedSession && !session) await clearActivePracticeSession(storedSession.id)
+        const checkpoint = storedSession ? undefined : await getLatestPracticeCheckpoint().catch(() => undefined)
+        const checkpointSession = checkpoint && Date.now() - checkpoint.createdAt < 7 * 86_400_000 ? checkpoint.session : undefined
+        const candidateSession = storedSession || checkpointSession
+        const session = getPendingPracticeSession(candidateSession)
+        if (candidateSession && !session) await clearActivePracticeSession(candidateSession.id)
         else if (session && session !== storedSession) await saveActivePracticeSession(session)
         if (session?.queueIds.length && session.queueIndex < session.queueIds.length) setResumableSession(session)
         setReady(true)
@@ -314,9 +319,19 @@ export default function App() {
     }
     try {
       await updateRegistration.update()
-      setToast('检查完成；如有新版本会自动升级，题库和记录保持不变')
+      setToast('检查完成；如有新版本会提示升级，题库和记录保持不变')
     } catch {
       setToast('检查更新失败，请确认网络后重试')
+    }
+  }
+
+  async function applyAppUpdate() {
+    if (!updateSW) return
+    try {
+      await createRecoverySnapshot(`升级 v${__APP_VERSION__} 前`)
+      await updateSW(true)
+    } catch {
+      setToast('升级没有完成，当前版本仍可继续使用；更新前恢复点已保留')
     }
   }
 
@@ -350,7 +365,7 @@ export default function App() {
           <div className="system-banner update-banner" role="status">
             <RefreshCw size={19} />
             <span><strong>新版本已就绪</strong><small>本机题库与记录不会被覆盖</small></span>
-            <button type="button" className="button button-accent" onClick={() => updateSW?.(true)}>立即升级</button>
+            <button type="button" className="button button-accent" onClick={() => void applyAppUpdate()}>保护记录并升级</button>
           </div>
         )}
       </div>}

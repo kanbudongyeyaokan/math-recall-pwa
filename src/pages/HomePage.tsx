@@ -7,6 +7,7 @@ import { db, defaultProfile, getOrStartPracticeCycle } from '../db'
 import { CALCULUS_LECTURES, getProblemLectureIds, type PracticeSelection } from '../domain/curriculum'
 import { getRealmProgress } from '../domain/gamification'
 import { getMasteryPower } from '../domain/mastery'
+import { isProblemEligibleForPractice } from '../data/questionQuality'
 import { getUnseenPracticeIds } from '../domain/practiceCycle'
 import { playSound } from '../utils/sound'
 
@@ -19,7 +20,7 @@ interface HomePageProps {
 }
 
 export function HomePage({ online, onOpenPractice, onStartProblem, onAdd, onInstall }: HomePageProps) {
-  const problems = useLiveQuery(() => db.problems.filter((problem) => !problem.archived).toArray(), [], [])
+  const problems = useLiveQuery(() => db.problems.filter(isProblemEligibleForPractice).toArray(), [], [])
   const profile = useLiveQuery(() => db.profiles.get('player'), [], defaultProfile) || defaultProfile
   const lastReward = useLiveQuery(() => db.rewards.orderBy('earnedAt').last())
   const realm = getRealmProgress(profile.xp)

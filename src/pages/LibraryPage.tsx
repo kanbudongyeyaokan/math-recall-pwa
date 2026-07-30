@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { BookOpen, CalendarClock, ChevronDown, Edit3, FileQuestion, Filter, ListChecks, Plus, Search, Tags, Trash2 } from 'lucide-react'
+import { AlertTriangle, BookOpen, CalendarClock, ChevronDown, Clock3, Edit3, FileQuestion, Filter, Gauge, ListChecks, Plus, Search, ShieldCheck, Tags, Trash2 } from 'lucide-react'
 import { db, deleteProblem } from '../db'
 import type { ProblemKind, QuestionFormat } from '../types'
 import { DbImage } from '../components/DbImage'
+import { getQualitySummary } from '../data/questionQuality'
 
 interface LibraryPageProps {
   onAdd: () => void
@@ -14,6 +15,7 @@ interface LibraryPageProps {
 
 type KindFilter = 'all' | ProblemKind
 type FormatFilter = 'all' | QuestionFormat
+type QualityFilter = 'all' | 'verified' | 'needs-review'
 const PAGE_SIZE = 50
 
 export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProps) {
@@ -22,12 +24,16 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
   const [tag, setTag] = useState('all')
   const [kind, setKind] = useState<KindFilter>('all')
   const [format, setFormat] = useState<FormatFilter>('all')
+  const [quality, setQuality] = useState<QualityFilter>('all')
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
-  const tags = useMemo(() => Array.from(new Set(problems.flatMap((problem) => problem.tags))).sort(), [problems])
+  const activeProblems = useMemo(() => problems.filter((problem) => !problem.archived && problem.qualityStatus !== 'excluded'), [problems])
+  const qualitySummary = useMemo(() => getQualitySummary(problems), [problems])
+  const tags = useMemo(() => Array.from(new Set(activeProblems.flatMap((problem) => problem.tags))).sort(), [activeProblems])
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
-    return problems.filter((problem) => {
+    return activeProblems.filter((problem) => {
+      if (quality !== 'all' && (problem.qualityStatus || 'verified') !== quality) return false
       if (kind !== 'all' && problem.kind !== kind) return false
       if (format !== 'all' && problem.questionFormat !== format) return false
       if (tag !== 'all' && !problem.tags.includes(tag)) return false
@@ -44,12 +50,12 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
         problem.tags.join(' ')
       ].join(' ').toLowerCase().includes(normalized)
     })
-  }, [problems, query, tag, kind, format])
+  }, [activeProblems, query, tag, kind, format, quality])
   const visibleProblems = filtered.slice(0, visibleCount)
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
-  }, [query, tag, kind, format])
+  }, [query, tag, kind, format, quality])
 
   async function remove(problemId: string, title: string) {
     if (!window.confirm(`确定删除“${title}”吗？相关图片、做题记录和奖励卡也会一并删除。`)) return
@@ -74,6 +80,11 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
       </div>
 
       <section className="filter-panel" aria-label="题库筛选">
+        <div className="quality-filter-tabs" role="group" aria-label="题库质量状态">
+          <button type="button" className={quality === 'all' ? 'active' : ''} onClick={() => setQuality('all')}>全部 <b>{qualitySummary.verified + qualitySummary.needsReview}</b></button>
+          <button type="button" className={quality === 'verified' ? 'active' : ''} onClick={() => setQuality('verified')}><ShieldCheck size={15} />已通过</button>
+          <button type="button" className={quality === 'needs-review' ? 'active warning' : 'warning'} onClick={() => setQuality('needs-review')}><AlertTriangle size={15} />待人工确认 <b>{qualitySummary.needsReview}</b></button>
+        </div>
         <div className="segmented-control">
           {([['all', '全部'], ['problem', '典型题'], ['concept', '定义卡']] as const).map(([value, label]) => (
             <button type="button" key={value} className={kind === value ? 'active' : ''} onClick={() => setKind(value)}>{label}</button>
@@ -101,8 +112,8 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
 
       <div className="result-summary">
         <span><Filter size={15} /> {filtered.length} 张卡片</span>
-        {(query || tag !== 'all' || kind !== 'all' || format !== 'all') && (
-          <button type="button" onClick={() => { setQuery(''); setTag('all'); setKind('all'); setFormat('all') }}>清除筛选</button>
+        {(query || tag !== 'all' || kind !== 'all' || format !== 'all' || quality !== 'all') && (
+          <button type="button" onClick={() => { setQuery(''); setTag('all'); setKind('all'); setFormat('all'); setQuality('all') }}>清除筛选</button>
         )}
       </div>
 
@@ -118,6 +129,7 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
                 <div className="library-card-topline">
                   <span className={`kind-badge kind-${problem.kind}`}>{problem.kind === 'concept' ? '定义' : '题目'}</span>
                   {problem.questionFormat !== 'open' && <span className="format-badge">{problem.questionFormat === 'single-choice' ? '单选' : '多选'}</span>}
+                  {problem.qualityStatus === 'needs-review' && <span className="quality-review-badge"><AlertTriangle size={12} />待确认</span>}
                   <span className={isDue ? 'due-label' : 'scheduled-label'}><CalendarClock size={13} />{isDue ? '建议复做' : formatSchedule(problem.nextReviewAt)}</span>
                 </div>
                 <h2>{problem.title}</h2>
@@ -125,9 +137,19 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
                 <div className="tag-list compact">
                   {[...new Set(problem.tags)].slice(0, 3).map((item) => <span className="tag" key={item}>{item}</span>)}
                 </div>
+                <div className="problem-quality-meta">
+                  <span><Gauge size={14} />难度 {problem.difficulty || 2}/5</span>
+                  <span><Clock3 size={14} />约 {problem.estimatedMinutes || 6} 分钟</span>
+                  <span>区分度 {problem.discrimination || 2}/5</span>
+                </div>
+                {problem.qualityStatus === 'needs-review' && !!problem.qualityIssues?.length && (
+                  <div className="quality-issues" role="note">
+                    {problem.qualityIssues.slice(0, 2).map((item) => <span key={item.code}>{item.message}</span>)}
+                  </div>
+                )}
                 <div className="card-actions">
-                  <button type="button" className="text-button primary-text" onClick={() => onReview(problem.id)}><BookOpen size={16} />做题</button>
-                  <button type="button" className="text-button" onClick={() => onEdit(problem.id)}><Edit3 size={16} />编辑</button>
+                  {problem.qualityStatus !== 'needs-review' && <button type="button" className="text-button primary-text" onClick={() => onReview(problem.id)}><BookOpen size={16} />做题</button>}
+                  <button type="button" className="text-button" onClick={() => onEdit(problem.id)}><Edit3 size={16} />{problem.qualityStatus === 'needs-review' ? '审核修正' : '编辑'}</button>
                   <button type="button" className="text-button danger-text" onClick={() => remove(problem.id, problem.title)}><Trash2 size={16} />删除</button>
                 </div>
               </div>
@@ -145,9 +167,9 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
       {!filtered.length && (
         <section className="empty-state">
           <FileQuestion size={42} />
-          <h2>{problems.length ? '没有匹配的卡片' : '建立你的第一张题卡'}</h2>
-          <p>{problems.length ? '换个关键词或清除筛选试试。' : '拍下题目和答案，写一句真正关键的方法。'}</p>
-          {!problems.length && <button type="button" className="button button-primary" onClick={onAdd}><Plus size={18} />新增题卡</button>}
+          <h2>{activeProblems.length ? '没有匹配的卡片' : '建立你的第一张题卡'}</h2>
+          <p>{activeProblems.length ? '换个关键词或清除筛选试试。' : '拍下题目和答案，写一句真正关键的方法。'}</p>
+          {!activeProblems.length && <button type="button" className="button button-primary" onClick={onAdd}><Plus size={18} />新增题卡</button>}
         </section>
       )}
     </main>
