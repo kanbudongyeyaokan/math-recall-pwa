@@ -5,17 +5,22 @@ import {
   db,
   defaultProfile,
   clearActivePracticeSession,
+  equipShopItem,
+  equipTechnique,
   getActivePracticeSession,
   getLatestPracticeCheckpoint,
+  initializeDatabase,
   MathRecallDatabase,
   normalizeProblemRecord,
   normalizeProfileRecord,
   PRACTICE_SESSION_CHECKPOINTS_KEY,
+  purchaseShopItem,
   recordDuelResult,
   recordSurpriseChallengeResult,
   saveActivePracticeSession
 } from './db'
 import { LEGACY_PRIVATE_BANK_SOURCE } from './data/questionQuality'
+import { makeSeedProblems } from './data/seed'
 import { ACTIVE_PRACTICE_SESSION_KEY, createPracticeSession } from './domain/practiceSession'
 import type { PlayerProfile, Problem } from './types'
 
@@ -315,6 +320,43 @@ describe('旧数据迁移归一化', () => {
     upgraded.close()
   })
 
+  it('增量刷新内置题时保留旧手机的作答进度和图片，并补入新增题', async () => {
+    db.close()
+    await db.delete()
+    await db.open()
+
+    const [latestSeed] = makeSeedProblems(1_000)
+    await db.problems.put({
+      ...latestSeed,
+      title: '旧版本题面',
+      createdAt: 10,
+      nextReviewAt: 20,
+      intervalIndex: 3,
+      reviewCount: 7,
+      questionImageId: 'question-image',
+      answerImageId: 'answer-image',
+      seedVersion: 12
+    })
+
+    await initializeDatabase()
+
+    const refreshed = await db.problems.get(latestSeed.id)
+    expect(refreshed).toMatchObject({
+      title: latestSeed.title,
+      createdAt: 10,
+      nextReviewAt: 20,
+      intervalIndex: 3,
+      reviewCount: 7,
+      questionImageId: 'question-image',
+      answerImageId: 'answer-image',
+      seedVersion: 15
+    })
+    expect(await db.problems.filter((problem) => problem.isSeed === true && !problem.archived).count()).toBe(302)
+
+    db.close()
+    await db.delete()
+  })
+
   it('会话写入保留 12 个滚动恢复点、拒绝旧状态回写并可彻底清理', async () => {
     db.close()
     await db.delete()
@@ -434,6 +476,70 @@ describe('旧数据迁移归一化', () => {
         'chen-yanjun': { wins: 0, losses: 1, bestScore: 48, lastPlayedAt: 202 }
       },
       lastDuelId: 'duel-later'
+    })
+
+    db.close()
+    await db.delete()
+  })
+
+  it('购买与五槽装备在关闭数据库后仍完整保留且互不覆盖', async () => {
+    await db.delete()
+    await db.open()
+    await db.profiles.put({
+      ...defaultProfile,
+      coins: 3_000,
+      lifetimeCoins: 3_000,
+      correctChoiceReviews: 5
+    })
+
+    const loadout = [
+      ['outfit-flame', 80],
+      ['aura-iron', 100],
+      ['weapon-ruler', 90],
+      ['accessory-jade', 75],
+      ['companion-ember', 120]
+    ] as const
+    for (const [itemId] of loadout) {
+      await purchaseShopItem(itemId)
+      await equipShopItem(itemId)
+    }
+    await equipTechnique('question-eye')
+
+    const beforeRestart = await db.profiles.get('player')
+    expect(beforeRestart).toMatchObject({
+      coins: 3_000 - loadout.reduce((sum, [, price]) => sum + price, 0),
+      equippedOutfitId: 'outfit-flame',
+      equippedAuraId: 'aura-iron',
+      equippedWeaponId: 'weapon-ruler',
+      equippedAccessoryId: 'accessory-jade',
+      activeCompanionId: 'companion-ember',
+      activeTechniqueId: 'question-eye'
+    })
+    expect(beforeRestart?.ownedItemIds).toEqual(expect.arrayContaining(loadout.map(([itemId]) => itemId)))
+
+    db.close()
+    await db.open()
+    expect(await db.profiles.get('player')).toEqual(beforeRestart)
+
+    db.close()
+    await db.delete()
+  })
+
+  it('拒绝装备未购买物品和未解锁功法且不污染已保存装束', async () => {
+    await db.delete()
+    await db.open()
+    await db.profiles.put({ ...defaultProfile })
+
+    await expect(equipShopItem('outfit-flame')).rejects.toThrow('请先拥有这件物品')
+    await expect(equipTechnique('question-eye')).rejects.toThrow('尚未解锁')
+    expect(await db.profiles.get('player')).toMatchObject({
+      ownedItemIds: defaultProfile.ownedItemIds,
+      equippedOutfitId: 'outfit-apprentice',
+      equippedAuraId: 'aura-none',
+      equippedWeaponId: 'weapon-scroll',
+      equippedAccessoryId: 'accessory-none',
+      activeCompanionId: 'companion-none',
+      activeTechniqueId: 'definition-heart'
     })
 
     db.close()

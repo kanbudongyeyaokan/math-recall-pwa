@@ -10,8 +10,8 @@ describe('剧情抉择与人物羁绊', () => {
     expect(getPendingEncounter({ ...profile, storyChoices: { 'family-call': 'honest' } })?.id).toBe('rival-dare')
   })
 
-  it('二十五个事件奖励对等且羁绊有阶段反馈', () => {
-    expect(STORY_ENCOUNTERS).toHaveLength(25)
+  it('三十五个事件奖励对等且羁绊有阶段反馈', () => {
+    expect(STORY_ENCOUNTERS).toHaveLength(35)
     expect(STORY_ENCOUNTERS.every((event) => event.choices[0].coinReward === event.choices[1].coinReward)).toBe(true)
     expect(STORY_ENCOUNTERS.filter((event) => event.characterId === 'chen-yanjun').length).toBeGreaterThanOrEqual(7)
     expect([0, 8, 16, 32, 48].map(getBondStatus)).toEqual(['初次相遇', '留下印象', '彼此信任', '并肩知己', '生死相托'])
@@ -24,5 +24,17 @@ describe('剧情抉择与人物羁绊', () => {
     expect(new Set(STORY_ENCOUNTERS.map((event) => event.id)).size).toBe(STORY_ENCOUNTERS.length)
     expect(STORY_ENCOUNTERS.every((event) => characterIds.has(event.characterId))).toBe(true)
     expect(STORY_ENCOUNTERS.every((event) => event.choices.every((choice) => characterIds.has(choice.bondTargetId)))).toBe(true)
+  })
+
+  it('新增十位人物各自拥有可解锁的专属互动剧情', () => {
+    const newIds = ['lin-zheng', 'qiao-yu', 'mo-qian', 'fang-zhizhi', 'lu-yan', 'wei-cheng', 'qiao-lie', 'yu-xinghe', 'shen-qingsong', 'jiang-wen']
+    for (const characterId of newIds) {
+      const character = STORY_CHARACTERS.find((candidate) => candidate.id === characterId)
+      const encounters = STORY_ENCOUNTERS.filter((event) => event.characterId === characterId)
+      expect(character).toBeDefined()
+      expect(encounters.length).toBeGreaterThanOrEqual(1)
+      expect(encounters[0].threshold).toBeGreaterThanOrEqual(character!.unlockAt)
+      expect(encounters[0].choices).toHaveLength(2)
+    }
   })
 })

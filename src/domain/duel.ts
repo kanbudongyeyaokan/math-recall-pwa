@@ -1,7 +1,7 @@
 import { scoreBossBattle } from './boss'
 import { getProblemLectureIds, getProblemRole } from './curriculum'
 import { shuffleProblemIds } from './practiceCycle'
-import { getCharacter, type StoryCharacter } from './story'
+import { getCharacter, type CharacterPose, type StoryCharacter } from './story'
 import type { DuelScope, PlayerProfile, PracticeSessionOutcome, Problem } from '../types'
 import { isProblemEligibleForPractice } from '../data/questionQuality'
 
@@ -30,6 +30,23 @@ export interface DuelPresentation {
   invite: string
   playerVictory: string
   opponentVictory: string
+}
+
+export type DuelEmotion = 'smug' | 'focused' | 'nervous' | 'victorious' | 'defeated'
+
+export interface DuelLiveState {
+  opponentCompleted: number
+  opponentProgressPercent: number
+  playerCompleted: number
+  gap: number
+  emotion: DuelEmotion
+  line: string
+}
+
+export function getDuelOpponentPose(emotion: DuelEmotion): CharacterPose {
+  if (emotion === 'smug' || emotion === 'victorious') return 'victory'
+  if (emotion === 'nervous' || emotion === 'defeated') return 'speaking'
+  return 'challenge'
 }
 
 export const DUEL_SCOPE_OPTIONS: readonly { id: DuelScope; label: string; description: string }[] = [
@@ -93,6 +110,81 @@ export function getDuelPresentation(characterId: string): DuelPresentation {
     winCoins: isMainRival ? 72 : isRival ? 56 : 42,
     requiredStrongWins: isRival ? 4 : 3,
     ...lines
+  }
+}
+
+function stableSeed(value: string) {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function opponentQuestionDurations(opponentId: string, challengeSeed: number) {
+  const character = getCharacter(opponentId)
+  const roleFactor = character.role === 'rival' ? 0.9 : character.role === 'mentor' ? 0.97 : 1.06
+  const seed = stableSeed(`${opponentId}:${challengeSeed}`)
+  const baseSeconds = [82, 104, 91, 118, 106]
+  return baseSeconds.map((seconds, index) => {
+    const jitter = ((seed >>> (index * 5)) % 29) - 14
+    return Math.max(54, Math.round((seconds + jitter) * roleFactor)) * 1000
+  })
+}
+
+export function getDuelLiveState(input: {
+  opponentId: string
+  challengeSeed: number
+  elapsedMs: number
+  playerCompleted: number
+  settled?: 'victory' | 'defeat'
+}): DuelLiveState {
+  const durations = opponentQuestionDurations(input.opponentId, input.challengeSeed)
+  const elapsedMs = Math.max(0, input.elapsedMs)
+  let spent = 0
+  let opponentCompleted = 0
+  let partial = 0
+
+  for (const duration of durations) {
+    if (elapsedMs >= spent + duration) {
+      opponentCompleted += 1
+      spent += duration
+      continue
+    }
+    partial = Math.min(1, Math.max(0, (elapsedMs - spent) / duration))
+    break
+  }
+
+  const playerCompleted = Math.min(DUEL_QUESTION_COUNT, Math.max(0, input.playerCompleted))
+  const gap = opponentCompleted - playerCompleted
+  const character = getCharacter(input.opponentId)
+  const emotion: DuelEmotion = input.settled === 'victory'
+    ? 'defeated'
+    : input.settled === 'defeat'
+      ? 'victorious'
+      : gap > 0
+        ? 'smug'
+        : gap < 0
+          ? 'nervous'
+          : 'focused'
+  const line = emotion === 'smug'
+    ? `${character.name}暂时领先，神情明显得意。`
+    : emotion === 'nervous'
+      ? `${character.name}落后了，正在加快验算。`
+      : emotion === 'victorious'
+        ? `${character.name}已经赢下这一场。`
+        : emotion === 'defeated'
+          ? `${character.name}盯着比分，收起了先前的轻视。`
+          : `${character.name}与你咬得很紧，正在专注推进。`
+
+  return {
+    opponentCompleted,
+    opponentProgressPercent: Math.min(100, ((opponentCompleted + partial) / DUEL_QUESTION_COUNT) * 100),
+    playerCompleted,
+    gap,
+    emotion,
+    line
   }
 }
 

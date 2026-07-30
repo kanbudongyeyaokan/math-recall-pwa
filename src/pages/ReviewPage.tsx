@@ -22,6 +22,7 @@ import {
   X
 } from 'lucide-react'
 import { AudioSettingsControls } from '../components/AudioSettingsControls'
+import { CharacterPortrait } from '../components/CharacterPortrait'
 import { CultivatorScene } from '../components/CultivatorScene'
 import { DbImage } from '../components/DbImage'
 import { DuelResultModal } from '../components/DuelChallengeModal'
@@ -55,6 +56,8 @@ import {
   buildDuelQueue,
   DUEL_QUESTION_COUNT,
   DUEL_TIME_MS,
+  getDuelLiveState,
+  getDuelOpponentPose,
   getDuelPresentation,
   scoreDuel,
   type DuelScore
@@ -75,7 +78,7 @@ import {
   sessionMatchesRequest,
   updateSessionAnswer
 } from '../domain/practiceSession'
-import type { RomanceRouteId } from '../domain/story'
+import { getCharacter, type RomanceRouteId } from '../domain/story'
 import {
   buildSurpriseChallengeQueue,
   formatChallengeTime,
@@ -210,6 +213,16 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
   const effectiveDuelTime = selection?.deadlineAt
     ? duelTimeRemaining || Math.max(0, selection.deadlineAt - Date.now())
     : 0
+  const duelLive = duelOpponentId && duelProgress && selection?.challengeSeed
+    ? getDuelLiveState({
+        opponentId: duelOpponentId,
+        challengeSeed: selection.challengeSeed,
+        elapsedMs: DUEL_TIME_MS - effectiveDuelTime,
+        playerCompleted: duelProgress.completed
+      })
+    : undefined
+  const duelOpponent = duelOpponentId ? getCharacter(duelOpponentId) : undefined
+  const duelOpponentPose = duelLive ? getDuelOpponentPose(duelLive.emotion) : 'challenge'
 
   useEffect(() => {
     let cancelled = false
@@ -788,12 +801,19 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
         </section>
       )}
 
-      {duelOpponentId && duelPresentation && duelProgress && selection?.deadlineAt && (
-        <section className={`duel-battle-hud ${effectiveDuelTime <= 60_000 ? 'is-urgent' : ''}`} aria-label={`与${duelPresentation.name}的五题挑战倒计时`}>
-          <div><span><Swords size={15} />{duelPresentation.ruleLabel}</span><strong>{duelPresentation.name}</strong></div>
+      {duelOpponentId && duelOpponent && duelPresentation && duelProgress && duelLive && selection?.deadlineAt && (
+        <section className={`duel-battle-hud emotion-${duelLive.emotion} ${effectiveDuelTime <= 60_000 ? 'is-urgent' : ''}`} aria-label={`与${duelPresentation.name}的五题挑战实时战况`}>
+          <div className="duel-live-opponent">
+            <CharacterPortrait character={duelOpponent} pose={duelOpponentPose} alt={`${duelPresentation.name}${duelLive.line}`} />
+            <span><small>{duelPresentation.ruleLabel}</small><strong>{duelPresentation.name}</strong><em>{duelLive.line}</em></span>
+          </div>
           <b><Clock3 size={16} />{formatChallengeTime(effectiveDuelTime)}</b>
+          <div className="duel-live-scoreboard">
+            <div><span><strong>何耀焜</strong><small>{duelProgress.completed}/{DUEL_QUESTION_COUNT}</small></span><i><b style={{ width: `${(duelProgress.completed / DUEL_QUESTION_COUNT) * 100}%` }} /></i></div>
+            <div><span><strong>{duelPresentation.name}</strong><small>{duelLive.opponentCompleted}/{DUEL_QUESTION_COUNT}</small></span><i><b style={{ width: `${duelLive.opponentProgressPercent}%` }} /></i></div>
+          </div>
           <div className="duel-time-track"><span style={{ width: `${Math.min(100, (effectiveDuelTime / DUEL_TIME_MS) * 100)}%` }} /></div>
-          <small>已完成 {duelProgress.completed}/{DUEL_QUESTION_COUNT} · 强命中 {duelProgress.strongWins}/{duelPresentation.requiredStrongWins} · 压制 {duelProgress.score}/100</small>
+          <small>强命中 {duelProgress.strongWins}/{duelPresentation.requiredStrongWins} · 当前压制 {duelProgress.score}/100 · 最终按完成度与答题质量结算</small>
         </section>
       )}
 

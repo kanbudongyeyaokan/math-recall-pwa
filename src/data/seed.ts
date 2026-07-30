@@ -628,7 +628,7 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
       intervalIndex: -1,
       reviewCount: 0,
       isSeed: true,
-      seedVersion: 10
+      seedVersion: 15
     }
   }).filter((problem) => !DEPRECATED_SEED_IDS.includes(problem.id as typeof DEPRECATED_SEED_IDS[number]))
   return auditProblemBank(problems, now)

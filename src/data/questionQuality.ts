@@ -52,6 +52,13 @@ function normalizeSemanticText(text: string) {
     .replace(/[\s，。；：、“”‘’（）()\[\]{}]/g, '')
 }
 
+function normalizeOptionText(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/\\(?:left|right|,|!|;|quad|qquad)/g, '')
+    .replace(/[\s，。；：、“”‘’（）()\[\]{}]/g, '')
+}
+
 function getTaskArchetype(problem: Pick<Problem, 'kind' | 'questionFormat' | 'title' | 'tags'>) {
   if (problem.kind === 'concept') return 'concept'
   if (problem.questionFormat !== 'open') return problem.questionFormat
@@ -120,7 +127,9 @@ export function auditProblemQuality(problem: Problem): ProblemQualityIssue[] {
 
   if (problem.questionFormat !== 'open') {
     const optionIds = problem.options.map((option) => option.id)
-    const normalizedOptions = problem.options.map((option) => normalizeSemanticText(option.text))
+    // Numeric bounds and constants distinguish answer choices even though the
+    // cross-problem structural audit intentionally ignores them.
+    const normalizedOptions = problem.options.map((option) => normalizeOptionText(option.text))
     if (problem.options.length < 2) issues.push(issue('insufficient-options', '选择题至少需要两个有效选项。', 'error'))
     if (unique(optionIds).length !== optionIds.length || normalizedOptions.some((text) => !text)) issues.push(issue('invalid-options', '选项编号重复或存在空选项。', 'error'))
     if (unique(normalizedOptions).length !== normalizedOptions.length) issues.push(issue('duplicate-options', '存在语义相同的重复选项。', 'error'))

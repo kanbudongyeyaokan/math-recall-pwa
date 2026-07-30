@@ -23,7 +23,7 @@ const choice = (id: string, label: string, reply: string, bondTargetId: string):
   id, label, reply, bondTargetId, bondGain: 8, coinReward: 12
 })
 
-export const STORY_ENCOUNTERS: readonly StoryEncounter[] = [
+const STORY_ENCOUNTER_POOL = [
   {
     id: 'family-call', threshold: 6, characterId: 'zhong-shanyan', title: '深夜的一通电话', prompt: '钟珊燕听出你声音里的疲惫。你准备怎样回答？',
     choices: [
@@ -198,8 +198,81 @@ export const STORY_ENCOUNTERS: readonly StoryEncounter[] = [
       choice('independent-growth', '各自成长，也诚实分享低谷', '不是互相占有时间，而是让彼此拥有更大的世界。', 'chen-yanjun'),
       choice('new-problem', '共同选择一个真正未知的问题', '好。下一次并肩，不为同一张试卷，而为我们真正想理解的世界。', 'chen-yanjun')
     ]
+  },
+  {
+    id: 'proof-line-audit', threshold: 20, characterId: 'lin-zheng', title: '被遮住的第二行', prompt: '林正遮住你的后续推导，只留下第一步，要求说明它成立的全部条件。',
+    choices: [
+      choice('name-condition', '逐项写出连续、可导与区间条件', '条件能被准确说出，这条证明才真正属于你。', 'lin-zheng'),
+      choice('counterexample-first', '先找删掉条件后的反例', '能证明一块砖不能抽走，你才知道它承受了什么。', 'lin-zheng')
+    ]
+  },
+  {
+    id: 'visual-map', threshold: 34, characterId: 'qiao-yu', title: '一页只画一张图', prompt: '乔雨让你把一段很长的复合函数解析压缩成一张可回忆的结构图。',
+    choices: [
+      choice('range-map', '画出内外函数的值域传递', '入口、限制和出口都在图上，回忆时就不会只剩一串式子。', 'qiao-yu'),
+      choice('formula-map', '把公式按触发条件连接起来', '公式旁边有触发条件，它才不是孤立收藏。', 'qiao-yu')
+    ]
+  },
+  {
+    id: 'quiet-return', threshold: 76, characterId: 'mo-qian', title: '没有热血的一晚', prompt: '今天状态很差，莫谦仍按约定出现在自习室。',
+    choices: [
+      choice('minimum-session', '只完成一个四十分钟闭环', '做到最低承诺就收工。长期节奏靠这种晚上守住。', 'mo-qian'),
+      choice('error-only', '只修复一道昨天的错题', '不是每天都要推进边界，但连接不能断。', 'mo-qian')
+    ]
+  },
+  {
+    id: 'interval-boundaries', threshold: 92, characterId: 'fang-zhizhi', title: '漏掉的临界点', prompt: '方知止发现你的分类讨论少了参数取等号的情况。',
+    choices: [
+      choice('boundary-list', '先列所有临界点再重做', '把地图画完整，再进入每个区间，漏解会少很多。', 'fang-zhizhi'),
+      choice('endpoint-check', '单独检查端点与无定义点', '边界不是附注，它常常正是命题人藏答案的地方。', 'fang-zhizhi')
+    ]
+  },
+  {
+    id: 'answer-interrogation', threshold: 136, characterId: 'lu-yan', title: '交卷前的三十秒', prompt: '陆衍要求你不用重算，只用符号、数量级和特殊值审查答案。',
+    choices: [
+      choice('sign-check', '先检查正负与单调趋势', '很多错误在最后一行就已经违背了题目的整体趋势。', 'lu-yan'),
+      choice('special-value', '代入最简单的特殊值', '一个好选的特殊值，往往比重算整题更快。', 'lu-yan')
+    ]
+  },
+  {
+    id: 'template-break', threshold: 154, characterId: 'wei-cheng', title: '模板失效的一步', prompt: '魏铖套用熟悉模板后卡住，却仍催你不要浪费时间理解条件。',
+    choices: [
+      choice('structure-first', '指出条件变化破坏了哪个步骤', '这次算你看得细。下一道熟题，我不会给你解释的时间。', 'wei-cheng'),
+      choice('second-method', '换一条不依赖该模板的路线', '两条路？别高兴太早，考场还是要看谁先写完。', 'wei-cheng')
+    ]
+  },
+  {
+    id: 'sudden-sprint', threshold: 188, characterId: 'qiao-lie', title: '突然亮起的计时器', prompt: '乔烈未经预告发起五题竞速，试图用开局领先压垮你。',
+    choices: [
+      choice('steady-open', '先拿稳前两题，不追他的乱节奏', '你居然没追？行，我看你后面还能不能这么稳。', 'qiao-lie'),
+      choice('counter-pressure', '在第三题开始提速反超', '等一下，你什么时候追上来的？最后两题别想让我乱！', 'qiao-lie')
+    ]
+  },
+  {
+    id: 'real-campus-standard', threshold: 216, characterId: 'yu-xinghe', title: '思源湖边的问题', prompt: '俞星河没有问刷题量，只让你讲一个最近真正修好的漏洞。',
+    choices: [
+      choice('show-repair', '讲清错因、修复与重做证据', '这比报一串题量更接近研究和学习的真实样子。', 'yu-xinghe'),
+      choice('ask-campus', '询问抵达后还需要怎样的能力', '能独立发现问题、验证结论、和别人清楚讨论，入学后仍然重要。', 'yu-xinghe')
+    ]
+  },
+  {
+    id: 'mock-timeline', threshold: 256, characterId: 'shen-qingsong', title: '被盖住的总分', prompt: '沈青松盖住模考分数，让你先复述整场考试的时间决策。',
+    choices: [
+      choice('timeline', '按时间顺序标出卡顿与放弃点', '策略问题被找出来以后，知识水平才能完整变成分数。', 'shen-qingsong'),
+      choice('error-chain', '追踪第一处失误怎样影响后题', '别只修最后的错。找到最早偏离的地方，下一场才会不同。', 'shen-qingsong')
+    ]
+  },
+  {
+    id: 'dongchuan-rain', threshold: 290, characterId: 'jiang-wen', title: '东川路的雨', prompt: '姜闻给你添了热水，问要不要把这张做完的卷子留一张照片在店里。',
+    choices: [
+      choice('leave-date', '只留下日期和一句“明天继续”', '挺好。真正走远的人，留下的话通常都不长。', 'jiang-wen'),
+      choice('keep-private', '不留照片，把完成记录带回去', '也好。努力不一定非得被别人看见。明天这张桌子还在。', 'jiang-wen')
+    ]
   }
-] as const
+] as const satisfies readonly StoryEncounter[]
+
+export const STORY_ENCOUNTERS: readonly StoryEncounter[] = [...STORY_ENCOUNTER_POOL]
+  .sort((left, right) => left.threshold - right.threshold)
 
 export function getPendingEncounter(profile: PlayerProfile) {
   return STORY_ENCOUNTERS.find((encounter) => isStoryThresholdUnlocked(profile, encounter.threshold) && !profile.storyChoices[encounter.id])

@@ -23,8 +23,8 @@ describe('交大斗魂剧情进度', () => {
     expect(progress.next).toBeUndefined()
   })
 
-  it('收录主角与二十一名剧情角色，并只保留三条既定情缘路线', () => {
-    expect(STORY_CHARACTERS).toHaveLength(22)
+  it('收录主角与三十一名剧情角色，并只保留三条既定情缘路线', () => {
+    expect(STORY_CHARACTERS).toHaveLength(32)
     expect(ROMANCE_ROUTES).toHaveLength(3)
     expect(ROMANCE_ROUTES.map((route) => route.id)).toEqual(['chen-yanjun', 'medusa', 'xiaoyixian'])
     expect(STORY_CHARACTERS.filter((character) => character.role === 'romance').map((character) => character.id))
@@ -37,6 +37,13 @@ describe('交大斗魂剧情进度', () => {
       const character = STORY_CHARACTERS.find((candidate) => candidate.id === characterId)
       expect(Object.keys(character?.portraits || {}).sort()).toEqual(['challenge', 'idle', 'speaking', 'victory'])
     }
+  })
+
+  it('新增十位人物均具备完整档案与四种可动画镜头', () => {
+    const newIds = ['lin-zheng', 'qiao-yu', 'mo-qian', 'fang-zhizhi', 'lu-yan', 'wei-cheng', 'qiao-lie', 'yu-xinghe', 'shen-qingsong', 'jiang-wen']
+    const newcomers = STORY_CHARACTERS.filter((character) => newIds.includes(character.id))
+    expect(newcomers).toHaveLength(10)
+    expect(newcomers.every((character) => Object.keys(character.portraits || {}).sort().join(',') === 'challenge,idle,speaking,victory')).toBe(true)
   })
 
   it('每个人物档案完整，陈彦君拥有最多且贯穿全程的个人主线', () => {

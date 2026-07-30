@@ -16,18 +16,64 @@ describe('PDF 精品考研数学题库', () => {
   const seeds = makeSeedProblems(1_000_000)
   const curated = seeds.filter((problem) => problem.id.startsWith('zy27-'))
   const sourceQuestions = seeds.filter((problem) => problem.id.startsWith('zy30-source-'))
+  const verifiedExamples = seeds.filter((problem) => problem.id.startsWith('zy30-verified-'))
 
   it('仅保留 PDF 题型重构与基础30讲来源题，ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
     expect(curated).toHaveLength(156)
     expect(sourceQuestions).toHaveLength(36)
-    expect(seeds).toHaveLength(192)
+    expect(verifiedExamples).toHaveLength(110)
+    expect(seeds).toHaveLength(302)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
-    expect(seeds.every((problem) => /张宇|核心计算/.test(problem.source))).toBe(true)
+    expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
     expect(seeds.every((problem) => !isRetiredBuiltInProblem(problem))).toBe(true)
     expect(seeds.every((problem) => !/(?:命题辨析|错解审判|错解辨析)/.test(problem.title))).toBe(true)
     expect(seeds.every((problem) => !problem.tags.some((tag) => ['定义', '定义与判据', '命题辨析', '错解辨析'].includes(tag)))).toBe(true)
+  })
+
+  it('第1讲形成四十四道逐页核验精品题，排除定义辨析与同构习题', () => {
+    const lectureOne = verifiedExamples.filter((problem) => problem.id.startsWith('zy30-verified-l01-'))
+    const examples = lectureOne.filter((problem) => problem.id.includes('-example-'))
+    const exercises = lectureOne.filter((problem) => problem.id.includes('-exercise-'))
+    expect(lectureOne).toHaveLength(44)
+    expect(examples.map((problem) => problem.title.match(/例 (1\.\d+)/)?.[1]))
+      .toEqual(Array.from({ length: 36 }, (_, index) => `1.${index + 1}`))
+    expect(exercises.map((problem) => problem.title.match(/习题 (1\.\d+)/)?.[1]))
+      .toEqual(['1.6', '1.7', '1.9', '1.10', '1.11', '1.12', '1.13', '1.16'])
+    expect(lectureOne.every((problem) => problem.methodFingerprint?.startsWith('zy30-verified:l01:'))).toBe(true)
+  })
+
+  it('第2讲形成四十一道非同构题，其中三十三道经过逐页核验', () => {
+    const lectureTwo = verifiedExamples.filter((problem) => problem.id.startsWith('zy30-verified-l02-'))
+    const examples = lectureTwo.filter((problem) => problem.id.includes('-example-'))
+    const exercises = lectureTwo.filter((problem) => problem.id.includes('-exercise-'))
+    const companions = lectureTwo.filter((problem) => problem.id.includes('-companion-'))
+    expect(lectureTwo).toHaveLength(33)
+    expect(examples.map((problem) => problem.title.match(/例 (2\.\d+)/)?.[1]))
+      .toEqual(Array.from({ length: 15 }, (_, index) => '2.' + (index + 1)))
+    expect(exercises.map((problem) => problem.title.match(/习题 (2\.\d+)/)?.[1]))
+      .toEqual(Array.from({ length: 8 }, (_, index) => '2.' + (index + 1)))
+    expect(companions).toHaveLength(10)
+    expect(lectureTwo.every((problem) => problem.methodFingerprint?.startsWith('zy30-verified:l02:'))).toBe(true)
+    expect(lectureTwo.every((problem) => !/(?:定义|辨析)/.test(problem.title))).toBe(true)
+    expect(seeds.filter((problem) => problem.tags.includes('第2讲'))).toHaveLength(41)
+  })
+
+  it('第3讲形成四十一道非定义、非辨析、非同构题', () => {
+    const lectureThree = verifiedExamples.filter((problem) => problem.id.startsWith('zy30-verified-l03-'))
+    expect(lectureThree).toHaveLength(33)
+    expect(seeds.filter((problem) => problem.tags.includes('第3讲'))).toHaveLength(41)
+    expect(lectureThree.every((problem) => problem.methodFingerprint?.startsWith('zy30-verified:l03:'))).toBe(true)
+    expect(lectureThree.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(lectureThree.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+  })
+
+  it('全部逐页核验题均有精确页码、双路线解析和唯一方法指纹', () => {
+    expect(verifiedExamples.every((problem) => problem.tags.includes('PDF逐页核验'))).toBe(true)
+    expect(verifiedExamples.every((problem) => problem.page.startsWith('PDF '))).toBe(true)
+    expect(verifiedExamples.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(new Set(verifiedExamples.map((problem) => problem.methodFingerprint)).size).toBe(verifiedExamples.length)
   })
 
   it('基础30讲来源精选覆盖 18 讲的例题与课后题', () => {

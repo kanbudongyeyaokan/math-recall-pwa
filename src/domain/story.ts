@@ -53,6 +53,13 @@ const characterVariants = (characterId: string): Record<CharacterPose, string> =
   challenge: characterPortrait(`variants/${characterId}-challenge.webp`)
 })
 
+const animatedPortrait = (filename: string): Record<CharacterPose, string> => ({
+  idle: characterPortrait(filename),
+  speaking: characterPortrait(filename),
+  victory: characterPortrait(filename),
+  challenge: characterPortrait(filename)
+})
+
 export const STORY_CHARACTERS: StoryCharacter[] = [
   {
     id: 'he-yaokun', name: '何耀焜', role: 'protagonist', title: '数学修炼者', unlockAt: 0,
@@ -251,6 +258,106 @@ export const STORY_CHARACTERS: StoryCharacter[] = [
     firstMeeting: '上海站清晨，他把保温杯递给空腹赶路的何耀焜。',
     quote: '车票只负责让你到站，留下来要靠到站后的每一天。',
     relationship: '短暂相遇却留下长久提醒的路人。', portrait: characterPortrait('stranger-liang-shu.webp')
+  },
+  {
+    id: 'lin-zheng', name: '林正', role: 'mentor', title: '证明审阅官', unlockAt: 18,
+    summary: '不接受“显然”，只接受能被逐行检查的证明。',
+    backstory: '年轻时曾因省略一个关键条件，在公开答辩中被追问到无言。从那以后，他把每次严格审阅都当作对学生的尊重，而不是挑刺。',
+    motivation: '让学生在考场压力下仍能写出条件完整、逻辑闭合的证明。',
+    firstMeeting: '他把你的答案遮住，只留下第一行：“现在告诉我，这一步依赖哪个条件。”',
+    quote: '可以走得快，但每一步都要经得起回头检查。',
+    relationship: '负责守住证明完整性的严师；你的诚实订正会换来他的直接认可。',
+    portrait: characterPortrait('mentor-lin-zheng.webp'), portraits: animatedPortrait('mentor-lin-zheng.webp')
+  },
+  {
+    id: 'qiao-yu', name: '乔雨', role: 'friend', title: '图像笔记师', unlockAt: 30,
+    summary: '把复杂推导画成结构图，让抽象关系能被一眼看见。',
+    backstory: '她不是最早算出答案的人，却总能在讨论结束后画出最清楚的关系图。她认为好笔记应该帮助回忆思路，而不是复制整页解析。',
+    motivation: '建立一套连接公式、图像与题型入口的可视化笔记。',
+    firstMeeting: '你卡在复合函数值域时，她在纸上画了两个相扣的取值范围。',
+    quote: '先把关系画出来，式子就不会挤成一团。',
+    relationship: '擅长把你的长篇推导压缩成可回忆地图的朋友。',
+    portrait: characterPortrait('friend-qiao-yu.webp'), portraits: animatedPortrait('friend-qiao-yu.webp')
+  },
+  {
+    id: 'mo-qian', name: '莫谦', role: 'friend', title: '自习室守夜人', unlockAt: 72,
+    summary: '话不多，却总能在低谷时把节奏重新接上。',
+    backstory: '曾经连续三个月独自备考，深知最难的不是高难题，而是无人注意时仍然坐回原位。他从不鼓吹熬夜，只在约定时间准时出现。',
+    motivation: '和可靠的伙伴建立不依赖情绪的长期训练节奏。',
+    firstMeeting: '空荡的晚自习室里，他把另一只计时器推到你面前：“四十分钟，做完各走各的。”',
+    quote: '不用每天热血，只要今天还肯回来。',
+    relationship: '在你最不想开始时仍会准时出现的安静战友。',
+    portrait: characterPortrait('friend-mo-qian.webp'), portraits: animatedPortrait('friend-mo-qian.webp')
+  },
+  {
+    id: 'fang-zhizhi', name: '方知止', role: 'classmate', title: '区间切分师', unlockAt: 88,
+    summary: '擅长找到分段点，把复杂讨论拆成互不遗漏的区间。',
+    backstory: '她过去常因漏讨论端点失分，于是形成了先列临界点、再按区间验证的习惯。整洁不是她的目的，不遗漏才是。',
+    motivation: '把分类讨论训练成可以机械执行又保持逻辑清楚的流程。',
+    firstMeeting: '她看了你的单调区间答案，只问：“等号、无定义点和参数临界值分别去哪了？”',
+    quote: '分段不是把题做碎，是确保没有情况从缝里溜走。',
+    relationship: '能帮你补齐分类讨论边界的同学。',
+    portrait: characterPortrait('classmate-fang-zhizhi.webp'), portraits: animatedPortrait('classmate-fang-zhizhi.webp')
+  },
+  {
+    id: 'lu-yan', name: '陆衍', role: 'classmate', title: '计算校准员', unlockAt: 132,
+    summary: '习惯用数量级、符号和特殊值对结果做三重验算。',
+    backstory: '他速度不算顶尖，却很少把低级错误带到最后。长期整理错因后，他发现大多数计算失误在最终答案前就留下了符号和数量级异常。',
+    motivation: '建立一套不显著拖慢速度的考场验算协议。',
+    firstMeeting: '你刚写出一个负面积，他没有重算，只把草图转过来给你看。',
+    quote: '答案也要接受审讯，尤其是看起来太顺的时候。',
+    relationship: '负责在交卷前替你拉响异常警报的同学。',
+    portrait: characterPortrait('classmate-lu-yan.webp'), portraits: animatedPortrait('classmate-lu-yan.webp')
+  },
+  {
+    id: 'wei-cheng', name: '魏铖', role: 'rival', title: '模板收割者', unlockAt: 150,
+    summary: '记忆大量套路，最爱在熟悉题型里制造压倒性速度。',
+    backstory: '他靠整理模板迅速冲上榜单，因此越来越轻视慢推导的人。陌生条件一旦破坏模板，他会短暂失去镇定，却仍试图用语气维持优势。',
+    motivation: '证明考研只需要覆盖足够多的套路，并让所有质疑者在速度上闭嘴。',
+    firstMeeting: '他三十秒写完一道熟题，把笔一转：“还在推？这类题背结论就行。”',
+    quote: '你慢慢理解，我先把分拿走。',
+    relationship: '会在熟题中咄咄逼人的新对手；结构变化正逐渐暴露他的局限。',
+    portrait: characterPortrait('rival-wei-cheng.webp'), portraits: animatedPortrait('rival-wei-cheng.webp')
+  },
+  {
+    id: 'qiao-lie', name: '乔烈', role: 'rival', title: '冲刺压迫者', unlockAt: 184,
+    summary: '擅长突然发起限时赛，用开局速度逼人失去节奏。',
+    backstory: '他享受追赶与被追赶，常把每次训练都变成公开竞速。过分依赖领先带来的兴奋，使他一旦落后就容易急躁。',
+    motivation: '在所有短局挑战中保持不败，让别人看到计时器就先乱。',
+    firstMeeting: '计时器还没摆稳，他已经翻开题页：“五题，敢不敢现在开始？”',
+    quote: '犹豫的时间，够我再做半道题。',
+    relationship: '领先时得意、落后时急躁的速度型对手；正适合检验你的抗压节奏。',
+    portrait: characterPortrait('rival-qiao-lie.webp'), portraits: animatedPortrait('rival-qiao-lie.webp')
+  },
+  {
+    id: 'yu-xinghe', name: '俞星河', role: 'friend', title: '交大学长', unlockAt: 212,
+    summary: '从闵行校园寄来真实经验，不贩卖捷径和神话。',
+    backstory: '他也经历过备考后期的自我怀疑。进入上海交通大学后，他更清楚录取不是故事终点，真正重要的是形成能继续学习的能力。',
+    motivation: '让后来者看见目标的真实质感，也看见抵达后仍要继续成长。',
+    firstMeeting: '开放日的思源湖边，他没有问你刷了多少题，只让你讲最近修好的一个漏洞。',
+    quote: '交大不是奖励幻想的地方，它欢迎能把问题做到底的人。',
+    relationship: '把校园向往翻译成现实训练标准的学长与朋友。',
+    portrait: characterPortrait('friend-yu-xinghe.webp'), portraits: animatedPortrait('friend-yu-xinghe.webp')
+  },
+  {
+    id: 'shen-qingsong', name: '沈青松', role: 'mentor', title: '模考复盘师', unlockAt: 252,
+    summary: '不看单次排名，专门追踪错误如何在下一场消失。',
+    backstory: '多年负责冲刺阶段的模拟训练。他见过高分后的松懈，也见过低分后的崩盘，因此坚持把每张卷子还原成时间、策略和知识点三类证据。',
+    motivation: '让学生在正式考试前完成真正的闭环，而不是重复承受同一种失误。',
+    firstMeeting: '他把总分盖住，先让你按时间顺序复述整场考试的决策。',
+    quote: '分数只告诉你发生了什么，复盘才决定它会不会再发生。',
+    relationship: '冲刺阶段最冷静的复盘导师，专门拆解真实考场表现。',
+    portrait: characterPortrait('mentor-shen-qingsong.webp'), portraits: animatedPortrait('mentor-shen-qingsong.webp')
+  },
+  {
+    id: 'jiang-wen', name: '姜闻', role: 'stranger', title: '东川路咖啡店主', unlockAt: 286,
+    summary: '见过许多备考者来去，记得那些沉默坚持到最后的人。',
+    backstory: '小店开在东川路附近，墙上没有励志标语，只有历届学生留下的日期和一句话。他不懂高数，却很懂长期努力中那些没人鼓掌的时刻。',
+    motivation: '给赶路的人留一张能安静坐下的桌子，也保存他们抵达前最普通的一天。',
+    firstMeeting: '下雨的傍晚，你在店里做完一套卷。他添了热水，只说：“这张桌子明天也在。”',
+    quote: '很多改变命运的晚上，看起来都只是一个人安静坐着。',
+    relationship: '只见过几次，却让交大目标拥有生活质感的途中相遇。',
+    portrait: characterPortrait('stranger-jiang-wen.webp'), portraits: animatedPortrait('stranger-jiang-wen.webp')
   }
 ]
 

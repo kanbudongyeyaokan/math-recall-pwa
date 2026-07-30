@@ -5,6 +5,11 @@ import { calculus13to18Points } from './calculus13to18'
 import { linearAlgebraPoints } from './linearAlgebra'
 import { probabilityPoints } from './probability'
 import { zhangYuFoundationQuestionSeeds } from './zhangYuFoundation30Bank'
+import { foundation30VerifiedExampleSeeds } from './foundation30VerifiedExamples'
+import { foundation30Lecture1ExpansionSeeds } from './foundation30Lecture1Expansion'
+import { foundation30Lecture2ExpansionSeeds } from './foundation30Lecture2Expansion'
+import { foundation30Lecture2CompanionSeeds } from './foundation30Lecture2Companion'
+import { foundation30Lecture3ExpansionSeeds } from './foundation30Lecture3Expansion'
 
 export const curatedBankPoints = [
   ...calculus01to06Points,
@@ -16,5 +21,10 @@ export const curatedBankPoints = [
 
 export const curatedQuestionSeeds = [
   ...buildPointSeeds(curatedBankPoints),
-  ...zhangYuFoundationQuestionSeeds
+  ...zhangYuFoundationQuestionSeeds,
+  ...foundation30VerifiedExampleSeeds,
+  ...foundation30Lecture1ExpansionSeeds,
+  ...foundation30Lecture2ExpansionSeeds,
+  ...foundation30Lecture2CompanionSeeds,
+  ...foundation30Lecture3ExpansionSeeds
 ]

@@ -1013,15 +1013,38 @@ h1, h2, h3, p { margin-top: 0; }
 .art-scene .cultivator-character::after { content: ""; position: absolute; inset: 9% 12% 2%; background: radial-gradient(ellipse, color-mix(in srgb, var(--aura) 24%, transparent), transparent 67%); filter: blur(12px); }
 .hero-art-glow { position: absolute; z-index: 0; inset: 12% 12% 4%; background: radial-gradient(ellipse, color-mix(in srgb, var(--aura) 38%, transparent), transparent 66%); animation: hero-art-glow 2.8s ease-in-out infinite; }
 .cultivator-character-art { position: relative; z-index: 2; width: 100%; height: 100%; display: block; object-fit: contain; object-position: center bottom; filter: saturate(1.05) contrast(1.03) drop-shadow(0 15px 18px rgba(0,0,0,.42)); -webkit-mask-image: radial-gradient(ellipse 68% 78% at 50% 50%, #000 52%, transparent 100%); mask-image: radial-gradient(ellipse 68% 78% at 50% 50%, #000 52%, transparent 100%); }
+.cultivator-aura-art, .cultivator-weapon-art, .cultivator-accessory-art { position: absolute; display: block; pointer-events: none; user-select: none; }
+.cultivator-aura-art { z-index: 1; left: 50%; top: 49%; width: 255px; height: 255px; opacity: .58; transform: translate(-50%, -50%); object-fit: cover; border-radius: 50%; mix-blend-mode: screen; filter: saturate(1.35) contrast(1.18) drop-shadow(0 0 18px color-mix(in srgb, var(--aura) 72%, transparent)); animation: equipment-aura-pulse 3s ease-in-out infinite; }
+.cultivator-weapon-art { z-index: 5; right: 5%; bottom: 45px; width: 88px; height: 156px; object-fit: cover; border-radius: 42%; mix-blend-mode: screen; transform: rotate(10deg); filter: saturate(1.25) contrast(1.35) drop-shadow(0 0 12px color-mix(in srgb, var(--aura) 75%, transparent)); animation: equipment-weapon-idle 2.8s ease-in-out infinite; }
+.cultivator-accessory-art { z-index: 4; left: 50%; top: 43%; width: 62px; height: 62px; object-fit: cover; border-radius: 50%; mix-blend-mode: screen; transform: translate(-50%, -50%); filter: saturate(1.35) contrast(1.25) drop-shadow(0 0 9px rgba(238,199,95,.58)); }
+.cultivator-technique-sigil { position: absolute; z-index: 6; left: 7%; bottom: 48px; width: 58px; height: 58px; display: grid; place-items: center; color: #f6d47d; background: rgba(19,27,24,.78); border: 1px solid color-mix(in srgb, var(--aura) 68%, #f2cf70); border-radius: 50%; box-shadow: inset 0 0 14px color-mix(in srgb, var(--aura) 25%, transparent), 0 0 14px rgba(0,0,0,.48); animation: technique-sigil-breathe 2.6s ease-in-out infinite; }
+.cultivator-technique-sigil::before { content: ""; position: absolute; inset: 6px; border: 1px dashed color-mix(in srgb, var(--aura) 64%, #f2cf70); border-radius: 50%; animation: orbit-spin 10s linear infinite; }
+.cultivator-technique-sigil span { position: relative; z-index: 1; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 1.15rem; font-weight: 900; }
+.cultivator-technique-sigil small { position: absolute; left: 50%; top: calc(100% + 4px); width: 82px; overflow: hidden; color: #d8e3de; font-size: .48rem; font-weight: 850; text-align: center; text-overflow: ellipsis; white-space: nowrap; transform: translateX(-50%); text-shadow: 0 1px 4px #000; }
+.cultivator-loadout { position: absolute; z-index: 10; right: 7px; bottom: 6px; left: 7px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 5px; color: #eef5f1; background: rgba(13,19,17,.78); border: 1px solid rgba(146,171,161,.28); border-radius: 6px; backdrop-filter: blur(6px); }
+.cultivator-loadout span { min-width: 0; overflow: hidden; padding: 3px 4px; font-size: .49rem; font-weight: 800; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.cultivator-loadout small { display: block; margin-bottom: 1px; color: #69d1bd; font-size: .42rem; }
 .art-scene.outfit-apprentice .cultivator-character-art { filter: saturate(.95) contrast(1.02) drop-shadow(0 15px 18px rgba(0,0,0,.42)); }
 .art-scene.outfit-jiaoda .cultivator-character-art { filter: saturate(1.12) contrast(1.06) drop-shadow(0 0 18px rgba(195,54,49,.34)); }
+.art-scene.outfit-flame .cultivator-character-art { filter: hue-rotate(118deg) saturate(1.22) contrast(1.07) drop-shadow(0 0 15px rgba(46,208,193,.32)); }
+.art-scene.outfit-starseer .cultivator-character-art { filter: hue-rotate(205deg) saturate(1.18) contrast(1.06) drop-shadow(0 0 16px rgba(103,129,225,.34)); }
+.art-scene.outfit-master .cultivator-character-art { filter: sepia(.22) saturate(1.38) contrast(1.08) drop-shadow(0 0 17px rgba(229,188,86,.32)); }
 .art-scene.pose-focus .cultivator-character-art { animation: art-focus 1.7s ease-in-out infinite; }
 .art-scene.pose-victory .cultivator-character-art { animation: art-victory .85s cubic-bezier(.2,.8,.2,1) both; }
 .art-scene.pose-breakthrough .cultivator-character-art { animation: art-breakthrough 1.4s ease-in-out infinite; }
 .art-scene.compact .cultivator-character { left: 50%; bottom: -3px; width: 142px; height: 155px; scale: 1; transform: translateX(-50%); }
 .art-scene.compact .cultivator-character-art { object-fit: cover; object-position: center 18%; -webkit-mask-image: linear-gradient(#000 78%, transparent 100%); mask-image: linear-gradient(#000 78%, transparent 100%); }
+.art-scene.compact .cultivator-aura-art { width: 128px; height: 128px; }
+.art-scene.compact .cultivator-weapon-art { right: -2px; bottom: 20px; width: 43px; height: 78px; }
+.art-scene.compact .cultivator-accessory-art { top: 48%; width: 34px; height: 34px; }
+.art-scene.compact .cultivator-technique-sigil { left: 1px; bottom: 24px; width: 34px; height: 34px; }
+.art-scene.compact .cultivator-technique-sigil span { font-size: .74rem; }
+.art-scene.compact .cultivator-technique-sigil small { display: none; }
 
 @keyframes hero-art-glow { 0%,100% { opacity: .55; transform: scale(.94) } 50% { opacity: 1; transform: scale(1.04) } }
+@keyframes equipment-aura-pulse { 0%,100% { opacity: .44; transform: translate(-50%,-50%) scale(.95) rotate(0) } 50% { opacity: .72; transform: translate(-50%,-50%) scale(1.04) rotate(3deg) } }
+@keyframes equipment-weapon-idle { 0%,100% { transform: rotate(10deg) translateY(0) } 50% { transform: rotate(7deg) translateY(-7px) } }
+@keyframes technique-sigil-breathe { 0%,100% { transform: scale(.96); filter: brightness(.9) } 50% { transform: scale(1.04); filter: brightness(1.18) } }
 @keyframes art-focus { 0%,100% { transform: translateY(0) scale(1) } 50% { transform: translateY(3px) scale(1.015); filter: brightness(1.08) } }
 @keyframes art-victory { 0% { transform: translateY(8px) scale(.97) } 42% { transform: translateY(-17px) scale(1.04) rotate(-1deg) } 70% { transform: translateY(2px) scale(1.01) } 100% { transform: translateY(0) scale(1) } }
 @keyframes art-breakthrough { 0%,100% { transform: translateY(0) scale(1); filter: brightness(1) } 50% { transform: translateY(-8px) scale(1.035); filter: brightness(1.22) } }
@@ -1080,6 +1103,18 @@ h1, h2, h3, p { margin-top: 0; }
 .world-character-portrait { position: relative; }
 .world-character-portrait::after { content: ""; position: absolute; inset: auto 0 0; height: 32px; background: linear-gradient(transparent, rgba(21,27,25,.82)); pointer-events: none; }
 .world-character-portrait img { width: 100%; height: 112px; display: block; object-fit: cover; object-position: center 18%; filter: saturate(1.04) contrast(1.03); transition: transform .22s ease, filter .22s ease; }
+.character-art-fallback { --character-accent: #6fc9b8; position: relative; width: 100%; height: 100%; min-height: 112px; overflow: hidden; display: grid; place-content: center; justify-items: center; gap: 2px; color: #eef4f1; background: radial-gradient(circle at 50% 36%, color-mix(in srgb, var(--character-accent) 22%, #26312d) 0 17%, transparent 18%), linear-gradient(155deg, #323d38, #151c19); border: 1px solid color-mix(in srgb, var(--character-accent) 44%, #4b5651); font-style: normal; }
+.character-art-fallback::before, .character-art-fallback::after { content: ""; position: absolute; border: 1px solid color-mix(in srgb, var(--character-accent) 55%, transparent); border-radius: 50%; }
+.character-art-fallback::before { width: 74%; aspect-ratio: 1; animation: orbit-spin 15s linear infinite; }
+.character-art-fallback::after { width: 46%; aspect-ratio: 1; border-style: dashed; animation: orbit-spin 9s linear reverse infinite; }
+.character-art-fallback strong, .character-art-fallback small, .character-art-fallback em { position: relative; z-index: 1; display: block; }
+.character-art-fallback strong { font-family: "Noto Serif SC", "Songti SC", serif; font-size: 2rem; line-height: 1; text-shadow: 0 0 16px var(--character-accent); }
+.character-art-fallback small { color: #e8c86f; font-size: .52rem; font-weight: 900; }
+.character-art-fallback em { color: #9eaaa4; font-size: .43rem; font-style: normal; }
+.character-art-fallback.role-rival { --character-accent: #d85d50; }.character-art-fallback.role-mentor { --character-accent: #d5ab50; }.character-art-fallback.role-friend { --character-accent: #53c6b2; }.character-art-fallback.role-classmate { --character-accent: #7195d0; }.character-art-fallback.role-stranger { --character-accent: #9aaaa3; }
+.character-art-fallback.pose-speaking strong { animation: formula-float 1.4s ease-in-out infinite; }.character-art-fallback.pose-victory { filter: brightness(1.2); animation: character-victory .76s ease both; }.character-art-fallback.pose-challenge { animation: character-challenge 2.4s ease-in-out infinite; }
+.world-character-portrait .character-art-fallback { height: 112px; border: 0; }
+.character-archive-visual > .character-art-fallback, .duel-character-stage > .character-art-fallback, .duel-opponent-defeated > .character-art-fallback, .duel-opponent-victory > .character-art-fallback { min-height: 100%; }
 .world-character:active .world-character-portrait img { transform: scale(1.025); }
 .world-character-copy { min-width: 0; display: block; padding: 8px 28px 9px 9px; }
 .world-character-copy small, .world-character-copy strong, .world-character-copy em, .world-character-copy i { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1107,6 +1142,16 @@ h1, h2, h3, p { margin-top: 0; }
 .equipment-slots small, .equipment-slots strong { display: block; }
 .equipment-slots small { color: #7ed3c3; font-size: .5rem; }
 .equipment-slots strong { margin-top: 4px; overflow: hidden; font-size: .59rem; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 480px) {
+  .equipment-strip { padding: 13px 10px; }
+  .equipment-slots { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; overflow: visible; padding-bottom: 0; }
+  .equipment-slots button { min-width: 0; min-height: 91px; grid-template-columns: 1fr; grid-template-rows: 50px minmax(0, 1fr); justify-items: center; align-content: start; gap: 4px; padding: 4px 2px; text-align: center; }
+  .equipment-slots .shop-item-art { width: 38px; height: 50px; }
+  .equipment-slots button > span:last-child { width: 100%; }
+  .equipment-slots small { font-size: .42rem; }
+  .equipment-slots strong { display: -webkit-box; margin-top: 1px; overflow: hidden; font-size: .46rem; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+}
 .owned-filter { display: flex; align-items: center; gap: 6px; color: #59645f; font-size: .6rem; font-weight: 800; white-space: nowrap; }
 .owned-filter input { width: 18px; height: 18px; accent-color: #963731; }
 .world-shop-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
@@ -1632,16 +1677,35 @@ h1, h2, h3, p { margin-top: 0; }
 .duel-rule-grid small { color: #8f9b95; font-size: .42rem; }
 .duel-start { min-height: 48px; justify-content: center; }
 .duel-safety-note { margin: 8px 0 0; color: #8e9a94; text-align: center; font-size: .48rem; line-height: 1.45; }
-.duel-battle-hud { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; margin: 0 0 12px; padding: 11px 12px; color: #edf2ef; background: #242a28; border-left: 4px solid #ca463f; border-radius: 7px; }
-.duel-battle-hud > div:first-child span, .duel-battle-hud > div:first-child strong { display: block; }
-.duel-battle-hud > div:first-child span { display: flex; align-items: center; gap: 5px; color: #f0c75f; font-size: .56rem; font-weight: 900; }
-.duel-battle-hud > div:first-child strong { margin-top: 3px; font-size: .78rem; }
+.duel-battle-hud { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; margin: 0 0 12px; padding: 9px 10px 10px; color: #edf2ef; background: #242a28; border: 1px solid #46514c; border-left: 4px solid #ca463f; border-radius: 7px; transition: border-color .25s ease, background .25s ease; }
+.duel-live-opponent { min-width: 0; display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 9px; }
+.duel-live-opponent > img { width: 56px; height: 68px; display: block; object-fit: cover; object-position: center 16%; background: #141917; border: 1px solid #59635e; border-radius: 5px; }
+.duel-live-opponent > span { min-width: 0; display: block; }
+.duel-live-opponent small, .duel-live-opponent strong, .duel-live-opponent em { display: block; }
+.duel-live-opponent small { color: #f0c75f; font-size: .48rem; font-weight: 900; }
+.duel-live-opponent strong { margin-top: 2px; font-size: .78rem; }
+.duel-live-opponent em { min-height: 28px; margin-top: 3px; color: #b5c0bb; font-size: .49rem; font-style: normal; line-height: 1.4; }
 .duel-battle-hud > b { display: flex; align-items: center; align-self: center; gap: 5px; color: #fff1b2; font-variant-numeric: tabular-nums; font-size: .88rem; }
+.duel-live-scoreboard { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.duel-live-scoreboard > div { min-width: 0; padding: 7px; background: #171c1a; border: 1px solid #3b4540; border-radius: 5px; }
+.duel-live-scoreboard span { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.duel-live-scoreboard strong { overflow: hidden; font-size: .55rem; text-overflow: ellipsis; white-space: nowrap; }
+.duel-live-scoreboard small { color: #e9c45f; font-size: .52rem; font-weight: 900; }
+.duel-live-scoreboard i { height: 6px; display: block; overflow: hidden; margin-top: 5px; background: #0d1210; border-radius: 2px; }
+.duel-live-scoreboard i b { height: 100%; display: block; background: #56c9b5; transition: width .45s ease; }
+.duel-live-scoreboard > div:last-child i b { background: #d65349; }
 .duel-time-track { grid-column: 1 / -1; height: 8px; overflow: hidden; background: #101513; border: 1px solid #434c48; border-radius: 3px; }
 .duel-time-track span { display: block; height: 100%; background: #d5ae4f; transition: width .5s linear; }
 .duel-battle-hud > small { grid-column: 1 / -1; color: #a9b4af; font-size: .54rem; }
 .duel-battle-hud.is-urgent { border-left-color: #ef5c50; animation: ambush-urgent 1s ease-in-out infinite; }
 .duel-battle-hud.is-urgent .duel-time-track span { background: #e8554c; }
+.duel-battle-hud.emotion-smug { background: #302622; border-left-color: #e59f45; }
+.duel-battle-hud.emotion-smug .duel-live-opponent > img { animation: duel-smug 1.7s ease-in-out infinite; filter: saturate(1.2) brightness(1.08); }
+.duel-battle-hud.emotion-nervous { background: #202d2a; border-left-color: #55c8b4; }
+.duel-battle-hud.emotion-nervous .duel-live-opponent > img { animation: duel-nervous .22s linear infinite alternate; filter: saturate(.8) brightness(.92); }
+.duel-battle-hud.emotion-focused .duel-live-opponent > img { animation: character-challenge 2.4s ease-in-out infinite; }
+@keyframes duel-smug { 0%,100% { transform: translateY(0) scale(1) } 50% { transform: translateY(-2px) scale(1.025) } }
+@keyframes duel-nervous { from { transform: translateX(-1px) } to { transform: translateX(1px) } }
 .duel-result-sheet { overflow: hidden; padding: 0 14px calc(16px + env(safe-area-inset-bottom)); text-align: center; }
 .duel-result-stage { height: 220px; display: grid; grid-template-columns: 1fr 1fr; align-items: end; gap: 4px; overflow: hidden; margin: 0 -14px 13px; padding: 7px 7px 0; background: #151a18; border-bottom: 1px solid #414a46; }
 .duel-result-stage > .cultivator-scene { width: 100%; height: 205px; transform: none; }

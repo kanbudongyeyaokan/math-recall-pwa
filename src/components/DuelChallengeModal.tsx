@@ -5,6 +5,7 @@ import {
   DUEL_QUESTION_COUNT,
   DUEL_SCOPE_OPTIONS,
   DUEL_TIME_MS,
+  getDuelOpponentPose,
   getDuelPresentation,
   type DuelScore
 } from '../domain/duel'
@@ -101,9 +102,9 @@ export function DuelResultModal({ opponentId, score, profile, coinBonus, bondBon
       <section className="duel-sheet duel-result-sheet">
         <div className="duel-result-stage">
           {score.passed ? (
-            <><CultivatorScene profile={profile} pose="victory" compact label="何耀焜赢下五题挑战" /><div className="duel-opponent-defeated"><CharacterPortrait character={character} pose="challenge" /></div></>
+            <><CultivatorScene profile={profile} pose="victory" compact label="何耀焜赢下五题挑战" /><div className="duel-opponent-defeated"><CharacterPortrait character={character} pose={getDuelOpponentPose('defeated')} alt={`${character.name}落败后紧张地看向比分`} /></div></>
           ) : (
-            <><div className="duel-opponent-victory"><CharacterPortrait character={character} pose="victory" /></div><CultivatorScene profile={profile} pose="focus" compact label="何耀焜记录五题挑战失利" /></>
+            <><div className="duel-opponent-victory"><CharacterPortrait character={character} pose={getDuelOpponentPose('victorious')} alt={`${character.name}获胜后庆祝`} /></div><CultivatorScene profile={profile} pose="focus" compact label="何耀焜记录五题挑战失利" /></>
           )}
         </div>
         <p className="eyebrow">{score.passed ? <Trophy size={15} /> : <Clock3 size={15} />} {score.passed ? '挑战胜利' : score.timedOut ? '时间归零' : '挑战失利'}</p>
