@@ -171,49 +171,51 @@ $$f^{(1)}(x)=2x\\sin(1/x)-\\cos(1/x).$$
   },
   {
     slug: 'product-high-order-derivative', lecture: 4, role: 'example', page: '126 · 书页 121',
-    title: '乘积最低次项锁定高阶导数',
-    statement: `设正整数 $n\\ge1$，
+    title: '例 4.1 · 百项乘积在唯一零因子处求导',
+    statement: `设
 
-$$F(x)=\\prod_{k=1}^{n}\\tan\\frac{x}{k}.$$
+$$f(x)=\\prod_{n=1}^{100}\\left(\\tan\\frac{\\pi x^n}{4}-n\\right).$$
 
-求 $F^{(n)}(0)$。`,
-    tags: ['高阶导数', 'Taylor', '乘积结构'],
-    coreMethod: '求点处高阶导数时，只需锁定幂级数中对应次数的系数；乘积的最低次数由各因子的最低次数相加。',
-    mistakes: '直接展开 Leibniz 多重求导，产生大量在零点为零的项；或忘记导数值等于系数乘以阶乘。',
-    answerText: `$F^{(n)}(0)=1$。`,
+求 $f'(1)$。`,
+    tags: ['乘积求导', '零因子', '百项乘积'],
+    coreMethod: '在 $x=1$ 时第一因子恰为零，其余因子均非零；乘积求导后只有“第一因子求导”的一项存活。',
+    mistakes: '直接展开百项乘积的完整求导式；或漏掉第一因子的链式系数与其余九十九项的符号。',
+    answerText: `$$f'(1)=-\\frac{\\pi\\cdot99!}{2}.$$`,
     solutionMethods: [
-      { title: '方法一 · 最低次 Taylor 项', content: `对每个 $k$，有 $\\tan(x/k)=x/k+O(x^3)$。因此
+      { title: '方法一 · 隔离唯一零因子', content: `令
 
-$$F(x)=\\frac{x^n}{1\\cdot2\\cdots n}+O(x^{n+2})=\\frac{x^n}{n!}+O(x^{n+2}).$$
+$$g(x)=\\prod_{n=2}^{100}\\left(\\tan\\frac{\\pi x^n}{4}-n\\right),$$
 
-$x^n$ 的系数是 $1/n!$，故 $F^{(n)}(0)=n!\\cdot(1/n!)=1$。` },
-      { title: '方法二 · Leibniz 中唯一存活项', content: `每个因子在零点的函数值为零，而一阶导数为 $1/k$。对乘积求 $n$ 阶导数后，零点处只有“每个因子恰好求一次导”的项不为零。该项的多项式系数为 $n!$，所以结果为 $n!\\prod_{k=1}^{n}(1/k)=1$。` }
+则 $f(x)=(\\tan(\\pi x/4)-1)g(x)$。有 $g(1)=\\prod_{n=2}^{100}(1-n)=-99!$，而第一因子在 $1$ 处的导数为 $(\\pi/4)\\sec^2(\\pi/4)=\\pi/2$，故 $f'(1)=-\\pi\\cdot99!/2$。` },
+      { title: '方法二 · 乘积公式筛项', content: '把百项乘积的求导式在 $x=1$ 处逐项观察。除第一项外，每一项都仍含有零因子 $\\tan(\\pi/4)-1$，所以全部为零；唯一存活项等于第一因子的导数乘其余九十九个因子的函数值，结果同样为 $-\\pi\\cdot99!/2$。' }
     ],
-    methodFingerprint: 'zy30-source:l04:product-high-derivative:lowest-degree-coefficient'
+    methodFingerprint: 'zy30-source:l04:hundred-factor-product:unique-zero-factor-at-one'
   },
   {
     slug: 'parametric-second-derivative', lecture: 4, role: 'exercise', page: '140 · 书页 135',
-    title: '参数方程二阶导数',
+    title: '习题 4.4 · 参数方程二阶导数',
     statement: `曲线由
 
-$$x=\\ln(1+t^2),\\qquad y=2\\arctan t\\qquad(t\\ne0)$$
+$$x=\\ln(1+t^2)+1,\\qquad y=2\\arctan t-(t+1)^2\\qquad(t\\ne0)$$
 
 给出，求 $d^2y/dx^2$。`,
     tags: ['参数方程', '二阶导数', '链式法则'],
     coreMethod: '先算 $dy/dx=(dy/dt)/(dx/dt)$，再对该结果关于 $t$ 求导并除以 $dx/dt$。',
     mistakes: '把 $d^2y/dx^2$ 错写成 $(d^2y/dt^2)/(d^2x/dt^2)$；二阶导数需要再次除以 $dx/dt$。',
-    answerText: `$$\\frac{d^2y}{dx^2}=-\\frac{1+t^2}{2t^3}.$$`,
+    answerText: `$$\\frac{d^2y}{dx^2}=-\\frac{(1+2t)(1+t^2)}{2t}.$$`,
     solutionMethods: [
       { title: '方法一 · 参数求导公式', content: `有
 
-$$\\frac{dx}{dt}=\\frac{2t}{1+t^2},\\qquad\\frac{dy}{dt}=\\frac2{1+t^2},$$
+$$\\frac{dx}{dt}=\\frac{2t}{1+t^2},\\qquad\\frac{dy}{dt}=\\frac2{1+t^2}-2(t+1),$$
 
-故 $dy/dx=1/t$。再算
+故 $dy/dx=-(t^2+t+1)$。再算
 
-$$\\frac{d^2y}{dx^2}=\\frac{d(1/t)/dt}{dx/dt}=\\frac{-1/t^2}{2t/(1+t^2)}=-\\frac{1+t^2}{2t^3}.$$` },
-      { title: '方法二 · 消参复核', content: `由 $y=2\\arctan t$ 得 $t=\\tan(y/2)$，同时 $e^x=1+t^2=\\sec^2(y/2)$。对隐式关系 $e^x=\\sec^2(y/2)$ 求导可先得到 $y^{(1)}=1/t$，再沿参数求导，仍得 $y^{(2)}=-(1+t^2)/(2t^3)$。` }
+$$\\frac{d^2y}{dx^2}=\\frac{-(2t+1)}{2t/(1+t^2)}=-\\frac{(1+2t)(1+t^2)}{2t}.$$` },
+      { title: '方法二 · 二阶参数公式复核', content: `使用
+$$\\frac{d^2y}{dx^2}=\\frac{x'(t)y''(t)-x''(t)y'(t)}{[x'(t)]^3}.$$
+代入 $x'=2t/(1+t^2)$、$x''=2(1-t^2)/(1+t^2)^2$、$y'=2/(1+t^2)-2(t+1)$ 与 $y''=-4t/(1+t^2)^2-2$，整理后仍得 $-(1+2t)(1+t^2)/(2t)$。` }
     ],
-    methodFingerprint: 'zy30-source:l04:parametric-second-derivative:divide-by-dxdt-twice'
+    methodFingerprint: 'zy30-source:l04:parametric-second-derivative:quadratic-correction'
   },
   {
     slug: 'first-nonzero-even-derivative', lecture: 5, role: 'example', page: '148 · 书页 143',

@@ -84,9 +84,16 @@ export default function App() {
   useEffect(() => {
     let updateTimer: number | undefined
     let registration: ServiceWorkerRegistration | undefined
+    let reloadingForUpdate = false
+    const hadController = !!navigator.serviceWorker?.controller
     const checkForUpdate = () => registration?.update().catch(() => undefined)
     const checkWhenVisible = () => {
       if (document.visibilityState === 'visible') checkForUpdate()
+    }
+    const reloadOnControllerChange = () => {
+      if (!hadController || reloadingForUpdate) return
+      reloadingForUpdate = true
+      window.location.reload()
     }
     const updater = registerSW({
       immediate: true,
@@ -102,11 +109,13 @@ export default function App() {
     updateTimer = window.setInterval(checkForUpdate, 30 * 60 * 1000)
     window.addEventListener('focus', checkForUpdate)
     document.addEventListener('visibilitychange', checkWhenVisible)
+    navigator.serviceWorker?.addEventListener('controllerchange', reloadOnControllerChange)
     setUpdateSW(() => updater)
     return () => {
       if (updateTimer) window.clearInterval(updateTimer)
       window.removeEventListener('focus', checkForUpdate)
       document.removeEventListener('visibilitychange', checkWhenVisible)
+      navigator.serviceWorker?.removeEventListener('controllerchange', reloadOnControllerChange)
     }
   }, [])
 
@@ -318,8 +327,14 @@ export default function App() {
       return
     }
     try {
+      await createRecoverySnapshot(`检查 v${__APP_VERSION__} 更新前`)
       await updateRegistration.update()
-      setToast('检查完成；如有新版本会提示升级，题库和记录保持不变')
+      if (updateRegistration.waiting) {
+        setUpdateAvailable(true)
+        setToast('新版本已下载，点击顶部按钮完成升级')
+      } else {
+        setToast('检查完成；新版本会自动接管并重载，题库和记录保持不变')
+      }
     } catch {
       setToast('检查更新失败，请确认网络后重试')
     }

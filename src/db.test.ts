@@ -349,9 +349,9 @@ describe('旧数据迁移归一化', () => {
       reviewCount: 7,
       questionImageId: 'question-image',
       answerImageId: 'answer-image',
-      seedVersion: 15
+      seedVersion: 16
     })
-    expect(await db.problems.filter((problem) => problem.isSeed === true && !problem.archived).count()).toBe(302)
+    expect(await db.problems.filter((problem) => problem.isSeed === true && !problem.archived).count()).toBe(335)
 
     db.close()
     await db.delete()

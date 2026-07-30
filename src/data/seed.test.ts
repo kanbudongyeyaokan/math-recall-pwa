@@ -22,8 +22,8 @@ describe('PDF 精品考研数学题库', () => {
     expect(curatedBankPoints).toHaveLength(156)
     expect(curated).toHaveLength(156)
     expect(sourceQuestions).toHaveLength(36)
-    expect(verifiedExamples).toHaveLength(110)
-    expect(seeds).toHaveLength(302)
+    expect(verifiedExamples).toHaveLength(143)
+    expect(seeds).toHaveLength(335)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
     expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
@@ -67,6 +67,21 @@ describe('PDF 精品考研数学题库', () => {
     expect(lectureThree.every((problem) => problem.methodFingerprint?.startsWith('zy30-verified:l03:'))).toBe(true)
     expect(lectureThree.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
     expect(lectureThree.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+  })
+
+  it('第4讲形成四十一道非定义、非辨析、非同构题', () => {
+    const lectureFour = verifiedExamples.filter((problem) => problem.id.startsWith('zy30-verified-l04-'))
+    const zhangYuExamples = lectureFour.filter((problem) => problem.id.includes('-zy30-example-'))
+    const zhangYuExercises = lectureFour.filter((problem) => problem.id.includes('-zy30-exercise-'))
+    const wuExamples = lectureFour.filter((problem) => problem.id.includes('-wzx-'))
+    expect(lectureFour).toHaveLength(33)
+    expect(zhangYuExamples).toHaveLength(18)
+    expect(zhangYuExercises).toHaveLength(6)
+    expect(wuExamples).toHaveLength(9)
+    expect(seeds.filter((problem) => problem.tags.includes('第4讲'))).toHaveLength(41)
+    expect(lectureFour.every((problem) => problem.methodFingerprint?.startsWith('zy30-verified:l04:'))).toBe(true)
+    expect(lectureFour.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(lectureFour.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
   })
 
   it('全部逐页核验题均有精确页码、双路线解析和唯一方法指纹', () => {
