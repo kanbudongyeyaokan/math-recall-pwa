@@ -21,15 +21,15 @@ describe('PDF 精品考研数学题库', () => {
 
   it('仅保留 PDF 题型重构与基础30讲来源题，ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
-    expect(curated).toHaveLength(150)
-    expect(sourceQuestions).toHaveLength(33)
-    expect(verifiedExamples).toHaveLength(213)
-    expect(thousandVerified).toHaveLength(7)
-    expect(seeds).toHaveLength(403)
+    expect(curated).toHaveLength(144)
+    expect(sourceQuestions).toHaveLength(31)
+    expect(verifiedExamples).toHaveLength(236)
+    expect(thousandVerified).toHaveLength(24)
+    expect(seeds).toHaveLength(435)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
     expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
-    expect(seeds.every((problem) => !isRetiredBuiltInProblem(problem))).toBe(true)
+    expect(seeds.filter((problem) => isRetiredBuiltInProblem(problem)).map((problem) => problem.id)).toEqual([])
     expect(seeds.every((problem) => !/(?:命题辨析|错解审判|错解辨析)/.test(problem.title))).toBe(true)
     expect(seeds.every((problem) => !problem.tags.some((tag) => ['定义', '定义与判据', '命题辨析', '错解辨析'].includes(tag)))).toBe(true)
   })
@@ -137,6 +137,28 @@ describe('PDF 精品考研数学题库', () => {
     expect(thousandProblems).toHaveLength(5)
     expect(lectureSeven.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
     expect(lectureSeven.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
+  it('第8讲形成四十道逐页核验的计算、证明与函数性质题', () => {
+    const lectureEight = seeds.filter((problem) => problem.tags.includes('第8讲'))
+    const foundationProblems = lectureEight.filter((problem) => problem.id.startsWith('zy30-verified-l08-'))
+    const thousandProblems = lectureEight.filter((problem) => problem.id.startsWith('zy1000-verified-l08-'))
+    const retiredIds = [
+      'zy27-c08-antiderivative-application',
+      'zy27-c08-newton-application',
+      'zy27-c08-variable-upper-application',
+      'zy27-c08-mean-application',
+      'zy27-c08-improper-infinity-application',
+      'zy27-c08-improper-singular-application',
+      'zy30-source-l08-example-derivative-darboux-screening',
+      'zy30-source-l08-exercise-log-improper-integral'
+    ]
+    expect(lectureEight).toHaveLength(40)
+    expect(foundationProblems).toHaveLength(23)
+    expect(thousandProblems).toHaveLength(17)
+    expect(lectureEight.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(lectureEight.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
     expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
   })
 

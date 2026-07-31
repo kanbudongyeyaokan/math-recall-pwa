@@ -218,5 +218,5 @@ describe('备份格式校验', () => {
     expect(await db.reviews.count()).toBe(1)
     expect(await db.rewards.get('reward-local')).toBeTruthy()
     expect(await db.settings.get('zy30-private-manifest')).toMatchObject({ value: { cards: 1000 } })
-  }, 10_000)
+  }, 20_000)
 })

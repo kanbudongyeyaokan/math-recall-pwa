@@ -17,6 +17,8 @@ import { foundation30Lecture6ExpansionSeeds } from './foundation30Lecture6Expans
 import { lecture6CompanionExpansionSeeds } from './lecture6CompanionExpansion'
 import { foundation30Lecture7ExpansionSeeds } from './foundation30Lecture7Expansion'
 import { lecture7CompanionExpansionSeeds } from './lecture7CompanionExpansion'
+import { foundation30Lecture8ExpansionSeeds } from './foundation30Lecture8Expansion'
+import { lecture8CompanionExpansionSeeds } from './lecture8CompanionExpansion'
 
 export const curatedBankPoints = [
   ...calculus01to06Points,
@@ -40,5 +42,7 @@ export const curatedQuestionSeeds = [
   ...foundation30Lecture6ExpansionSeeds,
   ...lecture6CompanionExpansionSeeds,
   ...foundation30Lecture7ExpansionSeeds,
-  ...lecture7CompanionExpansionSeeds
+  ...lecture7CompanionExpansionSeeds,
+  ...foundation30Lecture8ExpansionSeeds,
+  ...lecture8CompanionExpansionSeeds
 ]
