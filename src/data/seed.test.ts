@@ -5,6 +5,7 @@ import { getProblemLectureIds, getProblemRole } from '../domain/curriculum'
 import {
   findDuplicateMethodGroups,
   getMathFragments,
+  getPrimaryKnowledgePoint,
   getProblemTextFields,
   hasBalancedMathDelimiters,
   hasUnwrappedMathSymbols,
@@ -21,11 +22,11 @@ describe('PDF 精品考研数学题库', () => {
 
   it('仅保留 PDF 题型重构与基础30讲来源题，ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
-    expect(curated).toHaveLength(120)
-    expect(sourceQuestions).toHaveLength(23)
-    expect(verifiedExamples).toHaveLength(329)
-    expect(thousandVerified).toHaveLength(65)
-    expect(seeds).toHaveLength(545)
+    expect(curated).toHaveLength(114)
+    expect(sourceQuestions).toHaveLength(21)
+    expect(verifiedExamples).toHaveLength(353)
+    expect(thousandVerified).toHaveLength(81)
+    expect(seeds).toHaveLength(577)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
     expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
@@ -275,6 +276,35 @@ describe('PDF 精品考研数学题库', () => {
     expect(lectureTwelve.every((problem) => /PDF \d+/.test(problem.page))).toBe(true)
     expect(lectureTwelve.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
     expect(lectureTwelve.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
+  it('第13讲形成四十道逐页核验的多元微分精品题', () => {
+    const lectureThirteen = seeds.filter((problem) => problem.tags.includes('第13讲'))
+    const foundationProblems = lectureThirteen.filter((problem) => problem.id.startsWith('zy30-verified-l13-'))
+    const foundationExamples = foundationProblems.filter((problem) => problem.id.includes('-example-'))
+    const foundationExercises = foundationProblems.filter((problem) => problem.id.includes('-exercise-'))
+    const thousandProblems = lectureThirteen.filter((problem) => problem.id.startsWith('zy1000-verified-l13-'))
+    const retiredIds = [
+      'zy27-c13-differentiable-application',
+      'zy27-c13-total-differential-application',
+      'zy27-c13-chain-application',
+      'zy27-c13-implicit-application',
+      'zy27-c13-gradient-application',
+      'zy27-c13-lagrange-application',
+      'zy30-source-l13-example-two-multivariable-limits',
+      'zy30-source-l13-exercise-complex-square-laplacian'
+    ]
+    expect(lectureThirteen).toHaveLength(40)
+    expect(foundationProblems).toHaveLength(24)
+    expect(foundationExamples).toHaveLength(16)
+    expect(foundationExercises).toHaveLength(8)
+    expect(thousandProblems).toHaveLength(16)
+    expect(lectureThirteen.every((problem) => problem.tags.includes('PDF逐页核验'))).toBe(true)
+    expect(lectureThirteen.every((problem) => !['PDF逐页核验', '课后习题'].includes(getPrimaryKnowledgePoint(problem)))).toBe(true)
+    expect(lectureThirteen.every((problem) => /PDF \d+/.test(problem.page))).toBe(true)
+    expect(lectureThirteen.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(lectureThirteen.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
     expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
   })
 
