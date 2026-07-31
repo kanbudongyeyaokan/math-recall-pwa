@@ -21,11 +21,11 @@ describe('PDF 精品考研数学题库', () => {
 
   it('仅保留 PDF 题型重构与基础30讲来源题，ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
-    expect(curated).toHaveLength(132)
-    expect(sourceQuestions).toHaveLength(27)
-    expect(verifiedExamples).toHaveLength(302)
-    expect(thousandVerified).toHaveLength(49)
-    expect(seeds).toHaveLength(510)
+    expect(curated).toHaveLength(126)
+    expect(sourceQuestions).toHaveLength(25)
+    expect(verifiedExamples).toHaveLength(321)
+    expect(thousandVerified).toHaveLength(59)
+    expect(seeds).toHaveLength(535)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
     expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
@@ -215,6 +215,36 @@ describe('PDF 精品考研数学题库', () => {
     expect(thousandProblems).toHaveLength(18)
     expect(lectureTen.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
     expect(lectureTen.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
+  it('第11讲形成三十三道逐页核验的积分等式与不等式精品题', () => {
+    const lectureEleven = seeds.filter((problem) => problem.tags.includes('第11讲'))
+    const foundationProblems = lectureEleven.filter((problem) => problem.id.startsWith('zy30-verified-l11-'))
+    const foundationExamples = foundationProblems.filter((problem) => problem.id.includes('-example-'))
+    const foundationExercises = foundationProblems.filter((problem) => problem.id.includes('-exercise-'))
+    const thousandProblems = lectureEleven.filter((problem) => problem.id.startsWith('zy1000-verified-l11-'))
+    const wuProblems = lectureEleven.filter((problem) => problem.id.startsWith('wzx-verified-l11-'))
+    const retiredIds = [
+      'zy27-c11-reflection-identity-application',
+      'zy27-c11-periodic-application',
+      'zy27-c11-cauchy-application',
+      'zy27-c11-chebyshev-application',
+      'zy27-c11-jensen-application',
+      'zy27-c11-weighted-mean-application',
+      'zy30-source-l11-example-cauchy-weighted-quotient',
+      'zy30-source-l11-exercise-reciprocal-integral-inequality'
+    ]
+    expect(lectureEleven).toHaveLength(33)
+    expect(foundationProblems).toHaveLength(19)
+    expect(foundationExamples).toHaveLength(13)
+    expect(foundationExercises).toHaveLength(6)
+    expect(thousandProblems).toHaveLength(10)
+    expect(wuProblems).toHaveLength(4)
+    expect(lectureEleven.every((problem) => problem.tags.includes('PDF逐页核验'))).toBe(true)
+    expect(lectureEleven.every((problem) => /PDF \d+/.test(problem.page))).toBe(true)
+    expect(lectureEleven.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(lectureEleven.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
     expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
   })
 
