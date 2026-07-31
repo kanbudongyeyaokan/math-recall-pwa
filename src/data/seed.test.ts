@@ -17,13 +17,15 @@ describe('PDF 精品考研数学题库', () => {
   const curated = seeds.filter((problem) => problem.id.startsWith('zy27-'))
   const sourceQuestions = seeds.filter((problem) => problem.id.startsWith('zy30-source-'))
   const verifiedExamples = seeds.filter((problem) => problem.id.startsWith('zy30-verified-'))
+  const thousandVerified = seeds.filter((problem) => problem.id.startsWith('zy1000-verified-'))
 
   it('仅保留 PDF 题型重构与基础30讲来源题，ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
-    expect(curated).toHaveLength(156)
-    expect(sourceQuestions).toHaveLength(35)
-    expect(verifiedExamples).toHaveLength(206)
-    expect(seeds).toHaveLength(399)
+    expect(curated).toHaveLength(150)
+    expect(sourceQuestions).toHaveLength(33)
+    expect(verifiedExamples).toHaveLength(213)
+    expect(thousandVerified).toHaveLength(7)
+    expect(seeds).toHaveLength(403)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
     expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
@@ -116,6 +118,28 @@ describe('PDF 精品考研数学题库', () => {
     expect(seeds.some((problem) => problem.id === 'zy30-source-l06-exercise-second-divided-difference')).toBe(false)
   })
 
+  it('第7讲只保留十二道可完整核验的非同构原题，不以模板题凑数', () => {
+    const lectureSeven = seeds.filter((problem) => problem.tags.includes('第7讲'))
+    const foundationProblems = lectureSeven.filter((problem) => problem.id.startsWith('zy30-verified-l07-'))
+    const thousandProblems = lectureSeven.filter((problem) => problem.id.startsWith('zy1000-verified-l07-'))
+    const retiredIds = [
+      'zy27-c07-related-sphere-application',
+      'zy27-c07-motion-application',
+      'zy27-c07-marginal-application',
+      'zy27-c07-elasticity-application',
+      'zy27-c07-profit-application',
+      'zy27-c07-average-cost-application',
+      'zy30-source-l07-example-parabola-arc-rate',
+      'zy30-source-l07-exercise-demand-elasticity-revenue'
+    ]
+    expect(lectureSeven).toHaveLength(12)
+    expect(foundationProblems).toHaveLength(7)
+    expect(thousandProblems).toHaveLength(5)
+    expect(lectureSeven.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(lectureSeven.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
   it('全部逐页核验题均有精确页码、双路线解析和唯一方法指纹', () => {
     expect(verifiedExamples.every((problem) => problem.tags.includes('PDF逐页核验'))).toBe(true)
     expect(verifiedExamples.every((problem) => problem.page.startsWith('PDF '))).toBe(true)
@@ -144,10 +168,13 @@ describe('PDF 精品考研数学题库', () => {
   })
 
   it('每个资料考点只生成一道经典应用题，不再派生定义或辨析模板', () => {
+    const activeCuratedIds = new Set(curated.map((problem) => problem.id))
     for (const point of curatedBankPoints) {
+      const expectedId = `zy27-${point.id}-application`
+      if (!activeCuratedIds.has(expectedId)) continue
       const cards = curated.filter((problem) => problem.id.startsWith(`zy27-${point.id}-`))
       expect(cards).toHaveLength(1)
-      expect(cards[0].id).toBe(`zy27-${point.id}-application`)
+      expect(cards[0].id).toBe(expectedId)
       expect(getProblemRole(cards[0])).toBe('example')
       expect(cards[0].source).toContain('张宇')
       expect(cards[0].page).toMatch(/PDF\s*\d+/)
