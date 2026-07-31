@@ -610,6 +610,14 @@ export const DEPRECATED_SEED_IDS = [
   'zy27-c11-weighted-mean-application',
   'zy30-source-l11-example-cauchy-weighted-quotient',
   'zy30-source-l11-exercise-reciprocal-integral-inequality',
+  'zy27-c12-work-application',
+  'zy27-c12-pressure-application',
+  'zy27-c12-mass-application',
+  'zy27-c12-centroid-application',
+  'zy27-c12-inertia-application',
+  'zy27-c12-surplus-application',
+  'zy30-source-l12-example-conical-tank-pumping-work',
+  'zy30-source-l12-exercise-elasticity-recover-demand',
   ...LOW_CLARITY_SEED_IDS
 ] as const
 
@@ -673,7 +681,7 @@ export function makeSeedProblems(now = Date.now()): Problem[] {
       intervalIndex: -1,
       reviewCount: 0,
       isSeed: true,
-      seedVersion: 23
+      seedVersion: 24
     }
   }).filter((problem) => !DEPRECATED_SEED_IDS.includes(problem.id as typeof DEPRECATED_SEED_IDS[number]))
   return auditProblemBank(problems, now)
