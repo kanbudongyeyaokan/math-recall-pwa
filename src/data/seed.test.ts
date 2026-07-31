@@ -21,11 +21,11 @@ describe('PDF 精品考研数学题库', () => {
 
   it('仅保留 PDF 题型重构与基础30讲来源题，ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
-    expect(curated).toHaveLength(144)
-    expect(sourceQuestions).toHaveLength(31)
-    expect(verifiedExamples).toHaveLength(236)
-    expect(thousandVerified).toHaveLength(24)
-    expect(seeds).toHaveLength(435)
+    expect(curated).toHaveLength(138)
+    expect(sourceQuestions).toHaveLength(29)
+    expect(verifiedExamples).toHaveLength(279)
+    expect(thousandVerified).toHaveLength(31)
+    expect(seeds).toHaveLength(477)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
     expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
@@ -159,6 +159,34 @@ describe('PDF 精品考研数学题库', () => {
     expect(thousandProblems).toHaveLength(17)
     expect(lectureEight.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
     expect(lectureEight.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
+  it('第9讲形成五十道非定义、非辨析、非同构的积分精品题', () => {
+    const lectureNine = seeds.filter((problem) => problem.tags.includes('第9讲'))
+    const foundationProblems = lectureNine.filter((problem) => problem.id.startsWith('zy30-verified-l09-'))
+    const foundationExamples = foundationProblems.filter((problem) => problem.id.includes('-example-'))
+    const foundationExercises = foundationProblems.filter((problem) => problem.id.includes('-exercise-'))
+    const thousandProblems = lectureNine.filter((problem) => problem.id.startsWith('zy1000-verified-l09-'))
+    const retiredIds = [
+      'zy27-c09-partial-fraction-application',
+      'zy27-c09-trig-sub-application',
+      'zy27-c09-parts-application',
+      'zy27-c09-reduction-application',
+      'zy27-c09-reflection-application',
+      'zy27-c09-wallis-application',
+      'zy30-source-l09-example-sqrt-substitution-integral',
+      'zy30-source-l09-exercise-reciprocal-antiderivative'
+    ]
+    expect(lectureNine).toHaveLength(50)
+    expect(foundationProblems).toHaveLength(43)
+    expect(foundationExamples.map((problem) => problem.title.match(/例 (9\.\d+)/)?.[1]).sort((a, b) => Number(a?.split('.')[1]) - Number(b?.split('.')[1])))
+      .toEqual([...Array.from({ length: 22 }, (_, index) => `9.${index + 1}`), '9.26', '9.27', '9.28', '9.29'])
+    expect(foundationExercises.map((problem) => problem.title.match(/习题 (9\.\d+)/)?.[1]).sort((a, b) => Number(a?.split('.')[1]) - Number(b?.split('.')[1])))
+      .toEqual(Array.from({ length: 17 }, (_, index) => `9.${index + 1}`))
+    expect(thousandProblems).toHaveLength(7)
+    expect(lectureNine.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(lectureNine.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
     expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
   })
 
