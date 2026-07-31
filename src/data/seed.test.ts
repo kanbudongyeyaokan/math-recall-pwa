@@ -21,9 +21,9 @@ describe('PDF 精品考研数学题库', () => {
   it('仅保留 PDF 题型重构与基础30讲来源题，ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
     expect(curated).toHaveLength(156)
-    expect(sourceQuestions).toHaveLength(36)
-    expect(verifiedExamples).toHaveLength(175)
-    expect(seeds).toHaveLength(367)
+    expect(sourceQuestions).toHaveLength(35)
+    expect(verifiedExamples).toHaveLength(206)
+    expect(seeds).toHaveLength(399)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
     expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
@@ -101,6 +101,21 @@ describe('PDF 精品考研数学题库', () => {
     expect(lectureFive.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
   })
 
+  it('第6讲形成四十道逐页核验题并退役来源错标题', () => {
+    const lectureSix = seeds.filter((problem) => problem.tags.includes('第6讲'))
+    const verifiedLectureSix = lectureSix.filter((problem) => problem.id.startsWith('zy30-verified-l06-'))
+    const zhangYuExamples = verifiedLectureSix.filter((problem) => problem.id.includes('-example-'))
+    const zhangYuExercises = verifiedLectureSix.filter((problem) => problem.id.includes('-exercise-'))
+    const thousandProblems = lectureSix.filter((problem) => problem.id.startsWith('zy1000-verified-l06-'))
+    expect(lectureSix).toHaveLength(40)
+    expect(zhangYuExamples).toHaveLength(20)
+    expect(zhangYuExercises).toHaveLength(11)
+    expect(thousandProblems).toHaveLength(2)
+    expect(lectureSix.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(lectureSix.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(seeds.some((problem) => problem.id === 'zy30-source-l06-exercise-second-divided-difference')).toBe(false)
+  })
+
   it('全部逐页核验题均有精确页码、双路线解析和唯一方法指纹', () => {
     expect(verifiedExamples.every((problem) => problem.tags.includes('PDF逐页核验'))).toBe(true)
     expect(verifiedExamples.every((problem) => problem.page.startsWith('PDF '))).toBe(true)
@@ -108,14 +123,15 @@ describe('PDF 精品考研数学题库', () => {
     expect(new Set(verifiedExamples.map((problem) => problem.methodFingerprint)).size).toBe(verifiedExamples.length)
   })
 
-  it('基础30讲来源精选覆盖 18 讲的例题与课后题', () => {
-    expect(sourceQuestions.filter((problem) => problem.tags.includes('经典例题'))).toHaveLength(18)
-    expect(sourceQuestions.filter((problem) => problem.tags.includes('课后训练'))).toHaveLength(18)
-    expect(new Set(sourceQuestions.flatMap(getProblemLectureIds))).toEqual(new Set(
+  it('基础30讲来源题覆盖 18 讲的例题与课后题', () => {
+    const foundationQuestions = seeds.filter((problem) => problem.source.includes('张宇《基础30讲》'))
+    expect(new Set(foundationQuestions.flatMap(getProblemLectureIds))).toEqual(new Set(
       Array.from({ length: 18 }, (_, index) => `lecture-${String(index + 1).padStart(2, '0')}`)
     ))
     for (let lecture = 1; lecture <= 18; lecture += 1) {
-      expect(sourceQuestions.filter((problem) => problem.tags.includes(`第${lecture}讲`))).toHaveLength(2)
+      const lectureQuestions = foundationQuestions.filter((problem) => problem.tags.includes(`第${lecture}讲`))
+      expect(lectureQuestions.some((problem) => problem.tags.includes('经典例题'))).toBe(true)
+      expect(lectureQuestions.some((problem) => problem.tags.includes('课后训练') || problem.tags.includes('课后习题'))).toBe(true)
     }
     for (const problem of sourceQuestions) {
       expect(problem.source).toContain('张宇《基础30讲》')
