@@ -225,14 +225,14 @@ $$M=\int_0^{\pi/2}\sin(\sin x)\,dx,\qquad N=\int_0^{\pi/2}\cos(\cos x)\,dx.$$
 
 比较 $M,N,1$ 的大小。`,
     tags: ['定积分比较', '区间反射', '选择题'],
-    coreMethod: raw`对 $N$ 作 $x=\pi/2-t$，把两个积分统一成 $\sin(sin x)$ 与 $\sin x$ 的比较。`,
+    coreMethod: raw`对 $N$ 作 $x=\pi/2-t$，把两个积分统一成 $\sin(\sin x)$ 与 $\sin x$ 的比较。`,
     mistakes: '直接比较原被积函数却忽略自变量不同，或把凹函数不等式方向写反。',
     answerText: raw`$M<1<N$，选择 A。`,
     questionFormat: 'single-choice',
     options: [raw`$M<1<N$`, raw`$M<N<1$`, raw`$N<M<1$`, raw`$1<M<N$`],
     correctOptionIds: ['A'],
     solutionMethods: [
-      { title: '方法一 · 点态夹逼', content: raw`在 $[0,\pi/2]$ 上有 $\sin(sin x)<\sin x$，故 $M<\int_0^{\pi/2}\sin xdx=1$。令 $x=\pi/2-t$，则 $N=\int_0^{\pi/2}\cos(\sin t)dt>\int_0^{\pi/2}\cos tdt=1$。` },
+      { title: '方法一 · 点态夹逼', content: raw`在 $[0,\pi/2]$ 上有 $\sin(\sin x)<\sin x$，故 $M<\int_0^{\pi/2}\sin xdx=1$。令 $x=\pi/2-t$，则 $N=\int_0^{\pi/2}\cos(\sin t)dt>\int_0^{\pi/2}\cos tdt=1$。` },
       { title: '方法二 · 单调函数复合', content: raw`因 $0\le\sin x\le x\le\pi/2$ 且正弦递增，得到 $\sin(\sin x)\le\sin x$，内部严格。反射后 $0\le\sin t\le t$ 且余弦递减，所以 $\cos(\sin t)\ge\cos t$，内部严格。` }
     ]
   }),

@@ -64,7 +64,7 @@ $$K=\int_0^{\pi/4}\ln(\cos x)dx.$$
     correctOptionIds: ['B'],
     tags: ['选择题', '积分比较', '对数三角函数'],
     coreMethod: raw`先由 $0<\sin x<\cos x<1$ 得到 $I<K<0$，再使用 $J=K-I$ 比较 $J$ 与 $K$。`,
-    mistakes: raw`$ln(\sin x)$ 与 $\ln(\cos x)$ 都为负；比较 $J=K-I$ 时不能按正数直觉判断。`,
+    mistakes: raw`$\ln(\sin x)$ 与 $\ln(\cos x)$ 都为负；比较 $J=K-I$ 时不能按正数直觉判断。`,
     answerText: raw`正确选项为 B：
 $$I<K<J.$$`,
     solutionMethods: [

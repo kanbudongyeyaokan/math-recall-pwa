@@ -825,7 +825,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           {isChoice && <span><ListChecks size={14} /> {problem.questionFormat === 'single-choice' ? '单选' : '多选'}</span>}
           <span>难度 {problem.difficulty || 2}/5 · 约 {problem.estimatedMinutes || 6} 分钟</span>
         </div>
-        <h1>{problem.title}</h1>
+        <h1><MathText text={problem.title} inline enableTheoremLinks={false} /></h1>
         <div className="tag-list">
           {[...new Set(problem.tags)].map((tag) => <span className="tag" key={tag}>{tag}</span>)}
         </div>

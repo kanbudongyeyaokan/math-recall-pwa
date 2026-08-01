@@ -157,7 +157,7 @@ $$y'+y=e^{-x}\cos x,\qquad y(0)=0.$$
 求 $y(x)$，并求曲线 $y=y(x)$ 与 $x$ 轴在 $[0,+\infty)$ 上围成的图形总面积。`,
     tags: ['一阶线性方程', '无穷面积'],
     coreMethod: '先用积分因子求出阻尼正弦解；面积要对绝对值积分，再利用相邻波瓣构成等比数列。',
-    mistakes: '图形面积不是有向积分；若直接积分 $e^{-x}\sin x$，正负波瓣会相互抵消。',
+    mistakes: raw`图形面积不是有向积分；若直接积分 $e^{-x}\sin x$，正负波瓣会相互抵消。`,
     answerText: raw`$$y=e^{-x}\sin x,\qquad S=\frac{1+e^{-\pi}}{2(1-e^{-\pi})}.$$`,
     methodOne: raw`乘积分因子 $e^x$ 得 $(e^xy)'=\cos x$，由初值得 $e^xy=\sin x$。首个波瓣面积为
 $$S_0=\int_0^\pi e^{-x}\sin x\,dx=\frac{1+e^{-\pi}}2.$$
@@ -412,7 +412,7 @@ $$x^2y''+4xy'+2y=0,\qquad x>0$$
     mistakes: raw`$y_x=y_t/x$，而 $y_{xx}=(y_{tt}-y_t)/x^2$；二阶链式关系最容易漏掉减项。`,
     answerText: raw`$$y=\frac{C_1}{x}+\frac{C_2}{x^2}.$$`,
     methodOne: raw`令 $x=e^t$。则
-$$y_x=\frac1x y_t,qquad y_{xx}=\frac1{x^2}(y_{tt}-y_t).$$
+$$y_x=\frac1x y_t,\qquad y_{xx}=\frac1{x^2}(y_{tt}-y_t).$$
 代入得
 $$y_{tt}+3y_t+2y=0.$$
 特征根为 $-1,-2$，故 $y=C_1e^{-t}+C_2e^{-2t}$，换回 $t=\ln x$ 即得。`,
@@ -534,7 +534,7 @@ $x^2$ 对应一般二次多项式 $ax^2+bx+c$；$e^{2x}$ 的指数2是二重特�
     statement: raw`已知
 $$y_1=e^{3x}-xe^{2x},\quad y_2=e^x-xe^{2x},\quad y_3=-xe^{2x}$$
 是同一二阶常系数非齐次线性方程的三个解。求满足
-$$y(0)=0,qquad y'(0)=1$$
+$$y(0)=0,\qquad y'(0)=1$$
 的特解。`,
     tags: ['线性叠加原理', '初值问题'],
     coreMethod: '任意两个非齐次特解之差都是齐次解；从三解之差构造齐次基底，再用其中一个作特解。',
@@ -552,7 +552,7 @@ $$y=e^{3x}-e^x-xe^{2x},$$
   lectureFifteen({
     id: 'exercise-15-3-log-separable', role: 'exercise', page: 'PDF 408-410 · 书页 403-405 · 习题 15.3',
     fingerprint: 'separable-ode:log-y-over-y-trigonometric-ratio',
-    title: '习题 15.3 · 含 $\ln y$ 的分离变量方程',
+    title: raw`习题 15.3 · 含 $\ln y$ 的分离变量方程`,
     statement: raw`求微分方程
 $$y'\tan x=y\ln y$$
 的通解。`,
@@ -620,7 +620,7 @@ $$xy''+3y'=0$$
     mistakes: '降阶求出 $p$ 后还要积分；积分 $x^{-3}$ 会产生 $x^{-2}$ 与一个新的常数。',
     answerText: raw`$$y=C_1+\frac{C_2}{x^2},\qquad x\ne0.$$`,
     methodOne: raw`令 $p=y'$，则
-$$xp'+3p=0,qquad \frac{dp}{p}=-3\frac{dx}{x}.$$
+$$xp'+3p=0,\qquad \frac{dp}{p}=-3\frac{dx}{x}.$$
 故 $p=Cx^{-3}$。再积分得 $y=C_1+C_2x^{-2}$，常数已重新命名。`,
     methodTwo: raw`观察 Euler 型试解 $y=x^m$，代入得
 $$m(m-1)+3m=m(m+2)=0.$$
@@ -653,7 +653,7 @@ $$x^2y''-2y=x^2$$
 的通解。`,
     tags: ['Euler方程', '非齐次方程'],
     coreMethod: '在 $x>0$ 与 $x<0$ 的固定符号区间作对数换元；右端指数与齐次根共振会产生 $x^2\ln|x|$。',
-    mistakes: '不能只写 $\ln x$ 而忽略负半轴；$x^2$ 已是齐次解，特解必须乘对数。',
+    mistakes: raw`不能只写 $\ln x$ 而忽略负半轴；$x^2$ 已是齐次解，特解必须乘对数。`,
     answerText: raw`$$y=C_1x^2+\frac{C_2}{|x|}+\frac13x^2\ln|x|,\qquad x\ne0.$$`,
     methodOne: raw`先试齐次幂函数，指标方程 $m(m-1)-2=0$，根为 $2,-1$。对右端 $x^2$ 与根2共振，设
 $$y_p=Ax^2\ln|x|.$$
@@ -767,7 +767,7 @@ $$\int_0^xCt^3dt=\frac C4x^4.$$
     fingerprint: 'difference-equation:constant-forcing-initial-value',
     title: '习题 15.14 · 常量外力的一阶差分初值问题',
     statement: raw`求一阶非齐次线性差分方程
-$$\Delta y_n=3,qquad y_0=2$$
+$$\Delta y_n=3,\qquad y_0=2$$
 的特解。`,
     tags: ['差分方程', '初值问题'],
     coreMethod: '对常量增量直接累加，或设一次多项式特解；初值用于确定齐次常数。',
@@ -785,7 +785,7 @@ $$\Delta y_n^*=A=3.$$
     fingerprint: 'difference-equation:geometric-homogeneous-plus-two-particular-forcings',
     title: '习题 15.15 · 几何型齐次解与复合外力',
     statement: raw`求差分方程
-$$y_{n+1}-3y_n=2^n-1,qquad y_0=1$$
+$$y_{n+1}-3y_n=2^n-1,\qquad y_0=1$$
 的特解。`,
     tags: ['差分方程', '待定系数'],
     coreMethod: '齐次解为 $A3^n$；对 $2^n$ 与常数外力分别设同型特解，再由初值确定 $A$。',

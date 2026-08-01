@@ -53,10 +53,28 @@ describe('题库质量审计 2.0', () => {
     expect(audited.qualityIssues).toContainEqual(expect.objectContaining({ code: 'answer-key-conflict' }))
   })
 
-  it('清理派生模板后 641 道 PDF 精品题全部拥有学习元数据', () => {
+  it('区间端点括号属于数学语义，不把开闭区间误判为重复选项', () => {
+    const candidate = problem('interval-choice', '判断两个函数的收敛域。')
+    const audited = enrichProblemQuality({
+      ...candidate,
+      questionFormat: 'single-choice',
+      options: [
+        { id: 'A', text: '均为 $(-1,1)$' },
+        { id: 'B', text: '$(-1,1)$ 与 $[-1,1)$' },
+        { id: 'C', text: '$[-1,1)$ 与 $(-1,1)$' },
+        { id: 'D', text: '均为 $[-1,1)$' }
+      ],
+      correctOptionIds: ['B'],
+      answerText: '正确选项为 B。'
+    }, 10)
+    expect(audited.qualityStatus).toBe('verified')
+    expect(audited.qualityIssues).not.toContainEqual(expect.objectContaining({ code: 'duplicate-options' }))
+  })
+
+  it('清理派生模板后 678 道 PDF 精品题全部拥有学习元数据', () => {
     const seeds = makeSeedProblems(10)
     const summary = getQualitySummary(seeds)
-    expect(summary.verified).toBe(641)
+    expect(summary.verified).toBe(678)
     expect(seeds.every((item) => item.semanticClusterId && item.difficulty && item.estimatedMinutes && item.discrimination && item.prerequisites)).toBe(true)
   })
 })

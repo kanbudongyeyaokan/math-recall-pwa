@@ -101,7 +101,7 @@ $$W=a\Phi(3/2)-a\Phi(4/3)
       { title: '方法一 · 压力积分后求导', content: raw`深度 $x\in[0,\sin\theta]$ 处横条长度为 $\cos\theta-x\cot\theta$，故
 $$P(\theta)=\rho g\int_0^{\sin\theta}x(\cos\theta-x\cot\theta)dx
 =\frac16\rho g\cos\theta\sin^2\theta.$$
-求导得驻点条件 $2\cos^2\theta-sin^2\theta=0$，所以 $\cos\theta=1/\sqrt3$。结合端点压力为零，该点给出最大值。` },
+求导得驻点条件 $2\cos^2\theta-\sin^2\theta=0$，所以 $\cos\theta=1/\sqrt3$。结合端点压力为零，该点给出最大值。` },
       { title: '方法二 · 代数变量降维', content: raw`令 $u=\cos\theta\in[0,1]$，则
 $$P\propto u(1-u^2).$$
 其导数为 $1-3u^2$，唯一内部驻点为 $u=1/\sqrt3$，且二阶导数 $-6u<0$。因此 $\theta=\arccos(1/\sqrt3)$。` }

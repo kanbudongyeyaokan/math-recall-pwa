@@ -235,7 +235,7 @@ $$f(x)=f(x-\\pi)+\\sin x.$$
 $$f(x+2\\pi)=f(x+\\pi)+\\sin(x+2\\pi),$$
 $$f(x+\\pi)=f(x)+\\sin(x+\\pi).$$
 
-相加后两个正弦项为 $\\sin x-sin x=0$，所以 $f(x+2\\pi)=f(x)$。` },
+相加后两个正弦项为 $\\sin x-\\sin x=0$，所以 $f(x+2\\pi)=f(x)$。` },
       { title: '方法二 · 差分累加', content: `题设给出 $f(x+\\pi)-f(x)=\\sin(x+\\pi)=-\\sin x$。再向前平移一次，有 $f(x+2\\pi)-f(x+\\pi)=\\sin(x+2\\pi)=\\sin x$。两式相加，左端中间项消去，右端和为零。` }
     ]
   }),

@@ -8,6 +8,7 @@ interface MathTextProps {
   text: string
   className?: string
   enableTheoremLinks?: boolean
+  inline?: boolean
 }
 
 const MATH_DELIMITER = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g
@@ -125,12 +126,13 @@ function TheoremReferenceViewer({ theorem, onClose }: TheoremReferenceViewerProp
   )
 }
 
-export function MathText({ text, className = '', enableTheoremLinks = true }: MathTextProps) {
+export function MathText({ text, className = '', enableTheoremLinks = true, inline = false }: MathTextProps) {
   const [activeFormula, setActiveFormula] = useState<string>()
   const [activeTheorem, setActiveTheorem] = useState<TheoremKnowledgeEntry>()
   const formulaTriggerRef = useRef<HTMLButtonElement | null>(null)
   const theoremTriggerRef = useRef<HTMLButtonElement | null>(null)
   const parts = text.split(MATH_DELIMITER)
+  const Container = inline ? 'span' : 'div'
 
   function openFormula(formula: string, trigger: HTMLButtonElement) {
     formulaTriggerRef.current = trigger
@@ -154,7 +156,7 @@ export function MathText({ text, className = '', enableTheoremLinks = true }: Ma
 
   return (
     <>
-      <div className={`math-text ${className}`.trim()}>
+      <Container className={`math-text ${className}`.trim()}>
         {parts.map((part, index) => {
           if (part.startsWith('$$') && part.endsWith('$$')) {
             const formula = part.slice(2, -2).trim()
@@ -193,7 +195,7 @@ export function MathText({ text, className = '', enableTheoremLinks = true }: Ma
             </Fragment>
           )
         })}
-      </div>
+      </Container>
       {activeFormula && typeof document !== 'undefined' && createPortal(<FormulaViewer formula={activeFormula} onClose={closeFormula} />, document.body)}
       {activeTheorem && typeof document !== 'undefined' && createPortal(<TheoremReferenceViewer theorem={activeTheorem} onClose={closeTheorem} />, document.body)}
     </>

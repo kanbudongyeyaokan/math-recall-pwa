@@ -4,6 +4,7 @@ import { AlertTriangle, BookOpen, CalendarClock, ChevronDown, Clock3, Edit3, Fil
 import { db, deleteProblem } from '../db'
 import type { QuestionFormat } from '../types'
 import { DbImage } from '../components/DbImage'
+import { MathText } from '../components/MathText'
 import { getQualitySummary } from '../data/questionQuality'
 
 interface LibraryPageProps {
@@ -124,8 +125,8 @@ export function LibraryPage({ onAdd, onEdit, onReview, notify }: LibraryPageProp
                   {problem.qualityStatus === 'needs-review' && <span className="quality-review-badge"><AlertTriangle size={12} />待确认</span>}
                   <span className={isDue ? 'due-label' : 'scheduled-label'}><CalendarClock size={13} />{isDue ? '建议复做' : formatSchedule(problem.nextReviewAt)}</span>
                 </div>
-                <h2>{problem.title}</h2>
-                <p>{problem.statement || problem.coreMethod || '图片题卡'}</p>
+                <h2><MathText text={problem.title} inline enableTheoremLinks={false} /></h2>
+                <MathText className="library-card-statement" text={problem.statement || problem.coreMethod || '图片题卡'} enableTheoremLinks={false} />
                 <div className="tag-list compact">
                   {[...new Set(problem.tags)].slice(0, 3).map((item) => <span className="tag" key={item}>{item}</span>)}
                 </div>

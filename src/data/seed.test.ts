@@ -22,11 +22,11 @@ describe('PDF 精品考研数学题库', () => {
 
   it('仅保留 PDF 题型重构与基础30讲来源题，ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
-    expect(curated).toHaveLength(102)
-    expect(sourceQuestions).toHaveLength(17)
-    expect(verifiedExamples).toHaveLength(417)
+    expect(curated).toHaveLength(96)
+    expect(sourceQuestions).toHaveLength(15)
+    expect(verifiedExamples).toHaveLength(462)
     expect(thousandVerified).toHaveLength(97)
-    expect(seeds).toHaveLength(641)
+    expect(seeds).toHaveLength(678)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
     expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
@@ -366,6 +366,34 @@ describe('PDF 精品考研数学题库', () => {
     expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
   })
 
+  it('第16讲形成四十五道逐页核验的无穷级数经典例题与课后题', () => {
+    const lectureSixteen = seeds.filter((problem) => problem.tags.includes('第16讲'))
+    const foundationProblems = lectureSixteen.filter((problem) => problem.id.startsWith('zy30-verified-l16-'))
+    const foundationExamples = foundationProblems.filter((problem) => problem.id.includes('-example-'))
+    const foundationExercises = foundationProblems.filter((problem) => problem.id.includes('-exercise-'))
+    const retiredIds = [
+      'zy27-c16-necessary-application',
+      'zy27-c16-comparison-application',
+      'zy27-c16-ratio-root-application',
+      'zy27-c16-alternating-application',
+      'zy27-c16-power-application',
+      'zy27-c16-fourier-application',
+      'zy30-source-l16-example-alternating-log-series',
+      'zy30-source-l16-exercise-power-series-sum-function'
+    ]
+    expect(lectureSixteen).toHaveLength(45)
+    expect(foundationProblems).toHaveLength(45)
+    expect(foundationExamples).toHaveLength(36)
+    expect(foundationExercises).toHaveLength(9)
+    expect(lectureSixteen.every((problem) => problem.tags.includes('PDF逐页核验'))).toBe(true)
+    expect(lectureSixteen.every((problem) => !['PDF逐页核验', '课后习题'].includes(getPrimaryKnowledgePoint(problem)))).toBe(true)
+    expect(lectureSixteen.every((problem) => /PDF \d+/.test(problem.page))).toBe(true)
+    expect(lectureSixteen.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(lectureSixteen.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(new Set(lectureSixteen.map((problem) => problem.methodFingerprint)).size).toBe(45)
+    expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
   it('全部逐页核验题均有精确页码、双路线解析和唯一方法指纹', () => {
     expect(verifiedExamples.every((problem) => problem.tags.includes('PDF逐页核验'))).toBe(true)
     expect(verifiedExamples.every((problem) => problem.page.startsWith('PDF '))).toBe(true)
@@ -440,11 +468,15 @@ describe('PDF 精品考研数学题库', () => {
 
   it('所有公式分隔符配对、无散落 Unicode 公式且可被 KaTeX 严格解析', () => {
     const failures: string[] = []
+    const bareLatexCommand = /(^|[^\\])\b(?:alpha|begin|beta|cdot|cdots|cos|delta|Delta|dots|ell|end|epsilon|frac|gamma|ge|infty|int|lambda|ldots|le|lim|ln|mapsto|mp|nabla|operatorname|partial|pi|pm|prod|quad|qquad|sin|sim|sqrt|sum|tan|text|theta|to|varepsilon)\b/
     for (const problem of seeds) {
       for (const text of getProblemTextFields(problem)) {
         if (!hasBalancedMathDelimiters(text)) failures.push(`${problem.id}:unbalanced`)
         if (hasUnwrappedMathSymbols(text)) failures.push(`${problem.id}:unwrapped-unicode`)
         for (const formula of getMathFragments(text)) {
+          if (bareLatexCommand.test(formula)) {
+            failures.push(`${problem.id}:bare-latex-command:${formula}`)
+          }
           try {
             katex.renderToString(formula, { throwOnError: true, strict: 'error' })
           } catch (error) {

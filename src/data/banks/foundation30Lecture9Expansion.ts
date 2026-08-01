@@ -132,7 +132,7 @@ $$f(x)=\begin{cases}
 \end{cases}$$
 求 $\int_{-1}^{\pi/4}f(x)dx$。`,
     tags: ['定积分', '分段函数', '有理化'],
-    coreMethod: raw`在 $x=0$ 分段：指数段令 $t=e^x$，三角段用 $(1-sin x)/\cos^2x$ 有理化。`,
+    coreMethod: raw`在 $x=0$ 分段：指数段令 $t=e^x$，三角段用 $(1-\sin x)/\cos^2x$ 有理化。`,
     mistakes: raw`分段点虽不影响积分值，但两种表达式的原函数不同，不能跨零点套用同一个原函数。`,
     answerText: raw`$$-\ln2+\ln(1+e)+2-\sqrt2.$$`,
     solutionMethods: [

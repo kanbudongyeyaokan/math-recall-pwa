@@ -148,7 +148,7 @@ $$I_1=\int_0^{2\pi}\frac{\sin t}{2\sqrt t}\,dt
 正半波的权重大于负半波，因此严格为正。` },
       { title: '方法二 · 对称化计算第二项', content: raw`由
 
-$$\frac1{1+\sin x}+\frac1{1-sin x}=\frac2{\cos^2x},$$
+$$\frac1{1+\sin x}+\frac1{1-\sin x}=\frac2{\cos^2x},$$
 
 得到
 

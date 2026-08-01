@@ -56,7 +56,8 @@ function normalizeOptionText(text: string) {
   return text
     .toLowerCase()
     .replace(/\\(?:left|right|,|!|;|quad|qquad)/g, '')
-    .replace(/[\s，。；：、“”‘’（）()\[\]{}]/g, '')
+    // Brackets encode interval closure, grouping and matrix structure in math options.
+    .replace(/[\s，。；：、“”‘’]/g, '')
 }
 
 function getTaskArchetype(problem: Pick<Problem, 'kind' | 'questionFormat' | 'title' | 'tags'>) {

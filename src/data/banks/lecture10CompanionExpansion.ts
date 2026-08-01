@@ -243,7 +243,7 @@ $$f(x)=\int_0^x\frac{\cos t}{2t-3\pi}dt,\qquad 0\le x\le\frac{3\pi}{2},$$
 其中端点处按连续延拓理解。求 $f$ 在该区间上的平均值。`,
     tags: ['函数平均值', '交换积分次序', '可去奇点'],
     coreMethod: raw`平均值形成区域 $0\le t\le x\le3\pi/2$ 的二重积分；换序后长度因子恰好消去分母。`,
-    mistakes: raw`看到 $2t-3\pi=0$ 就直接判发散；同时 $cos(3\pi/2)=0$，商有有限极限。`,
+    mistakes: raw`看到 $2t-3\pi=0$ 就直接判发散；同时 $\cos(3\pi/2)=0$，商有有限极限。`,
     answerText: raw`$$\frac1{3\pi}.$$`,
     solutionMethods: [
       { title: '方法一 · 三角区域换序', content: raw`平均值为
