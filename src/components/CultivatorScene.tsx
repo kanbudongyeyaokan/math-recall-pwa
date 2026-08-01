@@ -15,12 +15,18 @@ const formulae = ['∫', 'lim', 'Σ', '∇']
 
 function getHeroArt(outfitId: string, pose: CultivatorPose, compact: boolean) {
   const characterBase = `${import.meta.env.BASE_URL}characters/`
+  const outfitArt: Record<string, string> = {
+    'outfit-apprentice': 'hero-apprentice.webp',
+    'outfit-flame': 'hero-flame.webp',
+    'outfit-starseer': 'hero-starseer.webp',
+    'outfit-master': 'hero-master.webp',
+    'outfit-jiaoda': 'hero-jiaoda.webp'
+  }
+  if (outfitArt[outfitId]) return `${characterBase}${outfitArt[outfitId]}`
   if (compact) {
     const compactPose = pose === 'victory' || pose === 'breakthrough' ? 'victory' : pose === 'focus' ? 'challenge' : 'idle'
     return `${characterBase}variants/he-yaokun-${compactPose}.webp`
   }
-  if (outfitId === 'outfit-apprentice') return `${characterBase}hero-apprentice.webp`
-  if (outfitId === 'outfit-jiaoda') return `${characterBase}hero-jiaoda.webp`
   return `${characterBase}hero-standard.webp`
 }
 

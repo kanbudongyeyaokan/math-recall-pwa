@@ -22,11 +22,11 @@ describe('PDF 精品考研数学题库', () => {
 
   it('仅保留 PDF 题型重构与基础30讲来源题，ID 稳定唯一', () => {
     expect(curatedBankPoints).toHaveLength(156)
-    expect(curated).toHaveLength(114)
-    expect(sourceQuestions).toHaveLength(21)
-    expect(verifiedExamples).toHaveLength(353)
-    expect(thousandVerified).toHaveLength(81)
-    expect(seeds).toHaveLength(577)
+    expect(curated).toHaveLength(102)
+    expect(sourceQuestions).toHaveLength(17)
+    expect(verifiedExamples).toHaveLength(417)
+    expect(thousandVerified).toHaveLength(97)
+    expect(seeds).toHaveLength(641)
     expect(new Set(seeds.map((problem) => problem.id)).size).toBe(seeds.length)
     expect(seeds.every((problem) => problem.kind === 'problem')).toBe(true)
     expect(seeds.every((problem) => /张宇|武忠祥|核心计算/.test(problem.source))).toBe(true)
@@ -305,6 +305,64 @@ describe('PDF 精品考研数学题库', () => {
     expect(lectureThirteen.every((problem) => /PDF \d+/.test(problem.page))).toBe(true)
     expect(lectureThirteen.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
     expect(lectureThirteen.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
+  it('第14讲形成四十道逐页核验的二重积分精品题', () => {
+    const lectureFourteen = seeds.filter((problem) => problem.tags.includes('第14讲'))
+    const foundationProblems = lectureFourteen.filter((problem) => problem.id.startsWith('zy30-verified-l14-'))
+    const foundationExamples = foundationProblems.filter((problem) => problem.id.includes('-example-'))
+    const foundationExercises = foundationProblems.filter((problem) => problem.id.includes('-exercise-'))
+    const thousandProblems = lectureFourteen.filter((problem) => problem.id.startsWith('zy1000-verified-l14-'))
+    const retiredIds = [
+      'zy27-c14-order-application',
+      'zy27-c14-polar-application',
+      'zy27-c14-symmetry-application',
+      'zy27-c14-jacobian-application',
+      'zy27-c14-improper-application',
+      'zy27-c14-centroid-application',
+      'zy30-source-l14-example-moving-disk-integral',
+      'zy30-source-l14-exercise-offset-disk-polar-moment'
+    ]
+    expect(lectureFourteen).toHaveLength(40)
+    expect(foundationProblems).toHaveLength(24)
+    expect(foundationExamples).toHaveLength(17)
+    expect(foundationExercises).toHaveLength(7)
+    expect(thousandProblems).toHaveLength(16)
+    expect(lectureFourteen.every((problem) => problem.tags.includes('PDF逐页核验'))).toBe(true)
+    expect(lectureFourteen.every((problem) => !['PDF逐页核验', '课后习题', '强化题'].includes(getPrimaryKnowledgePoint(problem)))).toBe(true)
+    expect(lectureFourteen.every((problem) => /PDF \d+/.test(problem.page))).toBe(true)
+    expect(lectureFourteen.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(lectureFourteen.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(new Set(lectureFourteen.map((problem) => problem.methodFingerprint)).size).toBe(40)
+    expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
+  })
+
+  it('第15讲形成四十道逐页核验的微分方程经典例题与课后题', () => {
+    const lectureFifteen = seeds.filter((problem) => problem.tags.includes('第15讲'))
+    const foundationProblems = lectureFifteen.filter((problem) => problem.id.startsWith('zy30-verified-l15-'))
+    const foundationExamples = foundationProblems.filter((problem) => problem.id.includes('-example-'))
+    const foundationExercises = foundationProblems.filter((problem) => problem.id.includes('-exercise-'))
+    const retiredIds = [
+      'zy27-c15-separable-application',
+      'zy27-c15-homogeneous-application',
+      'zy27-c15-linear-application',
+      'zy27-c15-bernoulli-application',
+      'zy27-c15-second-hom-application',
+      'zy27-c15-resonance-application',
+      'zy30-source-l15-example-damped-oscillation-initial-value',
+      'zy30-source-l15-exercise-bernoulli-initial-value'
+    ]
+    expect(lectureFifteen).toHaveLength(40)
+    expect(foundationProblems).toHaveLength(40)
+    expect(foundationExamples).toHaveLength(25)
+    expect(foundationExercises).toHaveLength(15)
+    expect(lectureFifteen.every((problem) => problem.tags.includes('PDF逐页核验'))).toBe(true)
+    expect(lectureFifteen.every((problem) => !['PDF逐页核验', '课后习题'].includes(getPrimaryKnowledgePoint(problem)))).toBe(true)
+    expect(lectureFifteen.every((problem) => /PDF \d+/.test(problem.page))).toBe(true)
+    expect(lectureFifteen.every((problem) => problem.solutionMethods.length === 2)).toBe(true)
+    expect(lectureFifteen.every((problem) => !/(?:定义题|命题辨析|错解辨析)/.test(problem.title))).toBe(true)
+    expect(new Set(lectureFifteen.map((problem) => problem.methodFingerprint)).size).toBe(40)
     expect(retiredIds.every((id) => !seeds.some((problem) => problem.id === id))).toBe(true)
   })
 

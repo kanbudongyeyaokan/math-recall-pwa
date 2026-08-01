@@ -797,7 +797,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
           <div><span><Swords size={15} />突发邀战 · {ambushRival.title}</span><strong>{ambushRival.name}</strong></div>
           <b><Clock3 size={16} />{formatChallengeTime(effectiveAmbushTime)}</b>
           <div className="ambush-time-track"><span style={{ width: `${Math.min(100, (effectiveAmbushTime / SURPRISE_CHALLENGE_TIME_MS) * 100)}%` }} /></div>
-          <small>已完成 {ambushProgress.completed}/{SURPRISE_CHALLENGE_QUESTION_COUNT} · 独立命中 {ambushProgress.strongWins}/4 · 压制 {ambushProgress.score}/100</small>
+          <small>已完成 {ambushProgress.completed}/{SURPRISE_CHALLENGE_QUESTION_COUNT} · 独立命中 {ambushProgress.strongWins} 次 · 胜利线 4 次 · 压制 {ambushProgress.score}/100</small>
         </section>
       )}
 
@@ -813,7 +813,7 @@ export function ReviewPage({ requestedId, selection, onBack, onComplete }: Revie
             <div><span><strong>{duelPresentation.name}</strong><small>{duelLive.opponentCompleted}/{DUEL_QUESTION_COUNT}</small></span><i><b style={{ width: `${duelLive.opponentProgressPercent}%` }} /></i></div>
           </div>
           <div className="duel-time-track"><span style={{ width: `${Math.min(100, (effectiveDuelTime / DUEL_TIME_MS) * 100)}%` }} /></div>
-          <small>强命中 {duelProgress.strongWins}/{duelPresentation.requiredStrongWins} · 当前压制 {duelProgress.score}/100 · 最终按完成度与答题质量结算</small>
+          <small>强命中 {duelProgress.strongWins} 次 · 胜利线 {duelPresentation.requiredStrongWins} 次 · 当前压制 {duelProgress.score}/100 · 最终按完成度与答题质量结算</small>
         </section>
       )}
 

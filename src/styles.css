@@ -1026,9 +1026,9 @@ h1, h2, h3, p { margin-top: 0; }
 .cultivator-loadout small { display: block; margin-bottom: 1px; color: #69d1bd; font-size: .42rem; }
 .art-scene.outfit-apprentice .cultivator-character-art { filter: saturate(.95) contrast(1.02) drop-shadow(0 15px 18px rgba(0,0,0,.42)); }
 .art-scene.outfit-jiaoda .cultivator-character-art { filter: saturate(1.12) contrast(1.06) drop-shadow(0 0 18px rgba(195,54,49,.34)); }
-.art-scene.outfit-flame .cultivator-character-art { filter: hue-rotate(118deg) saturate(1.22) contrast(1.07) drop-shadow(0 0 15px rgba(46,208,193,.32)); }
-.art-scene.outfit-starseer .cultivator-character-art { filter: hue-rotate(205deg) saturate(1.18) contrast(1.06) drop-shadow(0 0 16px rgba(103,129,225,.34)); }
-.art-scene.outfit-master .cultivator-character-art { filter: sepia(.22) saturate(1.38) contrast(1.08) drop-shadow(0 0 17px rgba(229,188,86,.32)); }
+.art-scene.outfit-flame .cultivator-character-art { filter: saturate(1.12) contrast(1.06) drop-shadow(0 0 15px rgba(46,208,193,.32)); }
+.art-scene.outfit-starseer .cultivator-character-art { filter: saturate(1.1) contrast(1.06) drop-shadow(0 0 16px rgba(103,129,225,.34)); }
+.art-scene.outfit-master .cultivator-character-art { filter: saturate(1.16) contrast(1.08) drop-shadow(0 0 17px rgba(229,188,86,.32)); }
 .art-scene.pose-focus .cultivator-character-art { animation: art-focus 1.7s ease-in-out infinite; }
 .art-scene.pose-victory .cultivator-character-art { animation: art-victory .85s cubic-bezier(.2,.8,.2,1) both; }
 .art-scene.pose-breakthrough .cultivator-character-art { animation: art-breakthrough 1.4s ease-in-out infinite; }

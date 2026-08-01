@@ -31,6 +31,9 @@ import { lecture12CompanionExpansionSeeds } from './lecture12CompanionExpansion'
 import { wuLecture12ExpansionSeeds } from './wuLecture12Expansion'
 import { foundation30Lecture13ExpansionSeeds } from './foundation30Lecture13Expansion'
 import { lecture13CompanionExpansionSeeds } from './lecture13CompanionExpansion'
+import { foundation30Lecture14ExpansionSeeds } from './foundation30Lecture14Expansion'
+import { lecture14CompanionExpansionSeeds } from './lecture14CompanionExpansion'
+import { foundation30Lecture15ExpansionSeeds } from './foundation30Lecture15Expansion'
 
 export const curatedBankPoints = [
   ...calculus01to06Points,
@@ -68,5 +71,8 @@ export const curatedQuestionSeeds = [
   ...lecture12CompanionExpansionSeeds,
   ...wuLecture12ExpansionSeeds,
   ...foundation30Lecture13ExpansionSeeds,
-  ...lecture13CompanionExpansionSeeds
+  ...lecture13CompanionExpansionSeeds,
+  ...foundation30Lecture14ExpansionSeeds,
+  ...lecture14CompanionExpansionSeeds,
+  ...foundation30Lecture15ExpansionSeeds
 ]
